@@ -35,10 +35,11 @@ jSqlBox虽然最初目的是给Hibernate加一个动态配置,但考虑到实体
 *(待开发)一级缓存与脏检查,与Hibernate类似,提供以ID为主键的行级缓存,一级缓存在跨越多个方法的同一事务中有效,对PO的存取不再重复访问数据库。与Hibernate的区别在于jSqlBox一级缓存比较简单,只缓存实体,包括已修改过的,不缓存SQL命令。  
 *(待开发)二级缓存和查询缓存,类似于Hibernate的缓存设计,可配置第三方缓存工具如EHcache等。  
 *支持多主键,适于使用了业务多主键的数据库。  
-*跨数据库,目前已在H2,MySql,SqlServer,Oracle上测试过,今后将加入更多的数据库支持。事务借用Spring的声明式事务。一些特殊的需求可以通过直接调用内核的JdbcTemplate来实现,内核建立在JdbcTemplate上倒不是作者对Spring有偏爱,而是因为它的声明式事务比较好用,目前找不到其它的JDBC类底层工具可以提供类似Spring的声明式事务。  
+*(正在开发中)跨数据库,目前仅在H2,MySql,SqlServer,Oracle上测试过,今后将加入对市面所有已知数据库的支持，事务借用Spring的声明式事务。一些特殊的需求可以通过直接调用内核的JdbcTemplate来实现,内核建立在JdbcTemplate上倒不是作者对Spring有偏爱,而是因为它的声明式事务与JdbcTemplate结合紧密,目前找不到其它方便、好用、成熟的类似Spring的声明式事务。  (目前正在开发方言部分，暂时引入了Hibernate库，将在下一个提交去除，方言部分将抽取Hibernate的并做成一个单独的新开源项目，这样其它持久层工具，只要用到了SQL就能利用上这个分页功能)
 *不使用代理类，不会有代理类造成的希奇古怪的问题。没有懒加载，也就没有OpenSessionInView问题, PO类可以直接充当VO传递到View层,PO在View层事务已关闭情况下,依然可以继续存取数据库(工作在自动提交模式,但通常只读)。  
 *提供简单的O-R映射,有一对一,一对多,树结构三种映射类型,多对多可由两个一对多组合成。支持固定、动态关联和越级自动查找关联功能。  
-*(正在开发中)简单明了的跨数据库的分页支持，内部借用了Hibernate的方言库，支持多达67种方言，基本包括了所有已知的数据库版本。因为是通过拼SQL的方法实现分页，所以这个通用的分页功能也可以单独抽取出来，使用在其它持久层工具如DbUtils或纯JDBC上。
+*(开发计划)考虑到有人喜欢将SQL集中放在一起管理（尤其是很长的SQL)， 将提供简单的模板功能演示。jSqlBox执行SQL是建立在动态拼接原生SQL基础上，没有发明新的SQL语法，所以和使用模板不冲突,jSqlBox不固定支持哪个模板，任何模板只要最终能拼接出原生SQL并实现代入参数都可以。
+
 
 ###jSqlBox缺点:
 *比较新,缺少足够测试、文档、缺少开发和试用者(欢迎在个人项目中试用或加入开发组,任何问题和建议都会促使它不断完善)。  
@@ -147,8 +148,8 @@ jSqlBox快速入门：
             ", age)", empty("60"), //  
              SqlHelper.questionMarks());  
 ```
-其优点在于要被赋值的字段和实际参数写在同一行上,便于维护。如果字段很多的话(>10行),就能看出好处了,直接删除添加一行就好了,不用担心删除添加错位置,问号和参数不配对。
-上面的empty()方法返回一个空字符,q方法返回一个问号,参数通过Threadlocal暂存传给Dao的execute方法使用,更多介绍可见http://www.iteye.com/topic/1145415贴子。
+其优点在于要被赋值的字段和实际参数写在同一行上,便于维护(这一点很重要！), 如果字段很多的话(>10行),就能看出好处了,直接删除添加一行就好了,不用担心删除添加错位置,问号和参数不配对，普通SQL维护困
+上面的empty()方法返回一个空字符,q方法返回一个问号,参数通过Threadlocal暂存传给Dao的execute方法使用,更多介绍可见http://www.iteye.com/topic/1145415  
 
 示例 6 - 快速插入：批量插入10000行数据,耗时~5秒,同样sql自动转为preparedStatement(防止Sql注入)
 ```
@@ -206,7 +207,7 @@ public class User implements Entity{
 	{
 	//this.box().configEntityIDs("id");//这句代码可以省略,因为"id"字段默认即为实体ID
 	//configEntityIDs方法可以有多个参数,用于多主键场合,详见LoadTest.java测试示例
-	this.box().configIdGenerator("id", BeanBox.getBean(UUIDGenerator.class));//配置ID为UUID类型
+	this.box().configIdGenerator("id", UUIDGenerator.INSTANCE));//配置ID为UUID类型
 	}
 	
 	//以下方法不是必须的,但是jSqlBox建议具有,以实现对SQL重构的支持:
@@ -306,7 +307,7 @@ User与Email的关系为一对多,bind()方法有参数,表示这是一个固定
 		}
 ```
 多对多关联是用两个一对多来组合完成,如上例,User与Role是多对多关系,Role与Privilege是多对多关系,UserRole和RolePrivilege是两个中间表,用来连接多对多关系。  
-getUniqueNodeList(target.class)方法是一个通用的获取与当前实体关联的所有子对象或父对象列表的方法,可以在内存对象图中跨级别搜索到所有关联的目标对象。有了这个方法,可以轻易地实现对象图中无限层级关系的一对多、多对多关系查找,但使用这个方法的限制是路径和目标类必须在整个对象图中是唯一的,否则必须手工给出查找路径。  
+getUniqueNodeSet(target.class)方法是一个通用的获取与当前实体关联的所有子对象或父对象列表的方法,可以在内存对象图中跨级别搜索到所有关联的目标对象。有了这个方法,可以轻易地实现对象图中无限层级关系的一对多、多对多关系查找,但使用这个方法的限制是路径和目标类必须在整个对象图中是唯一的,否则必须手工给出查找路径。  
 这个示列中也演示了两个分页方法pagination()和orderBy(),这两个方法结合起来可以实现通用的跨数据库的分页。  
 示例11到示例13的对象关系示意图如下：![image](orm.png)  
  
@@ -321,7 +322,7 @@ getUniqueNodeList(target.class)方法是一个通用的获取与当前实体关�
 		
 ```
 jSqlBox支持将Adjacency List模式存储的树结构SQL查询结果拼成内存中关联的树结构。同样bind()方法参数为空则为动态关联,不为空则为固定关联。上例中是关联配置的另一种写法,即不写在SQL中而是在实例对象中用configMapping方法来进行配置,这和SQL中写配置是等同的而且可以混用。
-至于Adjacency List模式(即每行保存一个父ID）如何用一个单句SQL高效查询出整个子树来,如果不想用递归查询,可以参考一下本人发明的无限深度树方案,见http://drinkjava2.iteye.com/blog/2353983。
+至于Adjacency List模式(即每行保存一个父ID）如何用一个单句SQL高效查询出整个子树来,如果不想用递归查询,可以参考一下本人发明的无限深度树方案,见http://drinkjava2.iteye.com/blog/2353983  
 示例图：![image](tree.png) 
 
 下面这个示例演示了将整个D子树移动到另一个节点C下,然后用一句SQL调入新的节点树并打印,详细源码见测试类中的TreeORMTest.java,算法原理见"无限深度树方案"。
