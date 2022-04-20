@@ -27,7 +27,7 @@ jSqlBox虽然最初目的是给Hibernate加一个动态配置,但考虑到实体
 *没有XML,没有注解,没有脚本,没有模板语言,具有静态语言特性的Java本身就是一种完美的配置文件,它强大、灵活、面向对象、支持IDE拼写检查和重构,飞速启动(因为已经编译成字节码,无需象XML那样在运行期解析）。  
 *不重新发明SQL语法,直接使用原生SQL。  
 *对SQL的包装,jSqlBox首创利用ThreadLocal将字符串拼接的SQL参数自动包装成preparedStatement,防止SQL注入,精简代码,提高可维护性。  
-*支持原生SQL重构。数据库列名变动、PO类字段变动等借由IDE的重构功能来管理,不需要手工检查已存在的SQL,保证了SQL的健壮性。   
+*支持原生SQL重构(但不强迫)。数据库列名变动、PO类字段变动等借由IDE的重构功能来管理,不需要手工检查已存在的SQL,保证了SQL的健壮性。   
 *无配置,默认按Java Bean命名规则,PO类自动适应数据库表,字段自动匹配驼峰式或下划线式数据表列名,无需配置。  
 *可配置,当数据库表名、字段名与缺省匹配规则不一致时,可用配置的方式来解决,配置为同目录或内嵌的"类名+Box"的Java类,也可将配置写在类初始化块中。  
 *多配置和动态配置,同一个PO可采用不同的配置以进行多种方式的存取,配置可以继承重用已有的配置,配置可以在运行期动态生成和修改,与jBeanBox项目配置类似。  
@@ -35,10 +35,12 @@ jSqlBox虽然最初目的是给Hibernate加一个动态配置,但考虑到实体
 *(待开发)一级缓存与脏检查,与Hibernate类似,提供以ID为主键的行级缓存,一级缓存在跨越多个方法的同一事务中有效,对PO的存取不再重复访问数据库。与Hibernate的区别在于jSqlBox一级缓存比较简单,只缓存实体,包括已修改过的,不缓存SQL命令。  
 *(待开发)二级缓存和查询缓存,类似于Hibernate的缓存设计,可配置第三方缓存工具如EHcache等。  
 *支持多主键,适于使用了业务多主键的数据库。  
-*(正在开发中)跨数据库,目前仅在H2,MySql,SqlServer,Oracle上测试过,今后将加入对市面所有已知数据库的支持，事务借用Spring的声明式事务。一些特殊的需求可以通过直接调用内核的JdbcTemplate来实现,内核建立在JdbcTemplate上倒不是作者对Spring有偏爱,而是因为它的声明式事务与JdbcTemplate结合紧密,目前找不到其它方便、好用、成熟的类似Spring的声明式事务。  (目前正在开发方言部分，暂时引入了Hibernate库，将在下一个提交去除，方言部分将抽取Hibernate的并做成一个单独的新开源项目，这样其它持久层工具，只要用到了SQL就能利用上这个分页功能)
-*不使用代理类，不会有代理类造成的希奇古怪的问题。没有懒加载，也就没有OpenSessionInView问题, PO类可以直接充当VO传递到View层,PO在View层事务已关闭情况下,依然可以继续存取数据库(工作在自动提交模式,但通常只读)。  
+*(正在开发中)跨数据库,内部将采用jDialects项目，支持70多种数据库方言，基本包含了目前所有数据库。jDialects是一个与jSQLBox无关的独立小项目，可以使用在所有用到了SQL和JDBC的项目中， 它的主要功能是生成跨数据库的分页和建表DDL语句，jDialects内核是由代码生成工具抽取Hibernate内核而生成，所以它支持的方言将与Hibernate同步。  
+*目前jSqlBox内核建立在JDBCTemplate基础上，事务借用Spring的声明式事务。一些特殊的需求可以通过直接调用内核的JdbcTemplate来实现,内核建立在JdbcTemplate上是因为它的声明式事务与JdbcTemplate结合紧密,目前找不到其它更方便、好用、成熟的类似Spring的声明式事务。  
+*(正在开发中)内核正在考虑通过配置，支持纯JDBC/JDBCTemplate两种内核模式，分别对应于小项目(尺寸小)和大型项目(完美的声明式事务支持)两种场合。  
+*不使用代理类，不会有代理类造成的希奇古怪的问题。没有懒加载，没有OpenSessionInView问题, PO类可以直接充当VO传递到View层,PO在View层事务已关闭情况下,依然可以继续存取数据库(工作在自动提交模式,但通常只读)。  
 *提供简单的O-R映射,有一对一,一对多,树结构三种映射类型,多对多可由两个一对多组合成。支持固定、动态关联和越级自动查找关联功能。  
-*(开发计划)考虑到有人喜欢将SQL集中放在一起管理（尤其是很长的SQL)， 将提供简单的模板功能演示。jSqlBox执行SQL是建立在动态拼接原生SQL基础上，没有发明新的SQL语法，所以和使用模板不冲突,jSqlBox不固定支持哪个模板，任何模板只要最终能拼接出原生SQL并实现代入参数都可以。
+*(开发计划)考虑到有人喜欢将SQL集中放在一起管理（尤其是很长的SQL)， 将提供简单的模板功能演示。jSqlBox执行SQL是建立在动态拼接原生SQL基础上，没有发明新的SQL语法，所以和使用模板不冲突,jSqlBox不固定支持哪个模板，任何模板只要最终能拼接出原生SQL并实现代入参数都可以。（正在考虑是否可以直接用JSP来当SQL模板，这样就能直接利用上IDE对JSP的查错和重构支持)
 
 
 ###jSqlBox缺点:
@@ -56,20 +58,8 @@ jSqlBox虽然最初目的是给Hibernate加一个动态配置,但考虑到实体
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
-注：若与项目中已存在的其它版本Spring库冲突时,需要在配置中加入如下语句,强制jSqlBox使用当前已存在的Spring-jdbc版本：
-```
-    <exclusions>
-        <exclusion>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context</artifactId>
-            </exclusion>
-        <exclusion>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-jdbc</artifactId>
-            </exclusion>
-        </exclusions>
-    </dependency>
-```
+注(正在开发中)：jSQLBox启动时将在项目当前类空间寻找JDBCTemplate作为内核，如未找到，则以纯JDBC为内核 。内核也可以Java配置方式明确指定，也可以自定义其它工具如DbUtils等,只要将其包装在一个实现了jSqlBoxCore接口的类中即可。
+
 目前jSqlBox只有SNAPSHOT版本(因为缓存功能还未开发完成),且只支持Java8及以上。待项目正式发布后将同时发布Java7和Java8两个版本,它们的唯一差别是Java7的实体类必须继承于EntityBase类,而Java8的实体类只需要声明实现Entity接口即可。
 
 ###如何将jSqlBox项目导入Eclipse(对于开发者)?
@@ -148,8 +138,8 @@ jSqlBox快速入门：
             ", age)", empty("60"), //  
              SqlHelper.questionMarks());  
 ```
-其优点在于要被赋值的字段和实际参数写在同一行上,便于维护(这一点很重要！), 如果字段很多的话(>10行),就能看出好处了,直接删除添加一行就好了,不用担心删除添加错位置,问号和参数不配对，普通SQL维护困
-上面的empty()方法返回一个空字符,q方法返回一个问号,参数通过Threadlocal暂存传给Dao的execute方法使用,更多介绍可见http://www.iteye.com/topic/1145415  
+其优点在于要被赋值的字段和实际参数写在同一行上,便于维护，这一点很重要！如果字段很多的话(>10行),就能看出好处了,直接删除添加一行就好了,不用担心删除添加错位置,问号和参数不配对，普通SQL维护困难主要是两个原因:1）SQL写在一行，添加和删除字段时不方便 2)参数的代入和问号的匹配要非常小心，不能搞串了，即使使用命名参数来避免问与的问题，也是一种比较繁琐的做法。
+上面示例的empty()方法返回一个空字符,q方法返回一个问号,参数通过Threadlocal暂存传给Dao的execute方法使用,更多介绍可见贴子: http://www.iteye.com/topic/1145415
 
 示例 6 - 快速插入：批量插入10000行数据,耗时~5秒,同样sql自动转为preparedStatement(防止Sql注入)
 ```
@@ -174,6 +164,7 @@ jSqlBox快速入门：
 		return Dao.queryForInteger(sql);
 	}  
 ```
+以上三个示例5、6、7不属于jSQLBox的关键特性，只是本人推荐的一种编程风格，使用了其它持久层工具的项目也可以借签。
 
 示例 8 - 事务支持, 直接利用Spring的事明式事务,详见test\function_test\transaction目录下jBeanBox和Spring的两种配置示例
 ```
