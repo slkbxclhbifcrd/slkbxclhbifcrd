@@ -1,7 +1,7 @@
 package test.function_test.jdbc;
 
 import static com.github.drinkjava2.jsqlbox.SqlHelper.empty;
-import static com.github.drinkjava2.jsqlbox.SqlHelper.valuesAndQuestions;
+import static com.github.drinkjava2.jsqlbox.SqlHelper.questions;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -19,9 +19,10 @@ public class BatchInsertTest extends TestBase {
 		User u = new User();
 		for (int i = 0; i < 1000; i++)
 			Dao.cacheSQL("insert into ", u.table(), " (", //
+					u.ID(), empty(i), ",", //
 					u.USERNAME(), empty("user" + i), ",", //
 					u.AGE(), empty("70"), //
-					") ", valuesAndQuestions());
+					") values ", questions());
 		Dao.executeCachedSQLs();
 	}
 

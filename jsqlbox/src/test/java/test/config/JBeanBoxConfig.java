@@ -41,9 +41,12 @@ public class JBeanBoxConfig {
 	 * This project is already tested on H2, MySql5, Oracle11g, MSSQL2012
 	 * ==================================================================================================<br/>
 	 */
-	public static class DataSourceBox extends H2DataSourceBox {// change here to test on different database
+	public static class DataSourceBox extends MySqlDataSourceBox {// change here to test on different database
 	}
 
+	
+	
+	
 	// H2Database memory database connection URL
 	public static class H2DataSourceBox extends HikariCPBox {
 		{
@@ -74,7 +77,7 @@ public class JBeanBoxConfig {
 		}
 	}
 
-	// MsSql Server connection URL, I haven't test MSSQL server
+	// MsSql Server connection URL
 	public static class MsSqlServerDataSourceBox extends HikariCPBox {
 		{
 			setProperty("jdbcUrl", "jdbc:sqlserver://localhost:1433;databaseName=test");

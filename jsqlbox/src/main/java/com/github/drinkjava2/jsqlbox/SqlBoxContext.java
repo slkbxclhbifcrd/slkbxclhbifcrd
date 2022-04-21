@@ -33,6 +33,10 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import com.github.drinkjava2.jdialects.Dialect;
+import com.github.drinkjava2.jsqlbox.id.IdGenerator;
+import com.github.drinkjava2.jsqlbox.id.UUIDGenerator;
+
 /**
  * @author Yong Zhu
  * @version 1.0.0
@@ -44,9 +48,15 @@ public class SqlBoxContext {
 	private static SqlBoxContext defaultSqlBoxContext;
 
 	// print SQL to console or log depends logging.properties
-	private Boolean showSql = false;
+	private Boolean showSql = true;
 	private Boolean formatSql = false;
 	private Boolean showQueryResult = false;
+
+	/**
+	 * If an entity has id field and no other Object ID defined, this id field
+	 * will use this defaultIDGenerator
+	 */
+	private IdGenerator defaultIDGenerator = UUIDGenerator.INSTANCE;
 
 	public static final String SQLBOX_IDENTITY = "BOX";
 
@@ -54,26 +64,6 @@ public class SqlBoxContext {
 	private DataSource dataSource = null;
 
 	private DBMetaData metaData;
-
-	/**
-	 * Store paging pageNumber in ThreadLocal
-	 */
-	protected static ThreadLocal<String> paginationEndCache = new ThreadLocal<String>() {
-		@Override
-		protected String initialValue() {
-			return null;
-		}
-	};
-
-	/**
-	 * Store order by SQL piece, only needed for SQL Server 2005 and later
-	 */
-	protected static ThreadLocal<String> paginationOrderByCache = new ThreadLocal<String>() {
-		@Override
-		protected String initialValue() {
-			return null;
-		}
-	};
 
 	/**
 	 * Store boxes binded on entities
@@ -119,6 +109,25 @@ public class SqlBoxContext {
 			defaultSqlBoxContext = new SqlBoxContext();
 		return defaultSqlBoxContext;
 
+	}
+
+	/**
+	 * Build a pagination sql, detail see project:
+	 * https://github.com/drinkjava2/jDialects
+	 * 
+	 * @param pageNumber
+	 *            the page number
+	 * @param pageSize
+	 *            the page size
+	 * @param sql
+	 *            the SQL should start with "select"
+	 * @return the pagination SQL
+	 */
+	public String pagination(int pageNumber, int pageSize, String... sql) {
+		StringBuilder sb = new StringBuilder();
+		for (String str : sql)
+			sb.append(str);
+		return getDialect().paginate(pageNumber, pageSize, sb.toString());
 	}
 
 	// ================== getter & setters below============
@@ -181,6 +190,14 @@ public class SqlBoxContext {
 		return this;
 	}
 
+	public IdGenerator getDefaultIDGenerator() {
+		return defaultIDGenerator;
+	}
+
+	public void setDefaultIDGenerator(IdGenerator defaultIDGenerator) {
+		this.defaultIDGenerator = defaultIDGenerator;
+	}
+
 	/**
 	 * Put a box instance into thread local cache for a bean
 	 */
@@ -212,7 +229,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Release resources (DataSource handle), usually no need call this method except use multiple SqlBoxContext
+	 * Release resources (DataSource handle), usually no need call this method
+	 * except use multiple SqlBoxContext
 	 */
 	public void close() {
 		this.dataSource = null;
@@ -252,7 +270,8 @@ public class SqlBoxContext {
 		Object bean = null;
 		try {
 			bean = box.getEntityClass().newInstance();
-			// Trick here: if already used defaultBox (through its constructor or static block) then
+			// Trick here: if already used defaultBox (through its constructor
+			// or static block) then
 			// change to use this context
 			SqlBox box2 = getBindedBox(bean);
 			if (box2 == null)
@@ -320,8 +339,12 @@ public class SqlBoxContext {
 		return null;
 	}
 
-	public DatabaseType getDatabaseType() {
-		return this.getMetaData().getDatabaseType();
+	public void setDialect(Dialect dialect) {
+		this.getMetaData().setDialect(dialect);
+	}
+
+	public Dialect getDialect() {
+		return this.getMetaData().getDialect();
 	}
 
 	public void refreshMetaData() {
@@ -406,7 +429,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Cache SQL in memory for executeCachedSQLs call, sql be translated to prepared statement
+	 * Cache SQL in memory for executeCachedSQLs call, sql be translated to
+	 * prepared statement
 	 * 
 	 * @param sql
 	 */
@@ -415,7 +439,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Execute sql and return how many record be affected, sql be translated to prepared statement<br/>
+	 * Execute sql and return how many record be affected, sql be translated to
+	 * prepared statement<br/>
 	 * Return -1 if no parameters sql executed<br/>
 	 * 
 	 */
@@ -431,7 +456,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Execute sql and return how many record be affected, sql be translated to prepared statement<br/>
+	 * Execute sql and return how many record be affected, sql be translated to
+	 * prepared statement<br/>
 	 * Return -1 if no parameters sql executed<br/>
 	 * 
 	 */
@@ -456,7 +482,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Execute sql without exception threw, return -1 if no parameters sql executed, return -2 if exception found
+	 * Execute sql without exception threw, return -1 if no parameters sql
+	 * executed, return -2 if exception found
 	 */
 	public Integer executeQuiet(String... sql) {
 		try {
@@ -494,50 +521,6 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Store "order by xxx desc" in ThreadLocal, return "", this is for MSSQL2005+ only <br/>
-	 */
-	public String orderBy(String... orderBy) {
-		StringBuilder sb = new StringBuilder(" order by ");
-		for (String str : orderBy)
-			sb.append(str);
-		if (this.getDatabaseType().isMsSQLSERVER()) {
-			paginationOrderByCache.set(sb.toString());
-			return " ";
-		} else
-			return sb.toString();
-	}
-
-	/**
-	 * Return pagination SQL depends different database type <br/>
-	 * PageNumber Start from 1
-	 */
-	public String pagination(int pageNumber, int pageSize) {
-		String start;
-		String end;
-		if (this.getDatabaseType().isH2() || this.getDatabaseType().isMySql()) {
-			start = " ";
-			end = " limit " + (pageNumber - 1) * pageSize + ", " + pageSize + " ";
-		} else if (this.getDatabaseType().isMsSQLSERVER()) {
-			// For SQL Server 2005 and later
-			start = " a_tb.* from (select row_number() over(__ORDERBY__) as rownum, ";
-			end = ") as a_tb where rownum between " + ((pageNumber - 1) * pageSize + 1) + " and "
-					+ pageNumber * pageSize + " ";
-			/**
-			 * For SqlServer 2012 and later can also use <br/>
-			 * start = " "; <br/>
-			 * end = " offset " + (pageNumber - 1) * pageSize + " rows fetch next " + pageSize + " rows only ";
-			 */
-		} else if (this.getDatabaseType().isOracle()) {
-			start = " * FROM (SELECT a_tb.*, ROWNUM r_num FROM ( SELECT ";
-			end = " ) a_tb WHERE ROWNUM <= " + pageNumber * pageSize + ") WHERE r_num > " + (pageNumber - 1) * pageSize
-					+ " ";
-		} else
-			return (String) SqlBoxException.throwEX("pagination error: so far do not support this database.");
-		paginationEndCache.set(end);
-		return start;
-	}
-
-	/**
 	 * Query for get a List<Map<String, Object>> List
 	 */
 	public List<Map<String, Object>> queryForList(String... sql) {
@@ -560,7 +543,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Query for get Entity List Map, different entity list use different key (column name) to distinguish
+	 * Query for get Entity List Map, different entity list use different key
+	 * (column name) to distinguish
 	 */
 	public Map<Class<?>, Map<Object, Entity>> queryForEntityMaps(String... sql) {
 		SqlAndParameters sp = SqlHelper.prepareSQLandParameters(sql);
@@ -574,7 +558,8 @@ public class SqlBoxContext {
 	}
 
 	/**
-	 * Transfer resultList List<Map<String, Object>> to Map<Class<?>, List<Object>>,<br/>
+	 * Transfer resultList List<Map<String, Object>> to Map<Class<?>, List
+	 * <Object>>,<br/>
 	 * 
 	 * <pre>
 	 * sqlResult: 
@@ -648,7 +633,8 @@ public class SqlBoxContext {
 			}
 		}
 
-		// now cached thisLineEntities in entityResult, start to assemble relationship
+		// now cached thisLineEntities in entityResult, start to assemble
+		// relationship
 		for (Entity entity1 : thisLineEntities) {// entity1
 			SqlBox box1 = entity1.box();
 			Class<?> c1 = box1.getEntityClass();
@@ -659,7 +645,7 @@ public class SqlBoxContext {
 				Map<Entity, Set<String>> parent2 = box2.getPartents();
 
 				for (Mapping map : sp.getMappingList()) {
-					if (map.getMappingType().isTree())
+					if (map.getMappingType().isTree())// NOSONAR
 						continue;
 					Class<?> thisClass = map.getThisEntity().getClass();
 					Class<?> otherClass = map.getOtherEntity().getClass();
@@ -668,16 +654,26 @@ public class SqlBoxContext {
 					String thisProperty = map.getThisPropertyName();
 					String otherProperty = map.getOtherPropertyName();
 
-					if (c1.equals(thisClass) && c2.equals(otherClass)) {// 2 classes match mapping setting
+					if (c1.equals(thisClass) && c2.equals(otherClass)) {// NOSONAR
+																		// 2
+																		// classes
+																		// match
+																		// mapping
+																		// setting
 						Object value1 = SqlBoxUtils.getFieldValueByFieldID(entity1, thisField);
 						Object value2 = SqlBoxUtils.getFieldValueByFieldID(entity2, otherField);
 
-						if (value1 != null && value1.equals(value2) && !"".equals(value1)) {// 2 values match
+						if (value1 != null && value1.equals(value2) && !"".equals(value1)) {// 2
+																							// values
+																							// match
 							if (parent2 == null) {
 								// If parent is null, create a new parent map
-								// Note: one box can have many parent entities, so, parent is a map
-								// one child can have many parents, one parent can have many child
-								// key is parent entity, value is set<parent fields>
+								// Note: one box can have many parent entities,
+								// so, parent is a map
+								// one child can have many parents, one parent
+								// can have many child
+								// key is parent entity, value is set<parent
+								// fields>
 								Map<Entity, Set<String>> parentMap2 = new HashMap<>();
 								Set<String> fieldSet2 = new HashSet<>();
 								fieldSet2.add(thisField);
@@ -703,7 +699,8 @@ public class SqlBoxContext {
 								}
 
 							} else {
-								// Already have parent map found, only need insert new founded parent into it
+								// Already have parent map found, only need
+								// insert new founded parent into it
 								Set<String> fieldSet2 = parent2.get(entity1);
 								if (fieldSet2 == null) {
 									fieldSet2 = new HashSet<>();
@@ -738,7 +735,8 @@ public class SqlBoxContext {
 			}
 		}
 
-		// now cached thisLineEntities in entityResult, start to assemble relationship
+		// now cached thisLineEntities in entityResult, start to assemble
+		// relationship
 		for (Entity entity : thisLineEntities) {// entity1
 			SqlBox box = entity.box();
 			Class<?> clazz = box.getEntityClass();
@@ -753,7 +751,7 @@ public class SqlBoxContext {
 					continue;
 				String pidField = map.getOtherfield();// pid
 				String parentProperty = map.getOtherPropertyName();// parentNode
-				String childProperty = map.getThisPropertyName(); // childs 
+				String childProperty = map.getThisPropertyName(); // childs
 
 				Object pidValue = SqlBoxUtils.getFieldValueByFieldID(entity, pidField);
 				if (pidValue == null || "".equals(pidValue))
@@ -766,9 +764,11 @@ public class SqlBoxContext {
 				Entity parentEntity = SqlBoxUtils.findEntityByID(pid, entityMap);
 
 				if (parentEntity != null) {// found parent entity
-					if (boxParent == null) { // if boxParent is null, need create it
+					// if boxParent is null, need create it
+					if (boxParent == null) { // NOSONAR
 						Map<Entity, Set<String>> parentMap = new HashMap<>();
-						// one entity may have many parents, but for tree only 1 parent
+						// one entity may have many parents, but for tree only 1
+						// parent
 						Set<String> parentFields = new HashSet<>();
 						parentFields.add(pidField);
 						parentMap.put(parentEntity, parentFields);
@@ -783,7 +783,8 @@ public class SqlBoxContext {
 							SqlBoxUtils.setFieldValueByFieldID(entity, parentProperty, parentEntity);
 
 					} else {
-						// Already have parent map found, only need insert new founded parent into it
+						// Already have parent map found, only need insert new
+						// founded parent into it
 						// But it's very rare a entity has many parents
 						Set<String> parentFields = boxParent.get(parentEntity);
 						if (parentFields == null) {

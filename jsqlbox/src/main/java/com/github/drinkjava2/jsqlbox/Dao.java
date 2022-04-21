@@ -19,8 +19,10 @@ package com.github.drinkjava2.jsqlbox;
 import java.util.List;
 import java.util.Map;
 
+import com.github.drinkjava2.jdialects.Dialect;
+
 /**
- * In this class just copied some common DB access methods from default SqlBoxContext
+ * In this class most methods are copied from default SqlBoxContext
  * 
  * @author Yong Zhu (Yong9981@gmail.com)
  * @version 1.0.0
@@ -68,16 +70,12 @@ public class Dao {
 		return SqlBoxContext.getDefaultSqlBoxContext();
 	}
 
-	public static String pagination(int pageNumber, int pageSize) {
-		return SqlBoxContext.getDefaultSqlBoxContext().pagination(pageNumber, pageSize);
+	public static String pagination(int pageNumber, int pageSize, String... sql) {
+		return SqlBoxContext.getDefaultSqlBoxContext().pagination(pageNumber, pageSize, sql);
 	}
 
-	public static String orderBy(String... sql) {
-		return SqlBoxContext.getDefaultSqlBoxContext().orderBy(sql);
-	}
-
-	public static DatabaseType getDefaultDatabaseType() {
-		return SqlBoxContext.getDefaultSqlBoxContext().getDatabaseType();
+	public static Dialect getDialect() {
+		return SqlBoxContext.getDefaultSqlBoxContext().getDialect();
 	}
 
 	public static void refreshMetaData() {

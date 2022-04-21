@@ -15,9 +15,6 @@
  */
 package com.github.drinkjava2.jsqlbox;
 
-import static com.github.drinkjava2.jsqlbox.DatabaseType.MSSQLSERVER;
-import static com.github.drinkjava2.jsqlbox.DatabaseType.MYSQL;
-import static com.github.drinkjava2.jsqlbox.DatabaseType.ORACLE;
 import static com.github.drinkjava2.jsqlbox.SqlBoxException.assureNotNull;
 import static com.github.drinkjava2.jsqlbox.SqlBoxException.throwEX;
 
@@ -39,6 +36,7 @@ import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.ReflectionUtils;
 
+import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jsqlbox.id.AssignedGenerator;
 import com.github.drinkjava2.jsqlbox.id.AutoGenerator;
 import com.github.drinkjava2.jsqlbox.id.IdGenerator;
@@ -81,13 +79,15 @@ public class SqlBox {
 	private Map<Entity, Set<String>> partents;
 
 	/**
-	 * Point to entityCache, which is built by queryForEntityList or queryForEntityMaps methods or transfer methods<br/>
+	 * Point to entityCache, which is built by queryForEntityList or
+	 * queryForEntityMaps methods or transfer methods<br/>
 	 * like: map1(Customer.class, Map("id1", customer1))
 	 */
 	private Map<Class<?>, Map<Object, Entity>> entityCache;
 
 	/**
-	 * store the SqlAndParameters cache, which is used by queryForEntityList or queryForEntityMaps or transfer methods
+	 * store the SqlAndParameters cache, which is used by queryForEntityList or
+	 * queryForEntityMaps or transfer methods
 	 */
 	private SqlAndParameters spCache;
 
@@ -166,6 +166,10 @@ public class SqlBox {
 		this.context = context;
 	}
 
+	public Dialect getDialect() {
+		return context.getDialect();
+	}
+
 	public String getAlias() {
 		return alias;
 	}
@@ -203,8 +207,9 @@ public class SqlBox {
 	}
 
 	/**
-	 * Automatically search and return the targetClass entity node list, no need give the path, but targetClass and path
-	 * should be unique in who object graph
+	 * Automatically search and return the targetClass entity node list, no need
+	 * give the path, but targetClass and path should be unique in who object
+	 * graph
 	 */
 	public <T> Set<T> getUniqueNodeSet(Class<?> targetClass) {
 		Set<Class<?>> path = searchNodePath(this.getSpCache().getMappingList(), this.getEntityClass(), targetClass);
@@ -272,7 +277,8 @@ public class SqlBox {
 			if (!thisClass.equals(this.getEntityClass())) {// skip self
 				Mapping mapping = findTheMapping(lastClass, thisClass);
 				Set<Object> newResult = new LinkedHashSet<>();
-				if (mapping.getThisEntity().getClass().equals(lastClass)) {// find child
+				if (mapping.getThisEntity().getClass().equals(lastClass)) {// find
+																			// child
 					for (Object lastEntity : lastResult) {// NOSONAR
 						Set<Object> oneList = ((Entity) lastEntity).getChildNodeSet(mapping.getOtherEntity().getClass(),
 								null);
@@ -344,7 +350,8 @@ public class SqlBox {
 	}
 
 	/**
-	 * Get last auto increase id, supported by MySQL, SQL Server, DB2, Derby, Sybase, PostgreSQL
+	 * Get last auto increase id, supported by MySQL, SQL Server, DB2, Derby,
+	 * Sybase, PostgreSQL
 	 */
 	private Object getLastAutoIncreaseIdentity(Column col) {
 		String sql = "SELECT MAX(" + col.getColumnName() + ") from " + realTable();
@@ -360,7 +367,7 @@ public class SqlBox {
 
 		// generatedValues to record all generated values like UUID, sequence
 		Map<Column, Object> idGeneratorCache = new HashMap<>();
-		DatabaseType dbType = this.getSqlBoxContext().getDatabaseType();
+		Dialect dialect = this.getSqlBoxContext().getDialect();
 
 		// start to spell sql
 		StringBuilder sb = new StringBuilder();
@@ -374,10 +381,10 @@ public class SqlBox {
 			if (idGen != null && !(idGen instanceof AssignedGenerator)) {
 				Object idValue = idGen.getNextID(this.getSqlBoxContext());
 				if (idGen instanceof IdentityGenerator) {
-					if (dbType == ORACLE)// NOSONAR
+					if (dialect.isOracleFamily())// NOSONAR
 						throwEX("Box insert error, IdentityGenerator type should not set to ORACLE");
 				} else if (idGen instanceof AutoGenerator) {
-					if (dbType == MYSQL || dbType == MSSQLSERVER) {// NOSONAR
+					if (dialect.isMySqlFamily() || dialect.isSQLServerFamily()) {// NOSONAR
 						if (!col.getAutoIncreament())
 							throwEX("Box insert error, AutoGenerator type should set on indentity type field for table \""
 									+ this.realTable() + "\"");
@@ -392,7 +399,8 @@ public class SqlBox {
 					count++;
 				}
 				idGeneratorCache.put(col, idValue);
-			} else if (!SqlBoxUtils.isEmptyStr(col.getColumnName())) {// normal fields
+			} else if (!SqlBoxUtils.isEmptyStr(col.getColumnName())) {// normal
+																		// fields
 				Object value = SqlBoxUtils.getFieldRealValue(this.entityBean, col);
 				if (value != null) {
 					sb.append(col.getColumnName()).append(",");
@@ -409,7 +417,7 @@ public class SqlBox {
 		}
 		// delete the last ","
 		sb.deleteCharAt(sb.length() - 1).append(") ");
-		sb.append(SqlHelper.createValueString(count));
+		sb.append("values").append(SqlHelper.buildQuestions(count));
 		if (getSqlBoxContext().getShowSql())
 			getSqlBoxContext()
 					.logSql(new SqlAndParameters(sb.toString(), parameters.toArray(new Object[parameters.size()])));
@@ -684,14 +692,15 @@ public class SqlBox {
 		String realTable = configTable;
 		if (SqlBoxUtils.isEmptyStr(realTable)) {
 			realTable = this.getEntityClass().getSimpleName();
-			int locate = realTable.indexOf('$');// for inner class, get the real class name
+			int locate = realTable.indexOf('$');// for inner class, get the real
+												// class name
 			if (locate > 0)
 				realTable = realTable.substring(locate, realTable.length());
 		}
 		String resultTable = context.findRealTableName(realTable);
 		if (SqlBoxUtils.isEmptyStr(resultTable))
-			SqlBoxException
-					.throwEX("SqlBox getRealTable error: " + this.getEntityClass() + ", table name:" + realTable);
+			SqlBoxException.throwEX("Can not find database table \"" + realTable + "\" for class \""
+					+ this.getEntityClass() + "\", sometimes may caused by forgot call refreshMetaData.");
 		return resultTable;
 	}
 
@@ -709,11 +718,17 @@ public class SqlBox {
 	 * get field's database column name <br/>
 	 * 1)No alias, return "columnName" <br/>
 	 * 2)Not in sql, return "alias_columnName" <br/>
-	 * 3)In Sql, in alias tag, return "alias.columnName as alias_columnName" <br/>
+	 * 3)In Sql, in alias tag, return "alias.columnName as alias_columnName"
+	 * <br/>
 	 * 4)In Sql, not in alias tag, return "alias.columnName" <br/>
 	 * 
 	 */
-	public String getColumnName(String fieldID) {// NOSONAR
+	public String getColumnName(String fieldID, Object... args) {// NOSONAR
+		// "insert into user(",u.ID(123),",", u.NAME("sam"),") values(?,?)"
+		// "update user set "+u.NAME("John")+"=? where "+u.ID(123)+"=?"
+		for (Object arg : args)
+			SqlHelper.empty(arg);
+
 		getFieldIDCache().set(fieldID);
 		if (MappingHelper.isInMapping()) {
 			// IdPair is to tell mapping which fieldIDs be linked
@@ -742,7 +757,8 @@ public class SqlBox {
 			if (SqlHelper.getInAliasTag() && !SqlBoxUtils.isEmptyStr(als))
 				return als + "_" + colname;
 			else if (SqlBoxUtils.isEmptyStr(colname))
-				return "COL_NOT_FOUND";// Need set a value to tell bind() method in MappingHelper.java
+				return "COL_NOT_FOUND";// Need set a value to tell bind() method
+										// in MappingHelper.java
 			else
 				return colname;
 		}
@@ -809,6 +825,10 @@ public class SqlBox {
 				realCol.setFieldID(fieldID);
 				String realColumnMatchName = this.getRealColumnName(realTableName, fieldID);
 				if (SqlBoxUtils.isEmptyStr(realColumnMatchName)) {
+					Column configColumn = configColumns.get(fieldID);
+					// if is a disabled field, do not print warning
+					if (configColumn != null && !configColumn.isEnable())
+						continue;
 					Field field = ReflectionUtils.findField(this.getEntityClass(), fieldID);
 					if (this.getEntityClass().getDeclaredAnnotation(IgnoreField.class) == null// NOSONAR
 							&& field.getAnnotation(IgnoreField.class) == null)
@@ -816,10 +836,10 @@ public class SqlBox {
 								+ realTableName + "\", to disable this warning message, put an @"
 								+ IgnoreField.class.getSimpleName() + " annotation on it. "
 								+ (fieldID.contains("ID") ? " Try change xxxID to xxxxId" : ""));
-
 					continue;
 				}
-				realCol.setColumnName(realColumnMatchName);// 3080ms cost for speed test
+				realCol.setColumnName(realColumnMatchName);// 3080ms cost for
+															// speed test
 				realCol.setPropertyType(pd.getPropertyType());
 				realCol.setReadMethodName(pd.getReadMethod().getName());
 				realCol.setWriteMethodName(pd.getWriteMethod().getName());
@@ -851,11 +871,13 @@ public class SqlBox {
 	/**
 	 * Find and set Object IDs automatically, rule:<br/>
 	 * 
-	 * Find how many entityID <br/>
-	 * Found lots? return <br/>
-	 * only found 1? if no generator, set to auto type <br/>
-	 * Not found? look for id field found? set as EntityID if no generator, set to auto type <br/>
-	 * No found throw ex <br/>
+	 * <pre>
+	 * Find how many entityID?
+	 * Found lots? return them
+	 * only found 1? if no generator, set to UUID if is String, set to auto type if not String
+	 * Not found? look for id field, found? set to UUID if is String, set to auto type if not String
+	 * No found? throw ex
+	 * </pre>
 	 */
 	private void findAndSetEntityID(Class<?> entityClass, Map<String, Column> realColumns) {// NOSONAR
 		Column idColumn = null;
@@ -880,16 +902,22 @@ public class SqlBox {
 				return;
 			else {
 				idColumn.setEntityID(true);
-				if (idColumn.getIdGenerator() == null)// entityColumn=null or entityColumn=idColumn
-					idColumn.setIdGenerator(AutoGenerator.INSTANCE);
+				if (idColumn.getIdGenerator() == null) {
+					if (idColumn.getPropertyType().equals(String.class))// NOSONAR
+						idColumn.setIdGenerator(this.getSqlBoxContext().getDefaultIDGenerator());
+					else
+						idColumn.setIdGenerator(AutoGenerator.INSTANCE);
+				}
 			}
 		}
 		return;
 	}
 
 	/**
-	 * Get real column name by fieldID , realTableName can leave null if don't know <br/>
-	 * userName field will find userName or username or USERNAME or USER_NAME, but only allowed 1
+	 * Get real column name by fieldID , realTableName can leave null if don't
+	 * know <br/>
+	 * userName field will find userName or username or USERNAME or USER_NAME,
+	 * but only allowed 1
 	 */
 	private String getRealColumnName(String realTableName, String fieldID) {// NOSONAR
 		Column col = getOrBuildConfigColumn(fieldID);
@@ -950,7 +978,8 @@ public class SqlBox {
 	}
 
 	/**
-	 * Config mappings in box, The mappingList stored in box will join to mappingList created in SQL, Detail see
+	 * Config mappings in box, The mappingList stored in box will join to
+	 * mappingList created in SQL, Detail see
 	 * SqlHelper.prepareSQLandParameters() method
 	 * 
 	 * @return The String result if not empty, can re-used in SQL
@@ -998,6 +1027,13 @@ public class SqlBox {
 	 */
 	public void configUpdatable(String fieldID, Boolean updatable) {
 		getOrBuildConfigColumn(fieldID).setUpdatable(updatable);
+	}
+
+	/**
+	 * Config column enable
+	 */
+	public void configEnable(String fieldID, Boolean enable) {
+		getOrBuildConfigColumn(fieldID).setEnable(enable);
 	}
 
 	/**

@@ -1,11 +1,14 @@
 package test.config.po;
 
+import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jsqlbox.Entity;
 
 /**
- * Entity class is not a POJO, need extends from EntityBase or implements EntityInterface interface<br/>
+ * User class is not a POJO, need extends from EntityBase(For JAVA7-) or
+ * implements EntityInterface interface(for JAVA8+)<br/>
  * 
- * Default database table equal to entity name or add a "s" suffix , in this example it will use "users" as table name
+ * Default database table equal to entity name or add a "s" suffix , in this
+ * example it will use "users" as table name
  * 
  * @author Yong Zhu
  *
@@ -14,12 +17,23 @@ import com.github.drinkjava2.jsqlbox.Entity;
  */
 
 public class User implements Entity {
-	private Integer id;
+	private String id;
 	private String userName;
 	private String phoneNumber;
 	private String address;
 	private Integer age;
 	private Boolean active;
+
+	public static String ddl(Dialect d) {
+		return "create table " + d.check("users") //
+				+ "(" + d.VARCHAR("id", 32) //
+				+ "," + d.VARCHAR("username", 50) //
+				+ "," + d.VARCHAR("Phone_Number", 50) //
+				+ "," + d.VARCHAR("Address", 50) //
+				+ "," + d.BOOLEAN("active") //
+				+ "," + d.INTEGER("Age") //
+				+ ")" + d.engine();
+	}
 
 	public Boolean getActive() {
 		return active;
@@ -29,11 +43,11 @@ public class User implements Entity {
 		this.active = active;
 	}
 
-	public Integer getId() {
+	public String getId() {
 		return id;
 	}
 
-	public void setId(Integer id) {
+	public void setId(String id) {
 		this.id = id;
 	}
 
@@ -69,30 +83,14 @@ public class User implements Entity {
 		this.age = age;
 	}
 
-	// Below methods are for JDBC & Query use, it's not compulsory but recommended to have
-
-	public String ID() {
-		return box().getColumnName("id");
-	}
-
-	public String USERNAME() {
-		return box().getColumnName("userName");
-	}
-
-	public String PHONENUMBER() {
-		return box().getColumnName("phoneNumber");
-	}
-
-	public String ADDRESS() {
-		return box().getColumnName("address");
-	}
-
-	public String AGE() {
-		return box().getColumnName("age");
-	}
-
-	public String ACTIVE() {
-		return box().getColumnName("active");
-	}
-
+	// Below methods are for refactor support, not compulsory but suggest have
+	// Hope in future JAVA version can support access private field name
+	// directly
+	//@formatter:off 
+	public String ID(Object... option)             {return box().getColumnName("id", option);	}
+	public String USERNAME(Object... option)       {return box().getColumnName("userName", option);}
+	public String PHONENUMBER(Object... option)    {return box().getColumnName("phoneNumber", option);}
+	public String ADDRESS(Object... option)        {return box().getColumnName("address", option);	}
+	public String AGE(Object... option)            {return box().getColumnName("age", option);}
+	public String ACTIVE(Object... option)         {return box().getColumnName("active", option);	}
 }
