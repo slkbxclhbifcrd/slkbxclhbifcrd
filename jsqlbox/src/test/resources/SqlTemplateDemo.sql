@@ -57,8 +57,9 @@ public class SqlTemplateDemo extends TestBase {
 	public void doTest() { 
 		Dao.getDefaultContext().setShowSql(true);
 		Dao.executeInsert(new InsertUser("Tom","BeiJing",10).toString());
-		Dao.executeInsert(new InsertUser("Sam","ShangHai",20).toString());
-		Assert.assertEquals((Integer) 1,  Dao.queryForInteger(new FindUsers("Sam",15).toString()));
+		Dao.executeInsert(new InsertUser("Sam","ShangHai",20).toString()); 
+		Assert.assertEquals((Integer) 1,  Dao.queryForInteger(new FindUsers("Sam",15).toString())); 
 		Assert.assertEquals((Integer) 2,  Dao.queryForInteger(new GetUserCount().toString())); 
-	} 	
+	} 
+	
 }
