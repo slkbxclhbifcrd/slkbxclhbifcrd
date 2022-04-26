@@ -1,468 +1,216 @@
-/**
+/*
  * Copyright (C) 2016 Yong Zhu.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by
+ * applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+ * OF ANY KIND, either express or implied. See the License for the specific
+ * language governing permissions and limitations under the License.
  */
 package com.github.drinkjava2.jsqlbox;
 
-import static com.github.drinkjava2.jsqlbox.SqlBoxException.throwEX;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
-import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StringUtils;
+import com.github.drinkjava2.jdialects.ClassCacheUtils;
+import com.github.drinkjava2.jdialects.ModelUtils;
+import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jdialects.springsrc.utils.ReflectionUtils;
 
 /**
- * @author Yong Zhu
- * @version 1.0.0
+ * SqlBoxUtils is utility class to bind SqlBox instance to a entity bean, there
+ * are 4 different ways to bind:
+ * 
+ * <pre>
+ * 1. For ActiveRecord child class, jSqlBox bind SqlBox by call its bindBox() method and 
+ *    store SqlBox instance in its box field;
+ * 
+ * 2. For instance implemented ActiveRecordSupport, bind SqlBox buy call its bindBox() method
+ * 
+ * 3. For Entity with a "public SqlBox box;" field, jSqlBox will directly access this field to store SqlBox instance.
+ * 
+ * 4. For Entity without box field, will use a threadLocal Map cache to store SqlBox instance, and make the key
+ *    point to entity, value point to SqlBox instance. 
+ *    
+ * Note: Method 4 is not recommended because if do batch insert like 100000 times may cause out of memory error, because 
+ *       before LhreadLocal map be cleaned when thread close, memory will full, simliar like Hibernate's L1 cache full problem.
+ * </pre>
+ * 
+ * @author Yong Zhu (Yong9981@gmail.com)
  * @since 1.0.0
  */
-@SuppressWarnings("unchecked")
-public class SqlBoxUtils {
+public abstract class SqlBoxUtils {
+	private static boolean printWarningIfEntityIsNotActiveRecord = true;
 
-	// To check if a class exist, if exist, cache it to avoid check again
-	private static ConcurrentHashMap<String, Integer> classExistCache = new ConcurrentHashMap<>();
-
-	private static ThreadLocal<HashMap<String, Method>> methodExistCache = new ThreadLocal<HashMap<String, Method>>() {
+	/**
+	 * Store boxes binded to entities in a threadLocal Map
+	 */
+	private static ThreadLocal<Map<Object, SqlBox>> boxCache = new ThreadLocal<Map<Object, SqlBox>>() {
 		@Override
-		protected HashMap<String, Method> initialValue() {
-			return new HashMap<>();
+		protected Map<Object, SqlBox> initialValue() {
+			return new HashMap<Object, SqlBox>();
 		}
 	};
 
-	private SqlBoxUtils() {
+	private static void logoutEntityHaveNoBoxFieldWarning(Class<?> clazz) {
+		printWarningIfEntityIsNotActiveRecord = false; // only print at first
+														// time
+		SqlBoxContext.log.warn("For entity class '" + clazz.getName()
+				+ "', suggest extends from ActiveRecord or put a \"SqlBox box\" field to improve performacne.");
 	}
 
-	/**
-	 * Return true if a String is null or ""
-	 */
-	public static boolean isEmptyStr(String str) {
-		return str == null || str.length() == 0;
-	}
-
-	/**
-	 * Check class if exist
-	 */
-	public static Class<?> checkSqlBoxClassExist(String className) {
-		Integer i = classExistCache.get(className);
-		if (i == null)
-			try {
-				Class<?> clazz = Class.forName(className);
-				if (SqlBox.class.isAssignableFrom((Class<?>) clazz)) {
-					classExistCache.put(className, 1);
-					return clazz;
-				}
-				classExistCache.put(className, 0);
-				return null;
-			} catch (Exception e) {
-				SqlBoxException.eatException(e);
-				classExistCache.put(className, 0);
-				return null;
-			}
-		if (1 == i) {
-			try {
-				return Class.forName(className);
-			} catch (Exception e) {
-				SqlBoxException.eatException(e);
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * If first letter is Capitalized, return true
-	 */
-	public static boolean isCapitalizedString(String str) {
-		char c = str.substring(0, 1).toCharArray()[0];
-		return c >= 'A' && c <= 'Z';
-	}
-
-	/**
-	 * Change first letter to lower case
-	 */
-	public static String toFirstLetterLowerCase(String s) {
-		if (Character.isLowerCase(s.charAt(0)))
-			return s;
-		else
-			return (new StringBuilder()).append(Character.toLowerCase(s.charAt(0))).append(s.substring(1)).toString();
-	}
-
-	/**
-	 * Change first letter to upper case
-	 */
-	public static String toFirstLetterUpperCase(String s) {
-		if (Character.isUpperCase(s.charAt(0)))
-			return s;
-		else
-			return (new StringBuilder()).append(Character.toUpperCase(s.charAt(0))).append(s.substring(1)).toString();
-	}
-
-	/**
-	 * Invoke to get field value by its fieldID
-	 */
-	public static String getStaticStringField(Class<?> beanClass, String fieldID) {
-		try {
-			Field field = beanClass.getField(fieldID);
-			return (String) field.get(null);
-		} catch (Exception e) {
-			SqlBoxException.eatException(e);
-		}
-		return null;
-	}
-
-	/**
-	 * Camel string change to lower case underline string, "AbcDef" to "abc_def"
-	 */
-	public static String camelToLowerCaseUnderline(String name) {
-		StringBuilder sb = new StringBuilder();
-		if (name != null && name.length() > 0) {
-			sb.append(name.substring(0, 1).toLowerCase());
-			for (int i = 1; i < name.length(); i++) {
-				String s = name.substring(i, i + 1);
-				char c = s.substring(0, 1).toCharArray()[0];
-				if (c >= 'A' && c <= 'Z')
-					sb.append("_");
-				sb.append(s.toLowerCase());
-			}
-		}
-		return sb.toString();
-	}
-
-	/**
-	 * Make the given field accessible, only called when actually necessary, to avoid unnecessary conflicts with a JVM
-	 * SecurityManager (if active).
-	 */
-	public static void makeAccessible(Field field) {
-		if ((!Modifier.isPublic(field.getModifiers()) || !Modifier.isPublic(field.getDeclaringClass().getModifiers())
-				|| Modifier.isFinal(field.getModifiers())) && !field.isAccessible()) {
-			field.setAccessible(true);
-		}
-	}
-
-	/**
-	 * Get JDK random type4 UUID
-	 */
-	public static String getHex32UUID() {
-		return UUID.randomUUID().toString().replace("-", "").toUpperCase();
-	}
-
-	/**
-	 * In entity class, a legal fieldID like userName must have a same name no parameter method like userName()
-	 */
-	public static boolean isLegalFieldID(String fieldID, Class<?> clazz) {
-		if ("class".equals(fieldID))
-			return false;
-		if (SqlBoxUtils.isEmptyStr(fieldID))
-			return false;
-		if (SqlBoxUtils.isCapitalizedString(fieldID))
-			return false;
-		if (!SqlBoxUtils.isBaseDataType(clazz))
-			return false;
-		return true;
-	}
-
-	/**
-	 * Get Field value by it's column definition
-	 */
-	public static Object getFieldRealValue(Object entityBean, Column col) {
-		try {
-			Method m = ReflectionUtils.findMethod(entityBean.getClass(), col.getReadMethodName(), new Class[] {});
-			return m.invoke(entityBean, new Object[] {});
-		} catch (Exception e) {
-			return throwEX(e, "SqlBoxUtils getFieldRealValue error, method " + col.getReadMethodName()
-					+ " invoke error for entity: " + entityBean);
-		}
-	}
-
-	/**
-	 * Get Field value by it's fieldID
-	 */
-	public static Object getFieldValueByFieldID(Entity entityBean, String fieldID) {
-		String getMethod = "get" + SqlBoxUtils.toFirstLetterUpperCase(fieldID);
-		try {
-			Method m = ReflectionUtils.findMethod(entityBean.getClass(), getMethod, new Class[] {});
-			return m.invoke(entityBean, new Object[] {});
-		} catch (Exception e) {
-			return throwEX(e, "SqlBoxUtils getPropertyValueByFieldID error,   method " + getMethod + " not found in "
-					+ entityBean.getClass());
-		}
-	}
-
-	/**
-	 * Set Field value by it's fieldID
-	 */
-	public static void setFieldValueByFieldID(Entity entityBean, String fieldID, Object value) {
-		String setMethod = "set" + SqlBoxUtils.toFirstLetterUpperCase(fieldID);
-		try {
-			Method m = ReflectionUtils.findMethod(entityBean.getClass(), setMethod, new Class[] { value.getClass() });
-			m.invoke(entityBean, new Object[] { value });
-		} catch (Exception e) {
-			throwEX(e, "SqlBoxUtils getPropertyValueByFieldID error,   method " + setMethod + " not found in "
-					+ entityBean.getClass());
-		}
-	}
-
-	/**
-	 * add Field value by it's fieldID, field is a Set type field, value will be added into this field
-	 */
-	public static void addFieldValueByFieldID(Entity entityBean, String fieldID, Object value) {
-		Set<Object> property = null;
-		String getMethod = "get" + SqlBoxUtils.toFirstLetterUpperCase(fieldID);
-		try {
-			Method m = ReflectionUtils.findMethod(entityBean.getClass(), getMethod, new Class[] {});
-			property = (Set<Object>) m.invoke(entityBean, new Object[] {});
-		} catch (Exception e) {
-			throwEX(e, "SqlBoxUtils getPropertyValueByFieldID error,   method \"" + getMethod + "\" not found in "
-					+ entityBean.getClass());
-		}
-		if (property == null)
-			property = new LinkedHashSet<>();
-		property.add(value);
-		String setMethod = "set" + SqlBoxUtils.toFirstLetterUpperCase(fieldID);
-		try {
-			Method m = ReflectionUtils.findMethod(entityBean.getClass(), setMethod, new Class[] { Set.class });
-			m.invoke(entityBean, new Object[] { property });
-		} catch (Exception e) {
-			throwEX(e, "SqlBoxUtils getPropertyValueByFieldID error,   method \"" + setMethod + "\" not found in "
-					+ entityBean.getClass());
-		}
-	}
-
-	/**
-	 * Extract EntityID Values from realColumns
-	 */
-	public static Map<String, Object> extractEntityIDValues(Object entityID, Map<String, Column> realColumns) {
-		if (entityID instanceof Map)
-			return (Map<String, Object>) entityID;
-		Map<String, Object> idvalues = new HashMap<>();
-		if (entityID instanceof List) {
-			idvalues = new HashMap<>();
-			for (Column col : (List<Column>) entityID)
-				idvalues.put(col.getFieldID(), col.getPropertyValue());
-		} else {
-			List<Column> idCols = extractIdColumnsOnly(realColumns);
-			if (idCols == null || idCols.size() != 1)
-				throwEX("SqlBoxUtils extractEntityIDValues error, id column is not 1, entityID:" + entityID);
-			else
-				idvalues.put(idCols.get(0).getFieldID(), entityID);
-		}
-		return idvalues;
-	}
-
-	private static List<Column> extractIdColumnsOnly(Map<String, Column> realColumns) {
-		List<Column> idColumns = new ArrayList<>();
-		for (Entry<String, Column> entry : realColumns.entrySet()) {
-			Column col = entry.getValue();
-			if (col.getEntityID()) {
-				idColumns.add(col);
-			}
-		}
-		if (idColumns.isEmpty())
-			throwEX("SqlBoxUtils extractIdColumnsOnly error, no entityID set for class ");
-		return idColumns;
-	}
-
-	public static Method getDeclaredMethodQuickly(Class<?> targetClass, String methodName, Class<?> parameterclazz) {
-		String key = new StringBuilder(targetClass.toString()).append("_").append(methodName).append("_")
-				.append(parameterclazz).toString();
-		HashMap<String, Method> map = methodExistCache.get();
-		if (map.containsKey(key))
-			return map.get(key);
-		Method method = ReflectionUtils.findMethod(targetClass, methodName, new Class[] { parameterclazz });
-		map.put(key, method);
-		return method;
-	}
-
-	/**
-	 * For inside debug use only
-	 */
-	public static String getSqlRowSetMetadataDebugInfo(SqlRowSetMetaData rsm) {
-		StringBuilder sb = new StringBuilder();
-		int coll = rsm.getColumnCount();
-		for (int i = 0; i < coll; i++) {
-			sb.append("==============================").append("\r\n");
-			sb.append("getColumnName=" + rsm.getColumnName(i + 1)).append("\r\n");
-			sb.append("getColumnClassName=" + rsm.getColumnClassName(i + 1)).append("\r\n");
-			sb.append("getColumnType=" + rsm.getColumnType(i + 1)).append("\r\n");
-			sb.append("getColumnTypeName=" + rsm.getColumnTypeName(i + 1)).append("\r\n");
-			sb.append("getColumnDisplaySize=" + rsm.getColumnDisplaySize(i + 1)).append("\r\n");
-			sb.append("getTableName=" + rsm.getTableName(i + 1)).append("\r\n");
-			sb.append("getCatalogName=" + rsm.getCatalogName(i + 1)).append("\r\n");
-			sb.append("getColumnLabel=" + rsm.getColumnLabel(i + 1)).append("\r\n");
-			sb.append("getSchemaName=" + rsm.getSchemaName(i + 1)).append("\r\n");
-		}
-		return sb.toString();
-	}
-
-	/**
-	 * For inside debug use only
-	 */
-	public static String getResultSetMeataDataDebugInfo(ResultSetMetaData rsmd) {
-		StringBuilder sb = new StringBuilder();
-		try {
-			sb.append("===ResultSetMetaData debug info=== ");
-			sb.append("getColumnCount:" + rsmd.getColumnCount()).append("\r\n");
-			for (int i = 1; i < rsmd.getColumnCount() + 1; i++) {
-				sb.append("ColumnName:" + rsmd.getColumnName(i)).append("\t");
-				sb.append("ColumnClassName:" + rsmd.getColumnClassName(i)).append("\t");
-				sb.append("ColumnDisplaySize:" + rsmd.getColumnDisplaySize(i)).append("\t");
-				sb.append("ColumnLabel:" + rsmd.getColumnLabel(i)).append("\t");
-				sb.append("Scale:" + rsmd.getScale(i)).append("\t");
-				sb.append("ColumnType:" + rsmd.getColumnType(i)).append("\t");
-				sb.append("ColumnTypeName:" + rsmd.getColumnTypeName(i)).append("\t");
-				sb.append("Precision:" + rsmd.getPrecision(i)).append("\t");
-				sb.append("SchemaNam:" + rsmd.getSchemaName(i)).append("\t");
-				sb.append("CatalogName:" + rsmd.getCatalogName(i)).append("\t");
-				sb.append("TableName:" + rsmd.getTableName(i)).append("\t");
-				sb.append("isAutoIncrement:" + rsmd.isAutoIncrement(i)).append("\t");
-				sb.append("isCurrency:" + rsmd.isCurrency(i)).append("\t");
-				sb.append("isNullable:" + rsmd.isNullable(i)).append("\t");
-				sb.append("isReadOnly:" + rsmd.isReadOnly(i)).append("\t");
-				sb.append("isSearchable:" + rsmd.isSearchable(i)).append("\r\n");
-			}
-		} catch (SQLException e) {
-			SqlBoxException.throwEX(e, "getResultSetMeataDataDebugInfo error.");
-		}
-		return sb.toString();
-	}
-
-	/**
-	 * Not used but keep here for future use, I think I many forgot this
-	 */
-	public static class ObjectResultSetExtractor<T> implements ResultSetExtractor<List<T>> {
-		@Override
-		public List<T> extractData(ResultSet rs) throws SQLException {
-			List<T> results = new ArrayList<>();
-			while (rs.next()) {
-				rs.getMetaData();
-			}
-			return results;
-		}
-	}
-
-	/**
-	 * Check if a class is a basic Java data type
-	 */
-	public static boolean isBaseDataType(Class<?> clazz) {// NOSONAR
-		if (clazz == null)
-			return false;
-		return (clazz.equals(String.class) || clazz.equals(Integer.class) || clazz.equals(Byte.class)// NOSONAR
-				|| clazz.equals(Long.class) || clazz.equals(Double.class) || clazz.equals(Float.class)
-				|| clazz.equals(Character.class) || clazz.equals(Short.class) || clazz.equals(BigDecimal.class)
-				|| clazz.equals(BigInteger.class) || clazz.equals(Boolean.class) || clazz.equals(Date.class)
-				|| clazz.isPrimitive());
-	}
-
-	/**
-	 * Find an entity from entityMap by entityID
-	 */
-	public static Entity findEntityByID(Map<String, Object> id, Map<Object, Entity> entityMap) {
-		if (id == null || id.isEmpty() || entityMap.isEmpty())
-			return null;
-		if (id.size() == 1)
-			return entityMap.get(id.values().iterator().next());
-
-		Object[] key = id.keySet().toArray();
-		Arrays.sort(key);
-
-		StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < key.length; i++) {
-			sb.append(key[i]).append("=").append(id.get(key[i])).append(",");
-		}
-		return entityMap.get(sb.toString());
-	}
-
-	/**
-	 * Cache an entity to entityMap, use entityID as key
-	 */
-	public static void cacheEntityToEntityMap(Entity entity, Map<Object, Entity> entityMap) {
-		if (entity == null)
-			return;
-		Map<String, Object> id = entity.box().getEntityID();
-		if (id.size() == 1)
-			entityMap.put(id.values().iterator().next(), entity);
+	private static void bindNonActiveRecordBox(Object entity, SqlBox box) {
+		Field boxField = ClassCacheUtils.getBoxField(entity.getClass());
+		if (boxField != null)
+			ReflectionUtils.setField(boxField, entity, box);
 		else {
-
-			Object[] key = id.keySet().toArray();
-			Arrays.sort(key);
-
-			StringBuilder sb = new StringBuilder();
-			for (int i = 0; i < key.length; i++) {
-				sb.append(key[i]).append("=").append(id.get(key[i])).append(",");
-			}
-			entityMap.put(sb.toString(), entity);
+			if (printWarningIfEntityIsNotActiveRecord)
+				logoutEntityHaveNoBoxFieldWarning(entity.getClass());
+			boxCache.get().put(entity, box);
 		}
 	}
 
-	// Fetch values from one line of result List
-	protected static SqlBox fetchValueFromList(String alias, Map<String, Object> oneLine, Entity entity) {
-		SqlBox box = entity.box();
-		box.configAlias(alias);
-		Map<String, Column> realColumns = box.buildRealColumns();
-		for (Column col : realColumns.values()) {
-			String aiasColUppserCaseName = entity.aliasByFieldID(col.getFieldID()).toUpperCase();
-			if (oneLine.containsKey(aiasColUppserCaseName))
-				box.setFieldRealValue(col, oneLine.get(aiasColUppserCaseName));
+	private static SqlBox findNonActiveRecordBox(Object entity) {
+		Field boxField = ClassCacheUtils.getBoxField(entity.getClass());
+		if (boxField != null)
+			return (SqlBox) ReflectionUtils.getField(boxField, entity);
+		else {
+			if (printWarningIfEntityIsNotActiveRecord)
+				logoutEntityHaveNoBoxFieldWarning(entity.getClass());
+			return boxCache.get().get(entity);
 		}
+	}
+
+	private static void unbindNonActiveRecordBox(Object entity) {
+		Field boxField = ClassCacheUtils.getBoxField(entity.getClass());
+		if (boxField != null)
+			ReflectionUtils.setField(boxField, entity, null);
+		else {
+			SqlBox box = boxCache.get().get(entity);
+			if (box != null)
+				boxCache.get().remove(entity);
+		}
+	}
+
+	/**
+	 * Get a SqlBox instance binded for a entity bean, if no, create a new one
+	 * and bind to entity
+	 */
+	public static SqlBox getBindedBox(Object entity) {
+		if (entity == null)
+			throw new SqlBoxException("Can not find SqlBox for null entity");
+		else {
+			if (entity instanceof ActiveRecordSupport)
+				return ((ActiveRecordSupport) entity).bindedBox();
+			else
+				return findNonActiveRecordBox(entity);
+		}
+	}
+
+	/**
+	 * Find a binded SqlBox for a bean, if no binded SqlBox found, create a new
+	 * one based on SqlBoxContext.defaultContext and bind it to bean
+	 */
+	public static SqlBox findBox(Object entity) {
+		SqlBoxException.assureNotNull(entity, "Can not find box instance for null entity");
+		SqlBox box = getBindedBox(entity);
+		if (box != null)
+			return box;
+		return SqlBoxUtils.findAndBindSqlBox(SqlBoxContext.defaultContext, entity);
+	}
+
+	/**
+	 * Unbind a bean's box
+	 */
+	public static void unbindBox(Object entity) {
+		if (entity == null)
+			throw new SqlBoxException("Unbind box error, entity can not be null");
+		if (entity instanceof ActiveRecordSupport) {
+			ActiveRecordSupport ac = (ActiveRecordSupport) entity;
+			ac.unbindBox();
+		} else
+			unbindNonActiveRecordBox(entity);
+	}
+
+	/**
+	 * Bind a box to a bean, if box has no SqlBoxContext, use givenSqlBoxContext
+	 */
+	public static void bindBoxToBean(SqlBox box, Object entity) {
+		if (entity == null)
+			throw new SqlBoxException("Bind box error, entity can not be null");
+		if (box == null)
+			throw new SqlBoxException("Bind box error, box can not be null"); 
+		if (entity instanceof ActiveRecord)
+			((ActiveRecord) entity).bindBox(box);
+		else if (entity instanceof ActiveRecordSupport)
+			((ActiveRecordSupport) entity).bindBox(box);
+		else
+			bindNonActiveRecordBox(entity, box);
+	}
+
+	/**
+	 * Find SqlBox of entity, if not found, create a new one based on given
+	 * SqlBoxContext and bind it to entity
+	 */
+	public static SqlBox findAndBindSqlBox(SqlBoxContext ctx, Object entity) {
+		SqlBoxException.assureNotNull(entity, "Can not find box instance for null entity");
+		SqlBox box = SqlBoxUtils.getBindedBox(entity);
+		if (box != null)
+			return box;
+		box = SqlBoxUtils.createSqlBox(ctx, entity.getClass());
+		box.setContext(ctx);
+		SqlBoxUtils.bindBoxToBean(box, entity);
 		return box;
 	}
 
 	/**
-	 * Usually used for get the last element from a linkedHashset
+	 * Create a SqlBox by given entity or entityClass
 	 */
-	public static <E> E getLastElement(Collection<E> c) {
-		E last = null;
-		for (E e : c)
-			last = e;
-		return last;
+	public static SqlBox createSqlBox(SqlBoxContext ctx, Class<?> entityOrBoxClass) {
+		Class<?> boxClass = null;
+		if (entityOrBoxClass == null)
+			throw new SqlBoxException("Bean Or SqlBox class can not be null");
+		if (SqlBox.class.isAssignableFrom(entityOrBoxClass))
+			boxClass = entityOrBoxClass;
+		if (boxClass == null)
+			boxClass = ClassCacheUtils.checkClassExist(entityOrBoxClass.getName() + SqlBoxContext.sqlBoxClassSuffix);
+		if (boxClass == null)
+			boxClass = ClassCacheUtils.checkClassExist(entityOrBoxClass.getName() + "$"
+					+ entityOrBoxClass.getSimpleName() + SqlBoxContext.sqlBoxClassSuffix);
+		if (boxClass != null && !SqlBox.class.isAssignableFrom((Class<?>) boxClass))
+			boxClass = null;
+		SqlBox box = null;
+
+		if (boxClass == null) {
+			box = new SqlBox();
+			box.setTableModel(ModelUtils.oneEntity2Model(entityOrBoxClass));
+			box.setEntityClass(entityOrBoxClass);
+		} else {
+			try {
+				box = (SqlBox) boxClass.newInstance();
+				TableModel model = box.getTableModel();
+				if (model == null) {
+					model = ModelUtils.oneEntity2Model(entityOrBoxClass);
+					box.setTableModel(model);
+				}
+				Method configMethod = null;
+				try {// NOSONAR
+					configMethod = boxClass.getMethod("config", TableModel.class);
+				} catch (Exception e) {// NOSONAR
+				}
+				if (configMethod != null)
+					configMethod.invoke(box, model);
+			} catch (Exception e) {
+				throw new SqlBoxException("Can not create SqlBox instance: " + entityOrBoxClass, e);
+			}
+		}
+		if (box.getContext() == null)
+			box.setContext(ctx);
+		return box;
 	}
 
-	public static String formatSQL(String sql) {
-		String fSql = "\r\n" + sql;
-		fSql = StringUtils.replace(fSql, ",", ",\r\n\t");
-		fSql = StringUtils.replace(fSql, " select ", "\r\nselect \r\n\t");
-		fSql = StringUtils.replace(fSql, " from ", "\r\nfrom \r\n\t");
-		fSql = StringUtils.replace(fSql, " where ", "\r\nwhere \r\n\t");
-		fSql = StringUtils.replace(fSql, " delete ", "\r\ndelete \r\n\t");
-		fSql = StringUtils.replace(fSql, " update ", "\r\nupdate \r\n\t");
-		fSql = StringUtils.replace(fSql, " left ", "\r\nleft ");
-		fSql = StringUtils.replace(fSql, " right ", "\r\nright ");
-		fSql = StringUtils.replace(fSql, " inner ", "\r\ninner ");
-		fSql = StringUtils.replace(fSql, " join ", " join \r\n\t");
-		fSql = StringUtils.replace(fSql, " on ", "\r\n   on  ");
-		fSql = StringUtils.replace(fSql, " group ", "\r\ngroup \r\n\t");
-		fSql = StringUtils.replace(fSql, " order ", "\r\norder \r\n\t");
-		return fSql;
-	}
 }

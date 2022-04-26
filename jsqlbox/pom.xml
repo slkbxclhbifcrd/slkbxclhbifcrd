@@ -2,9 +2,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
  <modelVersion>4.0.0</modelVersion>
  
+ <!-- To switch release between Java6 and Java8, need do: -->
+ <!-- 1. Change below version to -JRE6 or -JRE8  --> 
+ <!-- 2. Change below version.java in properties to 1.7 or 1.8 -->
+ <!-- 3. Change Entity.java, only Java8 support default methods in interface -->
+ <!-- 4. To close doc lint check for JAVA8, need set <additionalparam>-Xdoclint:none</additionalparam>  -->
+ 
+ 
  <groupId>com.github.drinkjava2</groupId>
  <artifactId>jsqlbox</artifactId>
- <version>1.0.0-SNAPSHOT</version>
+ <version>1.0.0</version>
  <packaging>jar</packaging> 
  
  <name>jSQLBox</name>
@@ -37,13 +44,13 @@
    <url>git@github.com:drinkjava2/jsqlbox.git</url>
  </scm>
 
-
     <properties>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding> 
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding> 
-        <version.java>1.8</version.java>
-        <version.javadoc>8</version.javadoc>
+		<!-- Release on Java6 -->
+        <version.java>1.6</version.java>
+        <version.javadoc>6</version.javadoc>
         <version.compiler-plugin>3.3</version.compiler-plugin>
         <version.war-plugin>2.6</version.war-plugin>
         <version.clean-plugin>3.0.0</version.clean-plugin>
@@ -53,45 +60,35 @@
         <version.source-plugin>2.4</version.source-plugin>
         <version.javadoc-plugin>2.10.3</version.javadoc-plugin>
         <version.gpg-plugin>1.6</version.gpg-plugin>
-		
-		<!--Already tested on Spring 4.3.2, 4.3.6, 4.2.7 -->
-        <spring.version>4.3.7</spring.version>
     </properties>
-
+   
  <dependencies>   
-    <!-- jSqlBox depends on jDialects to create pagination SQL and DDL -->
+    <!-- jSqlBox depends on jDialects, jDialects is a database dialect tool support ~70 dialects' pagination & DDL -->
   	<dependency>  
-		<groupId>com.github.drinkjava2</groupId>  
+		<groupId>com.github.drinkjava2</groupId>
 		<artifactId>jdialects</artifactId>  
-		<version>1.0.1</version>  
+		<version>1.0.6</version>  
 	</dependency>
- 
-	<!-- jSqlBox depends on Spring JdbcTemplate, I hope in future can kick JdbcTemplate out to avoid dependency of Spring -->
-    <dependency>
-        <groupId>org.springframework</groupId>
-        <artifactId>spring-jdbc</artifactId>
-        <version>${spring.version}.RELEASE</version>
-    </dependency>
-
-    <!-- Spring context is needed for Transaction, I hope in future can kick Spring context out to avoid dependency of Spring  -->
-    <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-context</artifactId>
-      <version>${spring.version}.RELEASE</version> 
-    </dependency>  
+	
+	<!-- jSqlBox depends on jDbPro, it's an improved JDBC Tool, depends on Apache Commons DbUtils commons-dbutils-1.7.jar  --> 
+	 <dependency>  
+		<groupId>com.github.drinkjava2</groupId>
+		<artifactId>jdbpro</artifactId>  
+		<version>1.7.0.1</version>   
+	 </dependency>
 
 
-    <!-- ================================================================================================== -->
-    <!-- Below dependencies are for unit test only, scope be set to "test"                                  -->
-    <!-- jSqlBox should pass unit test on H2, MySql5, MSSQL2012 and Oracle11g                               -->  
-    <!-- Note: Oracle11g JDBC driver need download manually                                                 -->  	
-    <!-- ================================================================================================== --> 
+    <!-- ==================================================================================================  -->
+    <!-- Below dependencies are for unit test only, scope be set to "test"                                   -->
+    <!-- jSqlBox only test on H2, MySql5, MSSQL2012 and Oracle11g although it should support many databases  -->  
+    <!-- Note: Oracle11g JDBC driver need installed manually by yourself                                     -->  	
+    <!-- ==================================================================================================  --> 
     
     <!-- jBeanBox is a small IOC/AOP tool, in this project used to do some unit test configuration  -->
     <dependency>
         <groupId>com.github.drinkjava2</groupId>
         <artifactId>jbeanbox</artifactId>
-        <version>2.4.2</version>
+        <version>2.4.5</version>
         <scope>test</scope>
     </dependency> 
      
@@ -102,55 +99,41 @@
       <scope>test</scope>
     </dependency>
     
+    <dependency>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging</artifactId>
+      <version>1.2</version>
+      <scope>test</scope>
+    </dependency>
+    
     <dependency>  
       <groupId>log4j</groupId>  
       <artifactId>log4j</artifactId>  
       <version>1.2.17</version> 
       <scope>test</scope> 
+    </dependency>
+    
+   <!-- HikariCP is a dataSource pool quicker than c3p0 -->
+    <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP-java6</artifactId>
+        <version>2.3.13</version>
+        <scope>test</scope>
     </dependency> 
     
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.22</version>
-      <scope>test</scope>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.22</version>
-      <scope>test</scope> 
-    </dependency>
-       
-   <!-- HikariCP is a dataSource pool quicker than c3p0 -->
-   <dependency>
-     <groupId>com.zaxxer</groupId>
-     <artifactId>HikariCP</artifactId>
-     <version>2.4.7</version>
-     <scope>test</scope>
-   </dependency>
-
-   <dependency>
-        <groupId>com.zaxxer</groupId>
-        <artifactId>HikariCP-java7</artifactId>
-        <version>2.4.9</version>
-        <scope>test</scope>
-   </dependency>
- 
     <!-- H2Database memory database for unit test -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
-      <version>1.4.193</version>
+      <version>1.3.176</version>
       <scope>test</scope>
     </dependency>
-    
-    <!-- Mysql Database driver for unit test--> 
+
+	<!-- Mysql Database driver for unit test--> 
     <dependency>
         <groupId>mysql</groupId>
         <artifactId>mysql-connector-java</artifactId>
-        <version>5.1.39</version>
+        <version>5.1.43</version>
         <scope>test</scope>
     </dependency>
  
@@ -174,12 +157,12 @@
 	</dependency--> 
 	
 	<!-- MS-SQLServer JDBC driver, see http://stackoverflow.com/questions/6942407/setting-up-maven-dependency-for-sql-server -->  
-	<dependency>
+	<!--dependency>
       <groupId>com.microsoft.sqlserver</groupId>
       <artifactId>mssql-jdbc</artifactId>
       <version>6.1.0.jre8</version>
 	  <scope>test</scope>
-    </dependency>
+    </dependency-->
 	
  </dependencies> 
  
@@ -267,7 +250,11 @@
                             <links>
                                 <link>http://docs.oracle.com/javase/${version.javadoc}/docs/api</link>
                             </links>
-							<additionalparam>-Xdoclint:none</additionalparam>
+							<!-- close doc line check, for Java6,7 only, if run on Java8 will get a Javadoc-plugin error -->
+							<properties>
+								<javadoc.opts>-Xdoclint:none</javadoc.opts>
+							</properties>
+							<!-- close doc lint check for JAVA8 is additionalparam>-Xdoclint:none</additionalparam-->
                         </configuration>
                     </plugin>
                     <plugin>
