@@ -37,17 +37,19 @@ jSqlBox是一个支持动态配置、多种SQL写法、跨数据库的Java持久
 
 # 文档 | Documentation
 
-[中文](../../wiki)  |  [English](../../wiki)
+[中文](../../wikis)  |  [English](https://github.com/drinkjava2/jSqlBox/wiki)
 
 [JavaDoc](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)
 
 # 应用示例 | Demo
 
-[jBooox项目](../../tree/master/demo/jbooox)
+[jBooox项目](../../tree/master/demo/jbooox) 这是一个MVC Web项目，基于三个开源软件jBeanBox、jSqlBox、jWebBox。
 
-[jSqlBox-in-Spring](../../tree/master/demo/jsqlbox-in-spring)
+[jSqlBox-in-Spring](../../tree/master/demo/jsqlbox-in-spring) 这是一个MVC Web项目，演示jSqlBox在Spring环境下的配置和使用。
 
-[使用BeetlSql模板](../../tree/master/demo/jsqlbox-beetlsql)
+[使用BeetlSql模板](../../tree/master/demo/jsqlbox-beetlsql) 演示如何在jSqlBox中开发和使用其它模板引擎如BeetlSQL。
+
+[在MyBatis中使用](https://gitee.com/drinkjava2/jSqlBox/wikis/%E5%9C%A8MyBatis%E4%B8%AD%E4%BD%BF%E7%94%A8?parent=%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C%2F%E6%BC%94%E7%A4%BA%E9%A1%B9%E7%9B%AE) 演示如何利用jSqlBox为MyBatis添加分页、DDL生成、ActiveRecord功能。
 
 # 下载地址 | Download
 
