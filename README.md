@@ -37,13 +37,11 @@ jSqlBox是一个支持动态配置、多种SQL写法、跨数据库的Java持久
 
 # 文档 | Documentation
 
-[中文](../../wikis)  |  [English](https://github.com/drinkjava2/jSqlBox/wiki)
-
-[JavaDoc](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)
+[中文](../../wikis)  |  [English](https://github.com/drinkjava2/jSqlBox/wiki) | [JavaDoc](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)
 
 # 应用示例 | Demo
 
-[jBooox项目](../../tree/master/demo/jbooox) 这是一个MVC Web项目，基于三个开源软件jBeanBox、jSqlBox、jWebBox。
+[jBooox项目](https://gitee.com/drinkjava2/jBooox) 这是一个MVC Web项目，基于三个开源软件jBeanBox、jSqlBox、jWebBox。
 
 [jSqlBox-in-Spring](../../tree/master/demo/jsqlbox-in-spring) 这是一个MVC Web项目，演示jSqlBox在Spring环境下的配置和使用。
 
@@ -65,7 +63,7 @@ jSqlBox是一个支持动态配置、多种SQL写法、跨数据库的Java持久
 
 # 相关开源项目 | Other Projects
 
-- [一个通用的数据库方言工具 jDialects](https://gitee.com/drinkjava2/jDialects)
+- [一个通用的数据库方言工具 jDialects](https://gitee.com/drinkjava2/jdialects)
 - [一个独立的声明式事务工具 jTransactions](https://gitee.com/drinkjava2/jTransactions)
 - [一个简单易用的IOC/AOP工具 jBeanBox](https://gitee.com/drinkjava2/jBeanBox)
 - [一个500行源码的服务端布局工具 jWebBox](https://gitee.com/drinkjava2/jWebBox)
