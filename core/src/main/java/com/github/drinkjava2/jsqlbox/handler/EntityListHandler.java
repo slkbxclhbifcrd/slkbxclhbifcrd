@@ -11,53 +11,57 @@
  */
 package com.github.drinkjava2.jsqlbox.handler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.dbutils.QueryRunner;
-import org.apache.commons.dbutils.ResultSetHandler;
-
-import com.github.drinkjava2.jdbpro.handler.AroundSqlHandler;
+import com.github.drinkjava2.jdbpro.DbProRuntimeException;
+import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jsqlbox.SqlBox;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.SqlBoxUtils;
 import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 
 /**
- * EntityListHandler is the AroundSqlHandler used explain the Entity query sql (For
- * example 'select u.** from users u') and return a List<Entity> instance
+ * EntityListHandler is the SqlHandler used explain the Entity query SQL (For
+ * example 'select u.** from users u') and return a List<entityObject> instance
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
 @SuppressWarnings("all")
-public class EntityListHandler implements ResultSetHandler, AroundSqlHandler {
-	protected final EntitySqlMapListHandler sqlMapListHandler;
+public class EntityListHandler extends EntityNetHandler {
 	protected final Class<?> targetClass;
 
 	public EntityListHandler(Class<?> targetClass, Object... netConfigObjects) {
+		super(netConfigObjects);
 		this.targetClass = targetClass;
-		if (netConfigObjects == null || netConfigObjects.length == 0)
-			this.sqlMapListHandler = new EntitySqlMapListHandler(targetClass);
-		else
-			this.sqlMapListHandler = new EntitySqlMapListHandler(netConfigObjects);
+	}
+
+	public EntityListHandler(Class<?> targetClass) {
+		super(targetClass);
+		this.targetClass = targetClass;
+	}
+
+	public EntityListHandler(String alias, Class<?> targetClass) {
+		super(toTableModel(alias, targetClass));
+		this.targetClass = targetClass;
+	}
+
+	public static TableModel toTableModel(String alias, Class<?> targetClass) {
+		try {
+			Object o = targetClass.newInstance();
+			SqlBox box = SqlBoxUtils.createSqlBox(SqlBoxContext.gctx(), targetClass);
+			TableModel tb = box.getTableModel();
+			tb.setAlias(alias);
+			return tb;
+		} catch (Exception e) {
+			throw new DbProRuntimeException(e);
+		}
 	}
 
 	@Override
-	public Object handleResult(QueryRunner query, Object result) {
-		List<Map<String, Object>> list = (List) sqlMapListHandler.handleResult(query, result);
-		EntityNet net = ((SqlBoxContext) query).netCreate(list);
+	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
+		EntityNet net = (EntityNet) super.handle(runner, ps);
 		return net.getAllEntityList(targetClass);
-	}
-
-	@Override
-	public String handleSql(QueryRunner query, String sql, Object... params) {
-		return sqlMapListHandler.handleSql(query, sql, params);
-	}
-
-	@Override
-	public Object handle(ResultSet rs) throws SQLException {
-		return sqlMapListHandler.handle(rs);
 	}
 
 }

@@ -20,53 +20,52 @@ import com.github.drinkjava2.jdialects.model.TableModel;
 
 /**
  * SqlBoxUtils is utility class to bind SqlBox instance to a entity bean, there
- * are 3 different ways to bind:
+ * are 2 different ways to bind:
  * 
  * <pre>
- * 1. For ActiveRecord child class, jSqlBox bind SqlBox by call its bindBox() method and 
- *    store SqlBox instance in its box field;
+ * 1. For instance implemented ActiveRecordSupport (by developer), bind SqlBox buy call its bindBox() method
  * 
- * 2. For instance implemented ActiveRecordSupport (by developer), bind SqlBox buy call its bindBox() method
- * 
- * 3. For Entity without box field, will use a threadLocal WeakHashMap cache to store SqlBox instance, and make the key
- *    point to entity, value point to SqlBox instance.
+ * 2. For Entity without box field, is a POJO, will use a threadLocal WeakHashMap cache to store SqlBox instance, and make the key
+ *    point to POJO, value point to SqlBox instance.
  * 
  * </pre>
  * 
- * @author Yong Zhu 
+ * @author Yong Zhu
  * @since 1.0.0
  */
 public abstract class SqlBoxUtils {// NOSONAR
 
 	/**
-	 * Store boxes binded to entities in a threadLocal WeakHashMap, after entity
-	 * no reference, SqlBox will be also be garage collected.
+	 * Store boxes binded to entities in a threadLocal WeakHashMap, after entity no
+	 * reference, SqlBox will be also be garage collected.
 	 */
-	public static ThreadLocal<WeakHashMap<Object, SqlBox>> boxCache = new ThreadLocal<WeakHashMap<Object, SqlBox>>() {
+	public static final ThreadLocal<WeakHashMap<Object, SqlBox>> boxCache = new ThreadLocal<WeakHashMap<Object, SqlBox>>() {
 		@Override
 		protected WeakHashMap<Object, SqlBox> initialValue() {
 			return new WeakHashMap<Object, SqlBox>();
 		}
 	};
- 
 
-	private static void bindNonActiveRecordBox(Object entity, SqlBox box) { 
-			boxCache.get().put(entity, box); 
+	/** As method name said */
+	public static void bindBoxToPOJO(Object pojo, SqlBox box) {
+		boxCache.get().put(pojo, box);
 	}
 
-	private static SqlBox findNonActiveRecordBox(Object entity) { 
-			return boxCache.get().get(entity); 
+	/** As method name said */
+	public static SqlBox findBoxOfPOJO(Object entity) {
+		return boxCache.get().get(entity);
 	}
 
-	private static void unbindNonActiveRecordBox(Object entity) { 
-			SqlBox box = boxCache.get().get(entity);
-			if (box != null)
-				boxCache.get().remove(entity); 
+	/** As method name said */
+	public static void unbindBoxOfPOJO(Object entity) {
+		SqlBox box = boxCache.get().get(entity);
+		if (box != null)
+			boxCache.get().remove(entity);
 	}
 
 	/**
-	 * Get a SqlBox instance binded for a entity bean, if no, create a new one
-	 * and bind to entity
+	 * Get a SqlBox instance binded for a entity bean, if no, create a new one and
+	 * bind to entity
 	 */
 	public static SqlBox getBindedBox(Object entity) {
 		if (entity == null)
@@ -75,13 +74,13 @@ public abstract class SqlBoxUtils {// NOSONAR
 			if (entity instanceof ActiveRecordSupport)
 				return ((ActiveRecordSupport) entity).bindedBox();
 			else
-				return findNonActiveRecordBox(entity);
+				return findBoxOfPOJO(entity);
 		}
 	}
 
 	/**
-	 * Find a binded SqlBox for a bean, if no binded SqlBox found, create a new
-	 * one based on SqlBoxContext.defaultContext and bind it to bean
+	 * Find a binded SqlBox for a bean, if no binded SqlBox found, create a new one
+	 * based on SqlBoxContext.defaultContext and bind it to bean
 	 */
 	public static SqlBox findBox(Object entity) {
 		SqlBoxException.assureNotNull(entity, "Can not find box instance for null entity");
@@ -101,7 +100,7 @@ public abstract class SqlBoxUtils {// NOSONAR
 			ActiveRecordSupport ac = (ActiveRecordSupport) entity;
 			ac.unbindBox();
 		} else
-			unbindNonActiveRecordBox(entity);
+			unbindBoxOfPOJO(entity);
 	}
 
 	/**
@@ -112,12 +111,10 @@ public abstract class SqlBoxUtils {// NOSONAR
 			throw new SqlBoxException("Bind box error, entity can not be null");
 		if (box == null)
 			throw new SqlBoxException("Bind box error, box can not be null");
-		if (entity instanceof ActiveRecord)
-			((ActiveRecord) entity).bindBox(box);
 		else if (entity instanceof ActiveRecordSupport)
 			((ActiveRecordSupport) entity).bindBox(box);
 		else
-			bindNonActiveRecordBox(entity, box);
+			bindBoxToPOJO(entity, box);
 	}
 
 	/**
@@ -127,8 +124,10 @@ public abstract class SqlBoxUtils {// NOSONAR
 	public static SqlBox findAndBindSqlBox(SqlBoxContext ctx, Object entity) {
 		SqlBoxException.assureNotNull(entity, "Can not find box instance for null entity");
 		SqlBox box = SqlBoxUtils.getBindedBox(entity);
-		if (box != null)
+		if (box != null) {
+			box.setContext(ctx);
 			return box;
+		}
 		box = SqlBoxUtils.createSqlBox(ctx, entity.getClass());
 		box.setContext(ctx);
 		SqlBoxUtils.bindBoxToBean(box, entity);
@@ -138,18 +137,17 @@ public abstract class SqlBoxUtils {// NOSONAR
 	/**
 	 * Create a SqlBox by given entity or entityClass
 	 */
-	public static SqlBox createSqlBox(SqlBoxContext ctx, Class<?> entityOrBoxClass) {
+	public static SqlBox createSqlBox(SqlBoxContext ctx, Class<?> entityOrBoxClass) {// NOSONAR
 		Class<?> boxClass = null;
 		if (entityOrBoxClass == null)
 			throw new SqlBoxException("Bean Or SqlBox class can not be null");
 		if (SqlBox.class.isAssignableFrom(entityOrBoxClass))
 			boxClass = entityOrBoxClass;
 		if (boxClass == null)
-			boxClass = ClassCacheUtils
-					.checkClassExist(entityOrBoxClass.getName() + SqlBoxContext.getGlobalsqlboxsuffix());
+			boxClass = ClassCacheUtils.checkClassExist(entityOrBoxClass.getName() + SqlBoxContext.SQLBOX_SUFFIX);
 		if (boxClass == null)
-			boxClass = ClassCacheUtils.checkClassExist(entityOrBoxClass.getName() + "$"
-					+ entityOrBoxClass.getSimpleName() + SqlBoxContext.getGlobalsqlboxsuffix());
+			boxClass = ClassCacheUtils.checkClassExist(
+					entityOrBoxClass.getName() + "$" + entityOrBoxClass.getSimpleName() + SqlBoxContext.SQLBOX_SUFFIX);
 		if (boxClass != null && !SqlBox.class.isAssignableFrom((Class<?>) boxClass))
 			boxClass = null;
 		SqlBox box = null;

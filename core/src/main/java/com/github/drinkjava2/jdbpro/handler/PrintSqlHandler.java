@@ -11,12 +11,12 @@
  */
 package com.github.drinkjava2.jdbpro.handler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 
-import org.apache.commons.dbutils.QueryRunner;
-import org.apache.commons.dbutils.ResultSetHandler;
+import com.github.drinkjava2.jdbpro.DefaultOrderSqlHandler;
+import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdialects.StrUtils;
 
 /**
  * PaginHandler is the AroundSqlHandler used to translate SQL to paginated SQL
@@ -24,22 +24,38 @@ import org.apache.commons.dbutils.ResultSetHandler;
  * @author Yong Zhu
  * @since 1.7.0.2
  */
-@SuppressWarnings("rawtypes")
-public class PrintSqlHandler implements ResultSetHandler, BeforeSqlHandler {
-
-	public PrintSqlHandler() {
-		//Default constructor
-	}
+@SuppressWarnings("all")
+public class PrintSqlHandler extends DefaultOrderSqlHandler {
 
 	@Override
-	public String handleSql(QueryRunner query, String sql, Object... params) {
-		System.out.println("Sql=" + sql);//NOSONAR
-		System.out.println("Parameters=" + Arrays.toString(params));//NOSONAR
-		return sql;
+	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
+		StringBuffer sb = new StringBuffer();
+
+		sb.append("======PrintSqlHandler=========\n");
+		sb.append("| SQL:       " + ps.getSql()).append("\n");
+		sb.append("| Param:     " + Arrays.deepToString(ps.getParams())).append("\n");
+		long start = System.currentTimeMillis();
+		Object obj = runner.runPreparedSQL(ps);
+		long end = System.currentTimeMillis();
+		StackTraceElement[] steArray = Thread.currentThread().getStackTrace();
+		for (StackTraceElement st : steArray) {
+			if (st.getClassName().contains("lang.Thread"))
+				continue;
+			if (st.getClassName().contains(".drinkjava2.jdbpro"))
+				continue;
+			if (st.getClassName().contains(".drinkjava2.jsqlbox"))
+				continue;
+			sb.append("| Location:  " + st.getClassName() + "." + st.getMethodName() + "(" + st.getFileName() + ":"
+					+ st.getLineNumber() + ")").append("\n");
+			break;
+		}
+
+		sb.append("| Time use:  " + (end - start) + "ms\n");
+		if(!StrUtils.isEmpty(runner.getName()))
+			 sb.append("| DB:        "+runner.getName()).append("\n");
+		sb.append("==============================");
+		System.out.println(sb.toString());
+		return obj;
 	}
-  
-	@Override
-	public Object handle(ResultSet result) throws SQLException {
-		return result;
-	}
+
 }

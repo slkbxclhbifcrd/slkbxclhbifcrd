@@ -11,23 +11,18 @@
  */
 package com.github.drinkjava2.jsqlbox.handler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-import org.apache.commons.dbutils.QueryRunner;
-import org.apache.commons.dbutils.ResultSetHandler;
-
-import com.github.drinkjava2.jdbpro.handler.AroundSqlHandler;
+import com.github.drinkjava2.jdbpro.DefaultOrderSqlHandler;
+import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 
 /**
- * PaginHandler is the AroundSqlHandler used to translate SQL to paginated SQL
+ * PaginHandler is a SqlHandler used to translate SQL to paginated SQL
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
-@SuppressWarnings("rawtypes")
-public class PaginHandler implements ResultSetHandler, AroundSqlHandler {
+public class PaginHandler extends DefaultOrderSqlHandler {
 	int pageNumber;
 	int pageSize;
 
@@ -37,17 +32,9 @@ public class PaginHandler implements ResultSetHandler, AroundSqlHandler {
 	}
 
 	@Override
-	public String handleSql(QueryRunner query, String sql, Object... params) {
-		return ((SqlBoxContext) query).getDialect().pagin(pageNumber, pageSize, sql);
+	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
+		ps.setSql(((SqlBoxContext) runner).getDialect().pagin(pageNumber, pageSize, ps.getSql()));
+		return runner.runPreparedSQL(ps);
 	}
 
-	@Override
-	public Object handleResult(QueryRunner query, Object result) {
-		return result;
-	}
-
-	@Override
-	public Object handle(ResultSet result) throws SQLException {
-		return result;
-	}
 }

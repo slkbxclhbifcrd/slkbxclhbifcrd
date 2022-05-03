@@ -1,17 +1,24 @@
 package com.demo.init;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+
 import javax.sql.DataSource;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.view.JstlView;
 import org.springframework.web.servlet.view.UrlBasedViewResolver;
 
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
+import com.github.drinkjava2.jtransactions.ConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
 
 @Configuration
@@ -36,6 +43,10 @@ public class WebAppConfig {
 		return ds;
 	}
 
+	/**
+	 * Spring will think this is a special method? because it return a
+	 * PlatformTransactionManager subclass instance
+	 */
 	@Bean
 	public DataSourceTransactionManager createDm() {
 		return new DataSourceTransactionManager(dataSource());
@@ -54,8 +65,35 @@ public class WebAppConfig {
 	public SqlBoxContext createDefaultSqlBoxContext() {
 		if (dataSource() != dataSource())
 			throw new AssertionError("I found Spring weird");
-		SqlBoxContext ctx = new SqlBoxContext(dataSource());
+		SqlBoxContextConfig config = new SqlBoxContextConfig();
+		config.setConnectionManager(createMySpringConnectionMG());
+		SqlBoxContext ctx = new SqlBoxContext(dataSource(), config);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);
 		return ctx;
 	}
 
+	@Bean
+	public MySpringConnectionManager createMySpringConnectionMG() {
+		return new MySpringConnectionManager();
+	}
+
+	public static class MySpringConnectionManager implements ConnectionManager {
+
+		@Override
+		public Connection getConnection(DataSource dataSource) throws SQLException {
+			return DataSourceUtils.getConnection(dataSource);
+		}
+
+		@Override
+		public void releaseConnection(Connection conn, DataSource dataSource) throws SQLException {
+			DataSourceUtils.releaseConnection(conn, dataSource);
+		}
+
+		@Override
+		public boolean isInTransaction(DataSource dataSource) {
+			if (dataSource == null)
+				return false;
+			return null != TransactionSynchronizationManager.getResource(dataSource);
+		}
+	}
 }

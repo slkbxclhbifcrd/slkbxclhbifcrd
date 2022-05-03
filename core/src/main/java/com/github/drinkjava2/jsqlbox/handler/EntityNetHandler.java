@@ -11,45 +11,34 @@
  */
 package com.github.drinkjava2.jsqlbox.handler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 
-import org.apache.commons.dbutils.QueryRunner;
-import org.apache.commons.dbutils.ResultSetHandler;
-
-import com.github.drinkjava2.jdbpro.handler.AroundSqlHandler;
+import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 /**
- * EntityNetHandler is the AroundSqlHandler used explain the Entity query sql (For
+ * EntityNetHandler is a SqlHandler used explain the Entity query SQL (For
  * example 'select u.** from users u') and return a EntityNet instance
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
 @SuppressWarnings("all")
-public class EntityNetHandler implements ResultSetHandler, AroundSqlHandler {
-	protected final EntitySqlMapListHandler sqlMapListHandler;
+public class EntityNetHandler extends SSMapListHandler {
 
 	public EntityNetHandler(Object... netConfigObjects) {
-		this.sqlMapListHandler = new EntitySqlMapListHandler(netConfigObjects);
+		super(netConfigObjects);
 	}
 
 	@Override
-	public Object handleResult(QueryRunner query, Object result) {
-		List<Map<String, Object>> list = (List) sqlMapListHandler.handleResult(query, result);
-		return ((SqlBoxContext) query).netCreate(list);
-	}
-
-	@Override
-	public String handleSql(QueryRunner query, String sql, Object... params) {
-		return sqlMapListHandler.handleSql(query, sql, params);
-	}
-
-	@Override
-	public Object handle(ResultSet rs) throws SQLException {
-		return sqlMapListHandler.handle(rs);
+	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
+		Object result = super.handle(runner, ps);
+		if (result != null && result instanceof List<?>) {
+			if (config == null)
+				throw new SqlBoxException("Can not build netConfig for Map List result");
+		}
+		return ((SqlBoxContext) runner).netCreate((List) result, this.config);
 	}
 }

@@ -14,10 +14,9 @@
  * the License.
  */
 package com.github.drinkjava2.functionstest;
-
-import static com.github.drinkjava2.jdbpro.inline.InlineQueryRunner.param;
-import static com.github.drinkjava2.jdbpro.inline.InlineQueryRunner.param0;
-import static com.github.drinkjava2.jdbpro.inline.InlineQueryRunner.valuesQuesions;
+ 
+import static com.github.drinkjava2.jdbpro.JDBPRO.param;
+import static com.github.drinkjava2.jdbpro.JDBPRO.valuesQuestions;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -126,20 +125,19 @@ public class IdGeneratorTest extends TestBase {
 		table.column("id1").STRING(25).pkey();
 		table.column("id2").STRING(32);
 		table.column("id3").STRING(36);
-		dropAndCreateDatabase(table);
+		createAndRegTables(table);
 
 		for (int i = 0; i < 10; i++) {
 			Object id1 = dialect.getNexID(UUID25Generator.INSTANCE, ctx, null);
 			Object id2 = dialect.getNexID(UUID32Generator.INSTANCE, ctx, null);
 			Object id3 = dialect.getNexID(UUID36Generator.INSTANCE, ctx, null);
-			System.out.println(id1);
-			System.out.println(id2);
-			System.out.println(id3);
+			System.out.println("id1=" + id1);
+			System.out.println("id2=" + id2);
+			System.out.println("id3=" + id3);
 			Assert.assertTrue(("" + id1).length() == 25);
 			Assert.assertTrue(("" + id2).length() == 32);
 			Assert.assertTrue(("" + id3).length() == 36);
-			ctx.iExecute("insert into testNextIdTable (id1,id2,id3) ", param0(id1), param(id2), param(id3),
-					valuesQuesions());
+			ctx.iExecute("insert into testNextIdTable (id1,id2,id3) ", param(id1, id2, id3), valuesQuestions());
 		}
 	}
 
@@ -147,7 +145,7 @@ public class IdGeneratorTest extends TestBase {
 	public void testAutoIdGenerator() {
 		TableModel table = new TableModel("testAutoIdGenerator");
 		table.column("id").STRING(30).pkey().autoId();
-		dropAndCreateDatabase(table);
+		createAndRegTables(table);
 
 		IdGenerator gen = table.getColumn("id").getIdGenerator();
 		for (int i = 0; i < 5; i++) {
@@ -169,7 +167,7 @@ public class IdGeneratorTest extends TestBase {
 		table.addGenerator(new SortedUUIDGenerator("sorteduuid2", 10, 10));
 		table.column("id").STRING(30).pkey().idGenerator("sorteduuid");
 		table.column("id2").STRING(30).pkey().idGenerator("sorteduuid2");
-		dropAndCreateDatabase(table);
+		createAndRegTables(table);
 
 		IdGenerator gen1 = table.getIdGenerator("sorteduuid");
 		for (int i = 0; i < 10; i++) {
@@ -198,7 +196,7 @@ public class IdGeneratorTest extends TestBase {
 		table2.column("id").STRING(30).pkey().idGenerator("seq3");
 		table2.column("id2").STRING(30).pkey().sequenceGenerator("seq2", "seq2", 1, 20);
 
-		dropAndCreateDatabase(table1, table2);
+		createAndRegTables(table1, table2);
 
 		IdGenerator gen1 = table1.getIdGenerator("seq1");
 		IdGenerator gen2 = table1.getIdGenerator("seq2");
@@ -229,7 +227,7 @@ public class IdGeneratorTest extends TestBase {
 		table2.column("id2").STRING(30).pkey().tableGenerator("tab2", "tb1", "pkCol", "valueColname", "pkColVal", 1,
 				10);
 
-		dropAndCreateDatabase(table1, table2);
+		createAndRegTables(table1, table2);
 
 		IdGenerator gen1 = table1.getIdGenerator("tab1");
 		IdGenerator gen2 = table1.getIdGenerator("tab2");
@@ -251,7 +249,7 @@ public class IdGeneratorTest extends TestBase {
 		TableModel table = new TableModel("testIdentity");
 		table.column("id").INTEGER().identityId().id();
 		table.column("name").STRING(30);
-		dropAndCreateDatabase(table);
+		createAndRegTables(table);
 
 		ctx.nExecute("insert into testIdentity (name) values(?)", "Tom");
 		ctx.nExecute("insert into testIdentity (name) values(?)", "Sam");

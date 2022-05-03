@@ -1,14 +1,16 @@
 package activerecordtext;
 
+ import static com.github.drinkjava2.jdbpro.JDBPRO.param;
+
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.dbutils.handlers.MapListHandler;
 
-import com.github.drinkjava2.helloworld.UsuageAndSpeedTest.UserAR;
-import com.github.drinkjava2.jdbpro.inline.PreparedSQL;
+import com.github.drinkjava2.helloworld.UsageAndSpeedTest.UserAR;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jsqlbox.TextUtils;
-import com.github.drinkjava2.jsqlbox.annotation.Handler;
+import com.github.drinkjava2.jsqlbox.annotation.Handlers;
 import com.github.drinkjava2.jsqlbox.annotation.Sql;
 import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
 
@@ -33,7 +35,7 @@ public class TextedUser extends UserAR {
 	      set name=?, address=?
 	*/
 
-	@Handler(MapListHandler.class)
+	@Handlers(MapListHandler.class)
 	public List<Map<String, Object>> selectUsers(String name, String address) {
 		return this.guess(name, address);
 	};
@@ -49,21 +51,42 @@ public class TextedUser extends UserAR {
 	 delete from users where name=? or address=?
 	*/
 
-	@Handler(MapListHandler.class)
-	public List<Map<String, Object>> selectUsersByText(String name, String address) {
+	@Handlers(MapListHandler.class)
+	public List<Map<String, Object>> selectUsersMapListByText(String name, String address) {
 		return this.guess(name, address);
 	};
 	/*-
-	   select * 
-	   from 
-	   users 
+	   select *
+	   from  users 
 	      where 
 	         name=:name 
 	         and address=:address
 	 */
 
+	public List<Map<String, Object>> selectUsersMapListByText2(String name, String address) {
+		return this.guess(name, address);
+	};
+	/*-
+	   select u.** 
+	   from  users u 
+	         where 
+	         u.name=:name 
+	         and u.address=:address
+	 */
+
 	public List<TextedUser> selectUsersByText2(String name, String address) {
-		return this.ctx().nQuery(new EntityListHandler(TextedUser.class), this.guessSQL(), name, address);
+		return this.guess(name, address);
+	}
+	/*-
+	   select u.** 
+	   from 
+	   users u
+	      where 
+	         u.name=? and address=?
+	 */
+
+	public List<TextedUser> selectUsersByText3(String name, String address) {
+		return this.ctx().iQuery(new EntityListHandler(TextedUser.class), this.guessSQL(), param(name), param(address));
 	}
 	/*-
 	   select u.** 

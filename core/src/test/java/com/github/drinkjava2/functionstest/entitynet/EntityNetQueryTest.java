@@ -1,9 +1,14 @@
 package com.github.drinkjava2.functionstest.entitynet;
 
+import static com.github.drinkjava2.jdbpro.JDBPRO.param;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.giQuery;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.gpQuery;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,6 +21,7 @@ import com.github.drinkjava2.functionstest.entitynet.entities.Role;
 import com.github.drinkjava2.functionstest.entitynet.entities.RolePrivilege;
 import com.github.drinkjava2.functionstest.entitynet.entities.User;
 import com.github.drinkjava2.functionstest.entitynet.entities.UserRole;
+import com.github.drinkjava2.jdialects.DebugUtils;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.entitynet.DefaultNodeValidator;
@@ -23,16 +29,17 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 import com.github.drinkjava2.jsqlbox.entitynet.Node;
 import com.github.drinkjava2.jsqlbox.entitynet.Path;
 import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
-import com.github.drinkjava2.jsqlbox.handler.EntitySqlMapListHandler;
+import com.github.drinkjava2.jsqlbox.handler.MapListWrap;
+import com.github.drinkjava2.jsqlbox.handler.SSMapListHandler;
+import com.github.drinkjava2.jsqlbox.handler.SSMapListWrapHandler;
 
 public class EntityNetQueryTest extends TestBase {
 	@Before
 	public void init() {
 		super.init();
-		// ctx.setAllowShowSQL(true);
 		TableModel[] models = TableModelUtils.entity2Models(User.class, Email.class, Address.class, Role.class,
 				Privilege.class, UserRole.class, RolePrivilege.class);
-		dropAndCreateDatabase(models);
+		createAndRegTables(models);
 	}
 
 	@Test
@@ -41,9 +48,13 @@ public class EntityNetQueryTest extends TestBase {
 		new User().put("id", "u1").put("userName", "user1").put("age", 10).insert();
 		new User().put("id", "u2").put("userName", "user2").put("age", 20).insert();
 		new User().put("id", "u3").put("userName", "user3").put("age", 30).insert();
-		List<User> setResult = ctx.nQuery(new EntityListHandler(User.class), "select u.** from usertb u where u.age>?",
-				10);
-		Assert.assertTrue(setResult.size() == 2);
+		List<User> users = gpQuery(new EntityListHandler(User.class), "select u.** from usertb u where u.age>?", 10);
+		Assert.assertEquals(2, users.size());
+
+		List<User> users2 = giQuery(new EntityListHandler(User.class,  new User().alias("u")),
+				"select u.id as u_id, u.age as u_age from usertb u where u.age>?", param(10));
+
+		Assert.assertEquals(2, users2.size());
 	}
 
 	@Test
@@ -56,11 +67,9 @@ public class EntityNetQueryTest extends TestBase {
 		List<User> users = net.getAllEntityList(User.class);
 		Assert.assertNull(users.get(0).getUserName());
 
-		User u = new User();
-		u.tableModel().setAlias("u");
-		List<Map<String, Object>> listMap = ctx.nQuery(new EntitySqlMapListHandler(u),
+		List<Map<String, Object>> listMap = gpQuery(MapListHandler.class,
 				"select u.id as u_id, u.userName as u_userName from usertb as u");
-		ctx.netJoinList(net, listMap);// not userName be joined
+		ctx.netJoin(net, listMap, new User().alias("u"));// userName joined
 
 		Assert.assertEquals(2, net.size());
 		users = net.getAllEntityList(User.class);
@@ -75,17 +84,20 @@ public class EntityNetQueryTest extends TestBase {
 		new Email().putFields("id", "emailName", "userId");
 		new Email().putValues("e1", "email1", "u1").insert();
 		new Email().putValues("e2", "email2", "u1").insert();
-		List<Map<String, Object>> listMap = ctx.nQuery(new EntitySqlMapListHandler(new Email().alias("e")),
+
+		MapListWrap wrap = gpQuery(new SSMapListWrapHandler(new Email().alias("e")),
 				"select e.id as e_id from emailtb e");
-		EntityNet net = (EntityNet) ctx.netCreate(listMap);
+		System.out.println(wrap.getMapList());
+		System.out.println(DebugUtils.getTableModelsDebugInfo(wrap.getConfig()));
+
+		EntityNet net = (EntityNet) ctx.netCreate(wrap);
 		Assert.assertEquals(2, net.size());
 		Node emailNode = net.getOneNode(Email.class, "e1");
 		Assert.assertNull(emailNode.getParentRelations());// e1 have no userId
-															// field
 
-		List<Map<String, Object>> listMap2 = ctx.nQuery(new EntitySqlMapListHandler(Email.class),
+		List<Map<String, Object>> listMap2 = gpQuery(new SSMapListHandler(Email.class),
 				"select e.** from emailtb e");
-		ctx.netJoinList(net, listMap2);
+		ctx.netJoin(net, listMap2);
 
 		Assert.assertEquals(2, net.size());
 		emailNode = net.getOneNode(Email.class, "e1");
@@ -144,7 +156,7 @@ public class EntityNetQueryTest extends TestBase {
 
 		System.out.println("user selected2:" + result.get(User.class).size());
 		System.out.println("email selected2:" + result.get(Email.class).size());
-		net.setAllowQueryCache(true);
+
 		start = System.currentTimeMillis();
 		for (int i = 0; i < queyrTimes; i++) {
 			result = net.findNodeMapByEntities(new Path("S+", User.class).nextPath("C+", Email.class, "userId"));
@@ -156,7 +168,7 @@ public class EntityNetQueryTest extends TestBase {
 	}
 
 	@Test
-	public void testFindChild2() {//This unit test will put on user manual
+	public void testFindChild2() {// This unit test will put on user manual
 		int sampleSize = 30;
 		int queyrTimes = 30;
 		for (int i = 0; i < sampleSize; i++) {
@@ -165,7 +177,7 @@ public class EntityNetQueryTest extends TestBase {
 				new Email().put("id", "email" + i + "_" + j, "userId", "usr" + i).insert();
 		}
 		EntityNet net = ctx.netLoad(new User(), Email.class);
-		net.setAllowQueryCache(true);
+ 
 		Map<Class<?>, Set<Node>> result = null;
 		long start = System.currentTimeMillis();
 		for (int i = 0; i < queyrTimes; i++) {
@@ -207,6 +219,7 @@ public class EntityNetQueryTest extends TestBase {
 		Assert.assertEquals(sampleSize * sampleSize, emails.size());
 
 		// Set validator class will cache query result
+ 
 		start = System.currentTimeMillis();
 		p = new Path("S-", User.class).nextPath("C+", Email.class, "userId").setValidator(MyBeanValidator.class);
 		for (int i = 0; i < queyrTimes; i++) {

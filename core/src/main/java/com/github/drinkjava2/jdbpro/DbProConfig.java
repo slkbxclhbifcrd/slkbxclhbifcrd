@@ -11,28 +11,42 @@
  */
 package com.github.drinkjava2.jdbpro;
 
-import java.util.List;
-
-import org.apache.commons.dbutils.ResultSetHandler;
-
+import com.github.drinkjava2.jdbpro.DbProLogger.DefaultDbProLogger;
+import com.github.drinkjava2.jdbpro.template.BasicSqlTemplate;
 import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
 import com.github.drinkjava2.jtransactions.ConnectionManager;
 
 /**
- * SqlBoxContextConfig class is used to store constructor parameters for build
- * SqlBoxContext
+ * DbProConfig class is used to store constructor parameters for build DbPro
+ * instance, this is a transient object, never try to re-use it, re-use it will
+ * break thread safe of jDbPro
  * 
  * @author Yong Zhu
  * @since 1.0.1
  */
-@SuppressWarnings("rawtypes")
 public class DbProConfig {
-	private SqlTemplateEngine templateEngine = DbPro.getGlobalTemplateEngine();
-	private DbProLogger logger = DbPro.getGlobalLogger();
-	private Boolean allowSqlSql = DbPro.getGlobalAllowShowSql();
-	private Integer batchSize = DbPro.getGlobalBatchSize();
-	private ConnectionManager connectionManager = DbPro.getGlobalConnectionManager();
-	private List<ResultSetHandler> handlers = DbPro.getGlobalHandlers();
+	protected static Boolean globalNextAllowShowSql = false;
+	protected static SqlOption globalNextMasterSlaveSelect = SqlOption.USE_AUTO;
+	protected static ConnectionManager globalNextConnectionManager = null;
+	protected static DbProLogger globalNextLogger = DefaultDbProLogger.getLog(ImprovedQueryRunner.class);
+	protected static Integer globalNextBatchSize = 300;
+	protected static SqlTemplateEngine globalNextTemplateEngine = BasicSqlTemplate.instance();
+	protected static IocTool globalNextIocTool = null;
+	protected static SqlHandler[] globalNextSqlHandlers = null;
+	protected static SpecialSqlItemPreparer[] globalNextSpecialSqlItemPreparers = null;
+	
+	
+	private SqlTemplateEngine templateEngine = globalNextTemplateEngine;
+	private DbProLogger logger = globalNextLogger;
+	private Boolean allowSqlSql = globalNextAllowShowSql;
+	private ConnectionManager connectionManager = globalNextConnectionManager;
+	private IocTool iocTool =globalNextIocTool ;
+	private SqlOption masterSlaveSelect = globalNextMasterSlaveSelect ;
+	private Integer batchSize = globalNextBatchSize ;
+	private SqlHandler[] sqlHandlers = globalNextSqlHandlers ;
+	private SpecialSqlItemPreparer[] specialSqlItemPreparers = globalNextSpecialSqlItemPreparers ;
+	private DbPro[] slaves;
+	private DbPro[] masters;
 
 	public SqlTemplateEngine getTemplateEngine() {
 		return templateEngine;
@@ -74,12 +88,126 @@ public class DbProConfig {
 		this.connectionManager = connectionManager;
 	}
 
-	public List<ResultSetHandler> getHandlers() {
-		return handlers;
+	public SqlHandler[] getSqlHandlers() {
+		return sqlHandlers;
 	}
 
-	public void setHandlers(List<ResultSetHandler> handlers) {
-		this.handlers = handlers;
+	public void setSqlHandlers(SqlHandler[] sqlHandlers) {
+		this.sqlHandlers = sqlHandlers;
 	}
 
+	public IocTool getIocTool() {
+		return iocTool;
+	}
+
+	public void setIocTool(IocTool iocTool) {
+		this.iocTool = iocTool;
+	}
+
+	public DbPro[] getSlaves() {
+		return slaves;
+	}
+
+	public void setSlaves(DbPro[] slaves) {
+		this.slaves = slaves;
+	}
+
+	public DbPro[] getMasters() {
+		return masters;
+	}
+
+	public void setMasters(DbPro[] masters) {
+		this.masters = masters;
+	}
+
+	public SqlOption getMasterSlaveSelect() {
+		return masterSlaveSelect;
+	}
+
+	public void setMasterSlaveSelect(SqlOption masterSlaveSelect) {
+		this.masterSlaveSelect = masterSlaveSelect;
+	}
+
+	public SpecialSqlItemPreparer[] getSpecialSqlItemPreparers() {
+		return specialSqlItemPreparers;
+	}
+
+	public void setSpecialSqlItemPreparers(SpecialSqlItemPreparer[] specialSqlItemPreparers) {
+		this.specialSqlItemPreparers = specialSqlItemPreparers;
+	}
+
+	protected void staticGlobalNextMethods_____________________() {// NOSONAR
+	}
+
+	public static DbProLogger getGlobalNextLogger() {
+		return globalNextLogger;
+	}
+
+	public static void setGlobalNextLogger(DbProLogger dbProLogger) {
+		globalNextLogger = dbProLogger;
+	}
+
+	public static Integer getGlobalNextBatchSize() {
+		return globalNextBatchSize;
+	}
+
+	public static void setGlobalNextBatchSize(Integer batchSize) {
+		globalNextBatchSize = batchSize;
+	}
+
+	public static SqlTemplateEngine getGlobalNextTemplateEngine() {
+		return globalNextTemplateEngine;
+	}
+
+	public static void setGlobalNextTemplateEngine(SqlTemplateEngine sqlTemplateEngine) {
+		globalNextTemplateEngine = sqlTemplateEngine;
+	}
+
+	public static Boolean getGlobalNextAllowShowSql() {
+		return globalNextAllowShowSql;
+	}
+
+	public static void setGlobalNextAllowShowSql(Boolean allowShowSql) {
+		 globalNextAllowShowSql = allowShowSql;
+	}
+
+	public static SqlOption getGlobalNextMasterSlaveSelect() {
+		return globalNextMasterSlaveSelect;
+	}
+
+	public static void setGlobalNextMasterSlaveSelect(SqlOption  masterSlaveOption) {
+		 globalNextMasterSlaveSelect = masterSlaveOption;
+	}
+
+	public static ConnectionManager getGlobalNextConnectionManager() {
+		return globalNextConnectionManager;
+	}
+
+	public static void setGlobalNextConnectionManager(ConnectionManager connectionManager) {
+	 globalNextConnectionManager = connectionManager;
+	}
+
+	public static SqlHandler[] getGlobalNextSqlHandlers() {
+		return globalNextSqlHandlers;
+	}
+
+	public static void setGlobalNextSqlHandlers(SqlHandler... sqlHandlers) {
+		globalNextSqlHandlers = sqlHandlers;
+	}
+
+	public static SpecialSqlItemPreparer[] getGlobalNextSpecialSqlItemPreparers() {
+		return globalNextSpecialSqlItemPreparers;
+	}
+
+	public static void setGlobalNextSpecialSqlItemPreparers(SpecialSqlItemPreparer[] specialSqlItemPreparers) {
+		globalNextSpecialSqlItemPreparers = specialSqlItemPreparers;
+	}
+
+	public static IocTool getGlobalNextIocTool() {
+		return globalNextIocTool;
+	}
+
+	public static void setGlobalNextIocTool(IocTool nextIocTool) {
+		globalNextIocTool = nextIocTool;
+	}
 }

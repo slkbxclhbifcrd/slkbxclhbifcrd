@@ -36,7 +36,7 @@ public class HelloWorldTest {
 	}
 
 	@Test
-	public void doText() {
+	public void doTest() {
 		HikariDataSource ds = new HikariDataSource();
 		ds.setJdbcUrl("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 		ds.setDriverClassName("org.h2.Driver");
@@ -45,15 +45,14 @@ public class HelloWorldTest {
 		ds.setMaximumPoolSize(8);
 		ds.setConnectionTimeout(2000);
 		SqlBoxContext ctx = new SqlBoxContext(ds);
-		String[] ddls = ctx.getDialect().toCreateDDL(HelloWorldTest.class);
+		String[] ddls = ctx.toCreateDDL(HelloWorldTest.class);
 		for (String ddl : ddls)
 			ctx.nExecute(ddl);
 
- 
 		HelloWorldTest hello = new HelloWorldTest();
 		hello.setName("ActiveRecordDemoTest");
 		ctx.insert(hello);
-		Assert.assertEquals("ActiveRecordDemoTest", ctx.nQueryForString("select name from HelloWorldTest"));
+		Assert.assertEquals("ActiveRecordDemoTest", ctx.pQueryForString("select name from HelloWorldTest"));
 		ds.close();
 	}
 }

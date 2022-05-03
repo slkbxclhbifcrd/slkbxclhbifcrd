@@ -13,15 +13,15 @@ package com.github.drinkjava2.jsqlbox;
 
 import java.lang.reflect.Method;
 
-import com.github.drinkjava2.jdbpro.inline.PreparedSQL;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 
 /**
- * Entity class extended from ActiveRecord will get CRUD methods, see below
- * difference in jSqlBox to save ActiveRecord entity and normal entity(POJO)
- * into database:
+ * Entity class extended from ActiveRecord or implements ActiveRecordSupport
+ * interface will get CRUD methods, see below difference in jSqlBox to save
+ * ActiveRecord entity and normal entity(POJO) into database:
  * 
  * <pre>
  * ActiveRecord style:   
@@ -43,24 +43,22 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * 
  * </pre>
  * 
- * 
- * 
  * @author Yong Zhu
  * @since 1.0.0
  */
 public class ActiveRecord implements ActiveRecordSupport {
-	private static ThreadLocal<String[]> lastTimePutFieldsCache = new ThreadLocal<String[]>();
-
 	SqlBox box;
 
 	@Override
-	public SqlBox bindedBox() {
+	public SqlBox box() {
+		if (box == null)
+			box = SqlBoxUtils.createSqlBox(SqlBoxContext.gctx(), this.getClass());
 		return box;
 	}
 
 	@Override
-	public void unbindBox() {
-		box = null;
+	public SqlBox bindedBox() {
+		return box;
 	}
 
 	@Override
@@ -71,10 +69,8 @@ public class ActiveRecord implements ActiveRecordSupport {
 	}
 
 	@Override
-	public SqlBox box() {
-		if (box == null)
-			this.bindBox(SqlBoxUtils.createSqlBox(SqlBoxContext.getGlobalSqlBoxContext(), this.getClass()));
-		return box;
+	public void unbindBox() {
+		box = null;
 	}
 
 	@Override
@@ -92,11 +88,10 @@ public class ActiveRecord implements ActiveRecordSupport {
 		return box().getTableModel().getTableName();
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
-	public <T> T alias(String alias) {
+	public ActiveRecordSupport alias(String alias) {
 		box().getTableModel().setAlias(alias);
-		return (T) this;
+		return this;
 	}
 
 	@Override
@@ -108,50 +103,54 @@ public class ActiveRecord implements ActiveRecordSupport {
 	}
 
 	@Override
-	public void useContext(SqlBoxContext ctx) {
+	public ActiveRecordSupport useContext(SqlBoxContext ctx) {
 		box().setContext(ctx);
-	}
-
-	/** Shortcut method equal to SqlBoxContext.getGlobalSqlBoxContext() */
-	public static SqlBoxContext gctx() {
-		return SqlBoxContext.getGlobalSqlBoxContext();
+		return this;
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <T> T insert() {
+	public <T> T insert(Object... optionalSqlItems) {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
-			throw new SqlBoxException(
-					"No default global SqlBoxContext found, please use method SqlBoxContext.setGlobalSqlBoxContext() to set a global default SqlBoxContext instance at the beginning of appication.");
-		ctx.insert(this);
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		ctx.insert(this, optionalSqlItems);
 		return (T) this;
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <T> T update() {
+	public <T> T update(Object... optionalSqlItems) {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
-			throw new SqlBoxException("No default global SqlBoxContext be set.");
-		ctx.update(this);
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		ctx.update(this, optionalSqlItems);
 		return (T) this;
 	}
 
 	@Override
-	public void delete() {
+	public void delete(Object... optionalSqlItems) {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
-			throw new SqlBoxException("No default global SqlBoxContext be set. ");
-		ctx.delete(this);
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		ctx.delete(this, optionalSqlItems);
 	}
 
 	@Override
-	public <T> T load(Object pkey) {
+	public <T> T load(Object... optionalSqlItems) {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
-			throw new SqlBoxException("No default global SqlBoxContext be set.  ");
-		return ctx.load(this.getClass(), pkey);
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		return ctx.load(this,  optionalSqlItems);
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> T loadById(Object idOrIdMap, Object... optionalSqlItems) {
+		SqlBoxContext ctx = ctx();
+		if (ctx == null)
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		return  ctx.loadById((Class<T>)this.getClass(), idOrIdMap, optionalSqlItems);
 	}
 
 	@Override
@@ -198,40 +197,17 @@ public class ActiveRecord implements ActiveRecordSupport {
 
 	@Override
 	public <T> T guess(Object... params) {// NOSONAR
-		return ActiveRecordUtils.doGuess(this, params);
+		return ctx().getSqlMapperGuesser().guess(ctx(), this, params);
 	}
 
 	@Override
 	public String guessSQL() {
-		return ActiveRecordUtils.doGuessSQL(this);
+		return ctx().getSqlMapperGuesser().guessSQL(ctx(), this);
 	}
 
 	@Override
 	public PreparedSQL guessPreparedSQL(Object... params) {
-		return ActiveRecordUtils.doGuessPreparedSQL(this, params);
-	}
-
-	/**
-	 * Create a subClass instance of a abstract ActiveRecord class
-	 */
-	@SuppressWarnings("unchecked")
-	public static <T> T create(Class<?> abstractClass) {
-		Class<?> childClass = ActiveRecordUtils.createChildClass(abstractClass);
-		try {
-			return (T) childClass.newInstance();
-		} catch (Exception e) {
-			throw new SqlBoxException(e);
-		}
-	}
-
-	/**
-	 * Create a subClass instance of a abstract ActiveRecord class and set it's
-	 * SqlBoxContext property
-	 */
-	public static <T> T create(SqlBoxContext ctx, Class<?> abstractClass) {
-		T entity = create(abstractClass);
-		SqlBoxUtils.findAndBindSqlBox(ctx, entity);
-		return entity;
+		return ctx().getSqlMapperGuesser().doGuessPreparedSQL(ctx(), this, params);
 	}
 
 }

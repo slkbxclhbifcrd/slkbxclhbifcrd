@@ -15,26 +15,24 @@ import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 public class Initializer implements WebApplicationInitializer {
 
 	public void onStartup(ServletContext servletContext) throws ServletException {
- 
-		AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
-		ctx.register(WebAppConfig.class);
-		servletContext.addListener(new ContextLoaderListener(ctx));
 
-		ctx.setServletContext(servletContext);
+		AnnotationConfigWebApplicationContext springCtx = new AnnotationConfigWebApplicationContext();
+		springCtx.register(WebAppConfig.class);
+		servletContext.addListener(new ContextLoaderListener(springCtx));
 
-		Dynamic servlet = servletContext.addServlet("dispatcher", new DispatcherServlet(ctx));
+		springCtx.setServletContext(servletContext);
+
+		Dynamic servlet = servletContext.addServlet("dispatcher", new DispatcherServlet(springCtx));
 		servlet.addMapping("/");
 		servlet.setLoadOnStartup(1);
-		
-		ctx.refresh();// force refresh
-		
-		//SqlBoxContext.setGlobalAllowShowSql(true);
-		SqlBoxContext sqlCtx = ctx.getBean(SqlBoxContext.class);
-		SqlBoxContext.setGlobalSqlBoxContext(sqlCtx);
 
-		String[] ddls = sqlCtx.toDropAndCreateDDL(Team.class);
+		springCtx.refresh();// force refresh
+
+		SqlBoxContext sbCtx = springCtx.getBean(SqlBoxContext.class);
+
+		String[] ddls = sbCtx.toCreateDDL(Team.class);
 		for (String ddl : ddls)
-			sqlCtx.quiteExecute(ddl);
+			sbCtx.nExecute(ddl);
 		for (int i = 0; i < 5; i++)
 			new Team().put("name", "Team" + i, "rating", i * 10).insert();
 		System.out.println("========== com.jsqlboxdemo.init.Initializer initialized=====");

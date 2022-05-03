@@ -11,13 +11,13 @@
  */
 package com.github.drinkjava2.jdbpro.handler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.apache.commons.dbutils.ResultSetHandler;
+import com.github.drinkjava2.jdbpro.DefaultOrderSqlHandler;
+import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 
 /**
  * SimpleCacheHandler is a simple memory cache used to cache SQL query result .
@@ -25,13 +25,15 @@ import org.apache.commons.dbutils.ResultSetHandler;
  * @author Yong Zhu
  * @since 1.7.0.2
  */
-@SuppressWarnings("rawtypes")
-public class SimpleCacheHandler implements ResultSetHandler, CacheSqlHandler {
+public class SimpleCacheHandler extends DefaultOrderSqlHandler {
+
+	/** A simple thread-safe LRU Cache with 500 items capacity */
 	private static final Map<String, Object> cache = Collections.synchronizedMap(new LRULinkedHashMap(500));
+
 	private int aliveSeconds;
 
 	public SimpleCacheHandler() {
-		aliveSeconds = 1000;
+		aliveSeconds = 1000;// default alive time is 1000 seconds
 	}
 
 	public SimpleCacheHandler(int aliveSeconds) {
@@ -49,32 +51,27 @@ public class SimpleCacheHandler implements ResultSetHandler, CacheSqlHandler {
 			this.aliveSeconds = 100000;
 	}
 
+	private String createKey(PreparedSQL ps) {
+		return new StringBuilder(Long.toString(System.currentTimeMillis() / 1000 / aliveSeconds)).append("SQL:")
+				.append(ps.getSql()).append("  Params:").append(ps.getParams()).toString();
+	}
+
 	@Override
-	public Object handle(ResultSet result) throws SQLException {
+	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
+		String key = createKey(ps);
+		Object result = cache.get(key);
+		if (result != null)
+			return ((Object[]) result)[1];
+		result = runner.runPreparedSQL(ps);
+		cache.put(key, new Object[] { null, result });
 		return result;
 	}
 
-	@Override
-	public void writeToCache(String key, Object value) {
-		if ((key == null || key.length() == 0) || value == null)
-			return;
-		cache.put(Long.toString(System.currentTimeMillis() / 1000 / aliveSeconds) + key, value);
-	}
-
-	@Override
-	public Object readFromCache(String key) {
-		if ((key == null || key.length() == 0))
-			return null;
-		return cache.get(Long.toString(System.currentTimeMillis() / 1000 / aliveSeconds) + key);
-	}
-
+	/** Call this method to manually clear cache */
 	public static void clearCache() {
 		cache.clear();
 	}
 
-	/**
-	 * A Simple thread-safe LRU Cache
-	 */
 	@SuppressWarnings("serial")
 	public static class LRULinkedHashMap extends LinkedHashMap<String, Object> {// NOSONAR
 		private int capacity;

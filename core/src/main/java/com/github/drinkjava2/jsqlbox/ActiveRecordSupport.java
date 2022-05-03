@@ -11,7 +11,7 @@
  */
 package com.github.drinkjava2.jsqlbox;
 
-import com.github.drinkjava2.jdbpro.inline.PreparedSQL;
+import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 
@@ -24,21 +24,23 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @author Yong Zhu
  * @since 1.0.0
  */
-public interface ActiveRecordSupport {
+public interface ActiveRecordSupport {// NOSONAR
 
-	/**
-	 * @return the binded SqlBox instance
-	 */
-	public SqlBox bindedBox();
+	static final ThreadLocal<String[]> lastTimePutFieldsCache = new ThreadLocal<String[]>();
 
 	/**
 	 * @return the binded SqlBox instance, if no, create a new one and bind to
-	 *         entity
+	 *         entity and return it
 	 */
 	public SqlBox box();
 
 	/**
-	 * Bind a SqlBox instance to entity
+	 * @return the binded SqlBox, if no, return null;
+	 */
+	public SqlBox bindedBox();
+
+	/**
+	 * Bind a SqlBox instance to entity, if already binded, repalce with new one
 	 */
 	public void bindBox(SqlBox box);
 
@@ -51,7 +53,7 @@ public interface ActiveRecordSupport {
 	public TableModel tableModel();
 
 	/** set Entity's box's tableModel's alias name */
-	public <T> T alias(String alias);
+	public ActiveRecordSupport alias(String alias);
 
 	/** @return binded TableModel's columnModel by given columnName */
 	public ColumnModel columnModel(String columnName);
@@ -63,22 +65,26 @@ public interface ActiveRecordSupport {
 	public SqlBoxContext ctx();
 
 	/** Insert entity to database */
-	public <T> T insert();
+	public <T> T insert(Object... optionalSqlItems);
 
 	/** Update entity in database */
-	public <T> T update();
+	public <T> T update(Object... optionalSqlItems);
 
 	/** Delete entity in database */
-	public void delete();
+	public void delete(Object... optionalSqlItems);
 
 	/**
-	 * Load entity from database by primary key, key can be single value or Map
+	 * Load entity from database by primary key, shardTable and shardDatabase fields if have
 	 */
-	public <T> T load(Object pkey);
+	public <T> T load(Object... optionalSqlItems);
 
+	
+	/**  Load entity by given id (P-Key) or id Map  */
+	public <T> T loadById(Object idOrIdMap, Object... optionalSqlItems);
+	
 	/**
 	 * Link style set values for entity field, format like:
-	 * user.set("id","id1").set("name","Sam").set("address","Beijing","phone","12345",
+	 * user.put("id","id1").put("name","Sam").put("address","Beijing","phone","12345",
 	 * "email","abc@123.com")
 	 */
 	public ActiveRecordSupport put(Object... fieldAndValues);
@@ -93,18 +99,28 @@ public interface ActiveRecordSupport {
 	public ActiveRecordSupport putValues(Object... values);
 
 	/**
-	 * Based on current method @Sql annotated String or Text String and parameters,
-	 * guess a best fit query/update/delete/execute method to run
+	 * In SqlMapper style, based on current method @Sql annotated String or Text(see
+	 * user manual) in comments(need put Java file in resources folder, see user
+	 * manual) and parameters, guess a best fit query/update/delete/execute method
+	 * and run it
 	 */
 	public <T> T guess(Object... params);
 
-	/** Return current method's @Sql annotated String or Text String */
+	/**
+	 * In SqlMapper style, return current method's SQL String based on current
+	 * method @Sql annotated String or Text(see user manual) in comments(need put
+	 * Java file in resources folder, see user manual)
+	 */
 	public String guessSQL();
 
-	/** Return current method's prepared SQL */
+	/** In SqlMapper style, return current method's prepared SQL */
 	public PreparedSQL guessPreparedSQL(Object... params);
 
-	/** Switch to use another SqlBoxContext */
-	public void useContext(SqlBoxContext ctx);
+	/**
+	 * Switch to use another SqlBoxContext
+	 * 
+	 * @return
+	 */
+	public ActiveRecordSupport useContext(SqlBoxContext ctx);
 
 }

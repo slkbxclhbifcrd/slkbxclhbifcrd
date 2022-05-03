@@ -1,17 +1,18 @@
 /*
- * jDialects, a tiny SQL dialect tool
- *
  * License: GNU Lesser General Public License (LGPL), version 2.1 or later. See
  * the lgpl.txt file in the root directory or
  * <http://www.gnu.org/licenses/lgpl-2.1.html>.
  */
 package com.github.drinkjava2.functionstest;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.DialectLogger;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
@@ -21,6 +22,16 @@ import com.zaxxer.hikari.HikariDataSource;
  * @since 1.0.2
  */
 public class LoggerTest {
+	@Before
+	public void init() {
+		SqlBoxContext.resetGlobalVariants();
+	}
+
+	@After
+	public void cleanUp() {
+		SqlBoxContext.resetGlobalVariants();
+	}
+
 	private String name;
 
 	public String getName() {
@@ -49,17 +60,16 @@ public class LoggerTest {
 		dataSource.setDriverClassName("org.h2.Driver");
 		dataSource.setUsername("sa");// change to your user & password
 		dataSource.setPassword("");
-		SqlBoxContext.setGlobalAllowShowSql(true);
+		SqlBoxContextConfig.setGlobalNextAllowShowSql(true);
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
 		for (String ddl : ctx.getDialect().toDropAndCreateDDL(LoggerTest.class))
 			ctx.quiteExecute(ddl);
 		LoggerTest t = new LoggerTest();
 		t.setName("Tom");
 		ctx.insert(t);
-		SqlBoxContext.setGlobalAllowShowSql(false);
-
-		SqlBoxContext.getGlobalLogger().info("Logger test message3 output ok");
-		SqlBoxContext.getGlobalLogger().info("Logger test message4 output ok");
+		SqlBoxContextConfig.getGlobalNextLogger().info("Logger test message3 output ok");
+		SqlBoxContextConfig.getGlobalNextLogger().info("Logger test message4 output ok");
+		SqlBoxContextConfig.setGlobalNextAllowShowSql(false);
 	}
 
 }

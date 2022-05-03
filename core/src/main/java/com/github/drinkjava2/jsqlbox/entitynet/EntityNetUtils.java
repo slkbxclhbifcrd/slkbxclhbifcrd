@@ -19,110 +19,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.WeakHashMap;
 
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.FKeyModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.SqlBox;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxException;
-import com.github.drinkjava2.jsqlbox.SqlBoxUtils;
 
 /**
  * Store static methods about EntityNet
  * 
- * @author Yong Zhu 
+ * @author Yong Zhu
  * @since 1.0.0
  */
-public class EntityNetUtils {
-
- 
-
-	public static final ThreadLocal<WeakHashMap<Object, Object>> netConfigBindToListCache = new ThreadLocal<WeakHashMap<Object, Object>>() {
-		@Override
-		protected WeakHashMap<Object, Object> initialValue() {
-			return new WeakHashMap<Object, Object>();
-		}
-	};
-
-	public static void removeBindedTableModel(List<?> listMap) {
-		netConfigBindToListCache.get().remove(listMap);
-	}
-
-	public static TableModel[] getBindedTableModel(List<?> listMap) {
-		return (TableModel[]) netConfigBindToListCache.get().get(listMap);
-	}
-
-	public static void bindTableModel(Object listMap, TableModel[] tableModels) {
-		netConfigBindToListCache.get().put(listMap, tableModels);
-	}
-	
-	/**
-	 * After a query, listMap may binded a threadLocal type TableModel[] netConfigs,
-	 * this method used to join the binded tableModels with given configObjects,
-	 * return a new TableModel[],
-	 */
-	public static TableModel[] joinConfigsModels(SqlBoxContext ctx, List<Map<String, Object>> listMap,
-			Object... configObjects) {
-		// bindeds: tableModels entityClass and alias may be empty
-		// given: tableModels should have entityClass, alias may be null
-		TableModel[] bindeds = getBindedTableModel(listMap);
-		removeBindedTableModel(listMap);
-		if (bindeds == null || bindeds.length == 0)
-			bindeds = new TableModel[0];
-
-		TableModel[] givens;
-		if (configObjects != null && configObjects.length > 0)
-			givens = objectConfigsToModels(ctx, configObjects);
-		else
-			givens = new TableModel[0];
-
-		return EntityNetUtils.jointConfigModels(bindeds, givens);
-	}
-
-	public static TableModel[] jointConfigModels(TableModel[] bindeds, TableModel[] givens) {
-		// check setted to avoid user set empty value to TableModel
-		Map<String, TableModel> uses = new HashMap<String, TableModel>();
-		for (TableModel tb : givens) {
-			SqlBoxException.assureNotNull(tb.getEntityClass(),
-					"EntityClass setting can not be null for '" + tb.getTableName() + "'");
-			SqlBoxException.assureNotEmpty(tb.getTableName(),
-					"TableName setting can not be empty for '" + tb.getTableName() + "'");
-			uses.put(tb.getTableName().toLowerCase(), tb);
-		}
-
-		for (TableModel tb : bindeds) {
-			SqlBoxException.assureNotEmpty(tb.getTableName(),
-					"TableName setting can not be empty for '" + tb.getTableName() + "'");
-			TableModel exist = uses.get(tb.getTableName().toLowerCase());
-			if (tb.getEntityClass() != null) {// it's binded by has entityClass
-				if (exist == null)
-					uses.put(tb.getTableName().toLowerCase(), tb);
-				else // exist and current tb both can use, duplicated
-					throw new SqlBoxException("Duplicated entityClass setting for '" + tb.getTableName() + "'");
-			}
-		}
-
-		for (TableModel tb : bindeds) { // use alias to fill
-			TableModel exist = uses.get(tb.getTableName().toLowerCase());
-			if (exist != null && tb.getEntityClass() == null) {// it's binded by
-																// has
-																// entityClass
-				String alias = tb.getAlias();
-				if (!StrUtils.isEmpty(alias) && StrUtils.isEmpty(exist.getAlias()))
-					exist.setAlias(alias);
-			}
-		}
-		TableModel[] result = new TableModel[uses.size()];
-		int i = 0;
-		for (Entry<String, TableModel> entry : uses.entrySet()) {
-			result[i++] = entry.getValue();
-		}
-		return result;
-	}
+public class EntityNetUtils {// NOSONAR
 
 	/**
 	 * If nodeValidator is object, return it, otherwise it is a NodeValidator class,
@@ -204,7 +114,7 @@ public class EntityNetUtils {
 	/**
 	 * Transfer FKey values to ParentRelation list
 	 */
-	public static List<ParentRelation> transferFKeysToParentRelations(TableModel model, Object entity) {
+	public static List<ParentRelation> transferFKeysToParentRelations(TableModel model, Object entity) {// NOSONAR
 		List<ParentRelation> resultList = null;
 		for (FKeyModel fkey : model.getFkeyConstraints()) {
 			String refTable = fkey.getRefTableAndColumns()[0];
@@ -218,11 +128,11 @@ public class EntityNetUtils {
 					break;
 				}
 				if (fkeyValues.length() > 0)
-					fkeyValues += EntityNet.COMPOUND_VALUE_SEPARATOR;
+					fkeyValues += EntityNet.COMPOUND_VALUE_SEPARATOR;// NOSONAR
 				fkeyValues += fKeyValue;// NOSONAR
 
 				if (fkeyColumns.length() > 0)
-					fkeyColumns += EntityNet.COMPOUND_COLUMNNAME_SEPARATOR;
+					fkeyColumns += EntityNet.COMPOUND_COLUMNNAME_SEPARATOR;// NOSONAR
 				fkeyColumns += colNames;// NOSONAR
 			}
 			if (!StrUtils.isEmpty(fkeyColumns) && !StrUtils.isEmpty(fkeyValues) && !StrUtils.isEmpty(refTable)) {
@@ -304,36 +214,6 @@ public class EntityNetUtils {
 			result.add((T) node.getEntity());
 		return result;
 	}
+ 
 
-	/**
-	 * Transfer Object[] to TableModel[], object can be SqlBox instance, entityClass
-	 * or entity Bean
-	 * 
-	 * <pre>
-	 * 1. TableModel instance, will use it
-	 * 2. SqlBox instance, will use its tableModel
-	 * 3. Class, will call ctx.createSqlBox() to create a SqlBox instance and use its tableModel
-	 * 4. Object, will call SqlBoxUtils.findAndBindSqlBox() to create a SqlBox instance
-	 * </pre>
-	 */
-	public static TableModel[] objectConfigsToModels(SqlBoxContext ctx, Object[] netConfigs) {
-		if (netConfigs == null || netConfigs.length == 0)
-			return new TableModel[0];
-		TableModel[] result = new TableModel[netConfigs.length];
-		for (int i = 0; i < netConfigs.length; i++) {
-			Object obj = netConfigs[i];
-			if (obj == null)
-				throw new SqlBoxException("Can not convert null to SqlBox instance");
-			if (obj instanceof TableModel)
-				result[i] = (TableModel) obj;
-			else if (obj instanceof SqlBox)
-				result[i] = ((SqlBox) obj).getTableModel();
-			else if (obj instanceof Class)
-				result[i] = SqlBoxUtils.createSqlBox(ctx, (Class<?>) obj).getTableModel();
-			else {
-				result[i] = SqlBoxUtils.findAndBindSqlBox(ctx, obj).getTableModel();
-			}
-		}
-		return result;
-	}
 }

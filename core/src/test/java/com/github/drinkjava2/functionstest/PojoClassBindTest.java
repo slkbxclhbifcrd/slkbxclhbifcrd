@@ -47,11 +47,11 @@ public class PojoClassBindTest extends TestBase {
 	@Test
 	public void pojoBindTest() {
 		TableModel[] tables = TableModelUtils.entity2Models(PojoBeanSample.class);
-		dropAndCreateDatabase(tables);
+		createAndRegTables(tables);
 		PojoBeanSample pojo = new PojoBeanSample();
 		pojo.setField1("test");
 		ctx.insert(pojo);
-		PojoBeanSample pojo2 = ctx.load(PojoBeanSample.class, "test");
+		PojoBeanSample pojo2 = ctx.loadById(PojoBeanSample.class, "test");
 		Assert.assertEquals("test", pojo2.getField1());
 		System.out.println(pojo2.getField1());
 	}

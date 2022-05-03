@@ -10,15 +10,13 @@ import com.zaxxer.hikari.HikariDataSource;
  * 
  * @author Yong Zhu
  *
- * @version 1.0.0
  * @since 1.0.0
  */
 public class DataSourceConfig {
 	/**
 	 * ================================================================<br/>
-	 * Data source setting, change "H2DataSourceBox" to MySqlDataSourceBox to test
-	 * on MySql <br/>
-	 * This project is already tested on H2, MySql5, Oracle11g, MSSQL2012
+	 * Data source setting, change "H2DataSourceBox" to MySqlDataSourceBox to
+	 * test on MySql <br/>
 	 * ================================================================<br/>
 	 */
 	public static class DataSourceBox extends H2DataSourceBox {
@@ -37,7 +35,7 @@ public class DataSourceConfig {
 	// MySql connection URL
 	public static class MySqlDataSourceBox extends HikariCPBox {
 		{
-			setProperty("jdbcUrl", "jdbc:mysql://127.0.0.1:3306/test?rewriteBatchedStatements=true&useSSL=false");
+			setProperty("jdbcUrl", "jdbc:mysql://127.0.0.1:3306/jsqlboxtest?rewriteBatchedStatements=true&useSSL=false");
 			setProperty("driverClassName", "com.mysql.jdbc.Driver");
 			setProperty("username", "root");// change to your user & password
 			setProperty("password", "root888");

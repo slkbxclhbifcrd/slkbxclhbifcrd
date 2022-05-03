@@ -13,6 +13,10 @@ package com.github.drinkjava2.jsqlbox;
 
 import com.github.drinkjava2.jdbpro.DbProConfig;
 import com.github.drinkjava2.jdialects.Dialect;
+import com.github.drinkjava2.jdialects.id.SnowflakeCreator;
+import com.github.drinkjava2.jsqlbox.sharding.ShardingModTool;
+import com.github.drinkjava2.jsqlbox.sharding.ShardingRangeTool;
+import com.github.drinkjava2.jsqlbox.sharding.ShardingTool;
 
 /**
  * SqlBoxContextConfig class is used to store constructor parameters for build
@@ -22,7 +26,21 @@ import com.github.drinkjava2.jdialects.Dialect;
  * @since 1.0.1
  */
 public class SqlBoxContextConfig extends DbProConfig {
-	private Dialect dialect = SqlBoxContext.getGlobalDialect();
+	protected static Dialect globalNextDialect = null;
+	protected static SqlMapperGuesser globalNextSqlMapperGuesser = SqlMapperDefaultGuesser.instance;
+	protected static ShardingTool[] globalNextShardingTools = new ShardingTool[] { new ShardingModTool(),
+			new ShardingRangeTool() };
+	protected static SnowflakeCreator globalNextSnowflakeCreator = null;
+	
+	
+	private Dialect dialect = globalNextDialect;
+	private SqlMapperGuesser sqlMapperGuesser = globalNextSqlMapperGuesser ;
+	private SnowflakeCreator snowflakeCreator = globalNextSnowflakeCreator ;
+	private ShardingTool[] shardingTools = globalNextShardingTools ;
+
+	public SqlBoxContextConfig() {
+		super();
+	}
 
 	public Dialect getDialect() {
 		return dialect;
@@ -33,4 +51,62 @@ public class SqlBoxContextConfig extends DbProConfig {
 		return this;
 	}
 
+	public SqlMapperGuesser getSqlMapperGuesser() {
+		return sqlMapperGuesser;
+	}
+
+	public void setSqlMapperGuesser(SqlMapperGuesser sqlMapperGuesser) {
+		this.sqlMapperGuesser = sqlMapperGuesser;
+	}
+
+	public ShardingTool[] getShardingTools() {
+		return shardingTools;
+	}
+
+	public void setShardingTools(ShardingTool[] shardingTools) {
+		this.shardingTools = shardingTools;
+	}
+
+	public SnowflakeCreator getSnowflakeCreator() {
+		return snowflakeCreator;
+	}
+
+	public void setSnowflakeCreator(SnowflakeCreator snowflakeCreator) {
+		this.snowflakeCreator = snowflakeCreator;
+	}
+
+	protected void staticGlobalNextMethods______________________() {// NOSONAR
+	}
+	
+	public static Dialect getGlobalNextDialect() {
+		return  globalNextDialect;
+	}
+
+	public static SqlMapperGuesser getGlobalNextSqlMapperGuesser() {
+		return  globalNextSqlMapperGuesser;
+	}
+
+	public static void setGlobalNextSqlMapperGuesser(SqlMapperGuesser sqlMapperGuesser) {
+		globalNextSqlMapperGuesser = sqlMapperGuesser;
+	}
+
+	public static void setGlobalNextDialect(Dialect dialect) {
+		globalNextDialect = dialect;
+	}
+
+	public static ShardingTool[] getGlobalNextShardingTools() {
+		return globalNextShardingTools;
+	}
+
+	public static void setGlobalNextShardingTools(ShardingTool[] shardingTools) {
+		globalNextShardingTools = shardingTools;
+	}
+
+	public static SnowflakeCreator getGlobalNextSnowflakeCreator() {
+		return globalNextSnowflakeCreator;
+	}
+
+	public static void setGlobalNextSnowflakeCreator(SnowflakeCreator snowflakeCreator) {
+		globalNextSnowflakeCreator = snowflakeCreator;
+	}
 }
