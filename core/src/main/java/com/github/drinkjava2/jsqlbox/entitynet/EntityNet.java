@@ -11,8 +11,8 @@
  */
 package com.github.drinkjava2.jsqlbox.entitynet;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -28,556 +28,356 @@ import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
-import com.github.drinkjava2.jsqlbox.handler.SSMapListHandler;
+import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 /**
- * EntityNet is a child project to build entity net. it's a memory based Object
- * net, can kind of be called "Graph Database" or "NoSQL Database". Not like
- * Neo4j can write to disk file, EntityNet is only a memory based graph 1:1
- * mapping to relational database's tables, the relationship in Neo4j is call
- * "Edge", but in EntityNet is still called relationship, just exactly use the
- * existed relational database's foreign key constraints. If want use EntityNet
- * but don't want output foreign key constraint in DDL, can build fake
- * FKeyModels by setting "ddl=false" (see jDialects project).
- * 
- * Some benefits to use a graph database than traditional database:<br/>
- * 1) No need write complicated join SQLs. <br/>
- * 2) Working in memory, much quicker browse speed between nodes than access
- * database records stored on hard disk. <br/>
- * 3) Can use pure Java language do browsing search.
- * 
- * EntityNet class is not thread safe. If want use it as a global cache,
- * programmer need use synchronized method to serialize modify it, like use a
- * HashMap in multiple threads environment.
+ * EntityNet is Entity net, after created by using EntityNetHandler, can use
+ * pickXxxx methods to pick entity list/set/map from it, and also can use NoSql
+ * type search.
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
 public class EntityNet {
-
-	/** Used to combine compound key column names into a single String */
-	public static final String COMPOUND_COLUMNNAME_SEPARATOR = "_CpdIdSpr_";
-
 	/** Used to combine compound key column values into a single String */
-	public static final String COMPOUND_VALUE_SEPARATOR = "_CpdValSpr_";
+	public static final String COMPOUND_VALUE_SEPARATOR = "__";
+
+	/** Models, Map<alias, tableModels> */
+	private Map<String, TableModel> configs = new LinkedHashMap<String, TableModel>();
+
+	private List<String[]> givesList = new ArrayList<String[]>();
 
 	/**
-	 * ConfigModels is virtual meta data of EntityNet, and also store O-R mapping
-	 * info related to database
+	 * The row Data loaded from database, List<Map<colName, colValue>> or <"u",
+	 * entity> or <"#u",entityId>
 	 */
-	private Map<Class<?>, TableModel> configModels = new HashMap<Class<?>, TableModel>();
+	private List<Map<String, Object>> rowData = new ArrayList<Map<String, Object>>();
 
-	/** The body of the EntityNet */
-	// entityClass, nodeID, node
-	private Map<Class<?>, LinkedHashMap<String, Node>> body = new HashMap<Class<?>, LinkedHashMap<String, Node>>();
+	/** The body of entity net, Map<alias, Map<entityId, entity>> */
+	private Map<String, LinkedHashMap<Object, Object>> body = new HashMap<String, LinkedHashMap<Object, Object>>();
 
-	/**
-	 * queryCache cache search result after do a path serach <br/>
-	 * 
-	 * QueryCache will be filled when all of these conditions meet: <br/>
-	 * 1)EntityNet's cacheable is true (default) <br/>
-	 * 2)Path's cacheable is true (default)<br/>
-	 * 3)Path's checker should be null or a Checker class <br/>
-	 * 4)For Path Chain, all child Paths should cacheable
-	 * 
-	 * Any writing to EntityNet will cause all queryCache be cleared.
-	 */
-	// NodeId , PathId, ChildNodeIDs
-	private Map<String, Map<Integer, Set<Node>>> queryCache = new HashMap<String, Map<Integer, Set<Node>>>();
-
-	/**
-	 * Use a Integer to replace String as path id can save memory
-	 */
-	private int currentPathId = 1;
-
-	private Map<String, Integer> pathIdCache = new HashMap<String, Integer>();
-
-	public EntityNet() {
+	protected void core__________________________() {// NOSONAR
 	}
 
-	public EntityNet(List<Map<String, Object>> listMap, TableModel... models) {
-		addMapList(listMap, models);
-	}
-
-	/** Create a EntityNet instance by given listMap and configs */
-	public static EntityNet createEntityNet(List<Map<String, Object>> listMap, TableModel[] configs) {
-		return new EntityNet(listMap, configs);
-	}
-
-	/**
-	 * Create a EntityNet instance, load data from database buy given loadKeyOnly
-	 * and configObjects parameters
-	 * 
-	 * @param ctx
-	 *            A SqlBoxContext instance
-	 * @param loadKeyOnly
-	 *            If true will only load PKey and FKeys field, otherwise load all
-	 *            columns
-	 * @param configObjects
-	 *            netConfigs array, can be entity class, entity, SqlBox or
-	 *            TableModel instance
-	 * @return The EntityNet
-	 */
-	public static EntityNet createEntityNet(SqlBoxContext ctx, boolean loadKeyOnly, Object... configObjects) {
-		if (configObjects == null || configObjects.length == 0)
-			throw new EntityNetException("LoadNet() does not support empty netConfigs parameter");
-		TableModel[] models = SqlBoxContextUtils.objectConfigsToModels(ctx, configObjects);
-		EntityNet net = new EntityNet();
-		String starOrSharp = loadKeyOnly ? ".##" : ".**";
-		for (TableModel t : models) {
-			List<Map<String, Object>> mapList = null;
+	/** Config, parameters can be entity or entity class or TableModel */
+	public EntityNet config(Object... entityOrModel) {
+		for (Object object : entityOrModel) {
+			TableModel t = SqlBoxContextUtils.configToModel(object);
+			SqlBoxException.assureNotNull(t.getEntityClass(), "'entityClass' property not set for model " + t);
 			String alias = t.getAlias();
-			if (StrUtils.isEmpty(alias))
-				alias = t.getTableName();
-			mapList = ctx.iQuery(new SSMapListHandler(t),
-					"select " + alias + starOrSharp + " from " + t.getTableName() + " as " + alias);
-			net.addMapList(mapList, t);
-		}
-		return net;
-	}
-
-	/**
-	 * Add a List<Map<String, Object>> list to entity net
-	 *
-	 * @param listMap
-	 * @param modelConfigs
-	 * @return EntityNet it self
-	 */
-	public EntityNet addMapList(List<Map<String, Object>> listMap, TableModel... configs) {
-		if (listMap == null)
-			throw new EntityNetException("Can not join null listMap");
-		// clean query caches
-		cleanAllQueryCaches();
-
-		EntityNetUtils.checkModelHasEntityClassAndAlias(configs);
-		if (configs != null && configs.length > 0)// Join models
-			for (TableModel tb : configs) {
-				if (tb.getEntityClass() == null) {
-					if (StrUtils.isEmpty(tb.getAlias()))
-						throw new EntityNetException(
-								"TableModel of '" + tb.getTableName() + "' entityClass and alias are not set");
-				} else {
-					this.configModels.put(tb.getEntityClass(), tb);
-				}
+			if (StrUtils.isEmpty(alias)) {
+				StringBuilder sb = new StringBuilder();
+				char[] chars = t.getEntityClass().getSimpleName().toCharArray();
+				for (char c : chars)
+					if (c >= 'A' && c <= 'Z')
+						sb.append(c);
+				alias = sb.toString().toLowerCase();
 			}
-		for (Map<String, Object> map : listMap) {// join map list
-			addOneRowMapList(map);
+			SqlBoxException.assureNotEmpty(alias, "Alias can not be empty for class '" + t.getEntityClass() + "'");
+			if (configs.containsKey(alias)) {
+				throw new SqlBoxException("Duplicated alias '" + alias + "' for class '" + t.getEntityClass()
+						+ "' found, need use configOne method manually set alias.");
+			}
+			t.setAlias(alias);
+			configs.put(alias, t);
 		}
 		return this;
 	}
 
-	private void cleanAllQueryCaches() {
-		pathIdCache = new HashMap<String, Integer>();
-		queryCache = new HashMap<String, Map<Integer, Set<Node>>>();
+	/** Config entity1, alias1, entity2, alias2... */
+	public EntityNet configAlias(Object... args) {
+		for (int i = 0; i < args.length / 2; i++)
+			configOneAlias(args[i * 2], (String) args[i * 2 + 1]);
+		return this;
 	}
 
-	/**
-	 * Assembly one row of Map List to Entities, according net's configModels
-	 */
-	protected void addOneRowMapList(Map<String, Object> oneRow) {
-		for (TableModel model : this.configModels.values()) {
-			Object entity = null;
+	/** Config one entity */
+	private EntityNet configOneAlias(Object entityOrModel, String alias) {
+		TableModel t = SqlBoxContextUtils.configToModel(entityOrModel);
+		SqlBoxException.assureNotNull(t.getEntityClass(), "'entityClass' property not set for model " + t);
+		SqlBoxException.assureNotEmpty(alias, "Alias can not be empty for class '" + t.getEntityClass() + "'");
+		t.setAlias(alias);
+		if (configs.containsKey(alias))
+			throw new SqlBoxException("Duplicated alias '" + alias + "' found, need manually set alias.");
+		configs.put(alias, t);
+		return this;
+	}
+
+	/** Give a's value to b's aField */
+	public EntityNet giveBoth(String a, String b) {
+		give(a, b);
+		give(b, a);
+		return this;
+	}
+
+	/** Give a's value to b's aField */
+	public EntityNet give(String a, String b) {
+		TableModel aModel = configs.get(a);
+		SqlBoxException.assureNotNull(aModel, "Not found config for alias '" + a + "'");
+		SqlBoxException.assureNotNull(aModel.getEntityClass(), "'entityClass' property not set for model " + aModel);
+		String fieldName = StrUtils.toLowerCaseFirstOne(aModel.getEntityClass().getSimpleName());
+
+		TableModel bModel = configs.get(b);
+		SqlBoxException.assureNotNull(bModel, "Not found config for alias '" + a + "'");
+		SqlBoxException.assureNotNull(bModel.getEntityClass(), "'entityClass' property not set for model " + bModel);
+
+		boolean found = false;
+		Method readMethod = ClassCacheUtils.getClassFieldReadMethod(bModel.getEntityClass(), fieldName);
+		if (readMethod != null) {
+			give(a, b, StrUtils.toLowerCaseFirstOne(fieldName));
+			found = true;
+		}
+
+		readMethod = ClassCacheUtils.getClassFieldReadMethod(bModel.getEntityClass(), fieldName + "List");
+		if (readMethod != null) {
+			give(a, b, fieldName + "List");
+			found = true;
+		}
+
+		readMethod = ClassCacheUtils.getClassFieldReadMethod(bModel.getEntityClass(), fieldName + "Set");
+		if (readMethod != null) {
+			give(a, b, fieldName + "Set");
+			found = true;
+		}
+		readMethod = ClassCacheUtils.getClassFieldReadMethod(bModel.getEntityClass(), fieldName + "Map");
+		if (readMethod != null) {
+			give(a, b, fieldName + "Map");
+			found = true;
+		}
+		if (!found)
+			throw new SqlBoxException("Not found field '" + fieldName + "' or '" + fieldName
+					+ "List/Set/Map' in class /" + bModel.getEntityClass());
+		return this;
+	}
+
+	/** Give a's value to b's someField */
+	public EntityNet give(String a, String b, String someField) {
+		SqlBoxException.assureNotEmpty(someField, "give field parameter can not be empty for '" + b + "'");
+		givesList.add(new String[] { a, b, someField });
+		return this;
+	}
+
+	public EntityNet translateToEntity(SqlBoxContext ctx, List<Map<String, Object>> listMap) {
+		for (Map<String, Object> map : listMap) {
+			rowData.add(map);
+			translateToEntities(ctx, map);
+			if (!givesList.isEmpty())
+				doGive(map);
+		}
+		return this;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public <T> List<T> pickEntityList(String alias) {
+		return (List<T>) new ArrayList(body.get(alias).values());
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public <T> Set<T> pickEntitySet(String alias) {
+		return (Set<T>) new LinkedHashSet(body.get(alias).values());
+	}
+
+	@SuppressWarnings({ "unchecked" })
+	public <T> Map<Object, T> pickEntityMap(String alias) {
+		return (Map<Object, T>) body.get(alias);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <T> T pickOneEntity(String alias, Object entityId) {
+		SqlBoxException.assureNotEmpty(alias);
+		if (!configs.containsKey(alias))
+			throw new SqlBoxException("There is no alias '" + alias + "' setting in current EntityNet.");
+		TableModel model = configs.get(alias);
+		Object realEntityId = EntityIdUtils.buildEntityIdFromUnknow(entityId, model);
+		if (realEntityId == null)
+			throw new SqlBoxException("Can not build entityId for '" + entityId + "'");
+		Map<Object, Object> map = body.get(alias);
+		if (map == null)
+			return null;
+		return (T) map.get(realEntityId);
+	}
+
+	/** Translate one row map list to entity objects, put into entity net body */
+	private void translateToEntities(SqlBoxContext ctx, Map<String, Object> oneRow) {
+		for (Entry<String, TableModel> config : this.configs.entrySet()) {
+			TableModel model = config.getValue();
 			String alias = model.getAlias();
-			if (StrUtils.isEmpty(alias))
-				throw new EntityNetException("No alias found for table '" + model.getTableName() + "'");
-			Set<String> loadedFields = new HashSet<String>();
+
+			// find and build entityID
+			Object entityId = EntityIdUtils.buildEntityIdFromOneRow(oneRow, model);
+			if (entityId == null)
+				continue;// not found entity ID columns
+			Object entity = getOneEntity(alias, entityId);
 
 			// create new Entity
-			for (Entry<String, Object> row : oneRow.entrySet()) { // u_userName
-				for (ColumnModel col : model.getColumns()) {
-					if (row.getKey().equalsIgnoreCase(alias + "_" + col.getColumnName())) {
-						if (entity == null)
-							entity = ClassCacheUtils.createNewEntity(model.getEntityClass());
-						EntityNetException.assureNotEmpty(col.getEntityField(),
-								"EntityField not found for column '" + col.getColumnName() + "'");
-						ClassCacheUtils.writeValueToBeanField(entity, col.getEntityField(), row.getValue());
-						loadedFields.add(col.getEntityField());
+			if (entity == null) {
+				entity = createEntity(ctx, oneRow, model, alias);
+				this.putOneEntity(alias, entityId, entity);
+			}
+			oneRow.put(alias, entity);// In this row, add entities directly
+			oneRow.put("#" + alias, entityId); // In this row, add entityIds
+		}
+	}
+
+	private static Object createEntity(SqlBoxContext ctx, Map<String, Object> oneRow, TableModel model, String alias) {
+		Object entity;
+		entity = ClassCacheUtils.createNewEntity(model.getEntityClass());
+		ctx.getSqlBox(entity).setTableModel(model.newCopy());
+		for (Entry<String, Object> row : oneRow.entrySet()) { // u_userName
+			for (ColumnModel col : model.getColumns()) {
+				if (col.getTransientable())
+					continue;
+				if (row.getKey().equalsIgnoreCase(alias + "_" + col.getColumnName())) {
+					SqlBoxException.assureNotEmpty(col.getEntityField(),
+							"EntityField not set for column '" + col.getColumnName() + "'");
+					ClassCacheUtils.writeValueToBeanField(entity, col.getEntityField(), row.getValue());
+				}
+			}
+		}
+		return entity;
+	}
+
+	/** Give values according gives setting for oneRow */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private void doGive(Map<String, Object> oneRow) {// NOSONAR
+		for (String[] gives : givesList) {
+			String fromAlias = gives[0];
+			String toAlias = gives[1];
+			Object from = oneRow.get(fromAlias);
+			Object to = oneRow.get(toAlias);
+			String tofield = gives[2];
+			SqlBoxException.assureNotEmpty(tofield);
+			if (from != null && to != null) {
+				TableModel toModel = configs.get(toAlias);
+				ColumnModel col = toModel.getColumn(tofield);
+				Method readMethod = ClassCacheUtils.getClassFieldReadMethod(toModel.getEntityClass(),
+						col.getEntityField());
+				Class<?> fieldType = readMethod.getReturnType();
+				if (fieldType.isAssignableFrom(List.class)) {
+					List list = (List) ClassCacheUtils.readValueFromBeanField(to, tofield);
+					if (list == null) {
+						list = new ArrayList<Object>();
+						ClassCacheUtils.writeValueToBeanField(to, tofield, list);
 					}
-				}
-			}
-			if (entity != null)
-				this.addOrJoinEntity(entity, model, loadedFields);
-		}
-	}
-
-	/**
-	 * Add a Entity into entity net
-	 */
-	public void addEntity(Object entity, TableModel tableModel) {
-		cleanAllQueryCaches();
-		Set<String> loadedFields = new HashSet<String>();
-		for (ColumnModel col : tableModel.getColumns())
-			loadedFields.add(col.getEntityField());
-		addOrJoinEntity(entity, tableModel, loadedFields);
-	}
-
-	/** Remove entity from current entityNet */
-	public void removeEntity(Object entity, TableModel tableModel) {
-		cleanAllQueryCaches();
-		String id = EntityNetUtils.buildNodeId(tableModel, entity);
-		body.get(entity.getClass()).remove(id);
-	}
-
-	/** Update entity in current entityNet */
-	public void updateEntity(Object entity, TableModel tableModel) {
-		removeEntity(entity, tableModel);
-		addEntity(entity, tableModel);
-	}
-
-	/**
-	 * Add an entity to EntityNet, if already have same PKEY entity exist, if old
-	 * entity field is never loaded from database, will put new entity's value
-	 */
-	protected void addOrJoinEntity(Object entity, TableModel tableModel, Set<String> loadedFields) {
-		String id = EntityNetUtils.buildNodeId(tableModel, entity);
-		List<ParentRelation> parentRelations = EntityNetUtils.transferFKeysToParentRelations(tableModel, entity);
-		Node node = new Node();
-		node.setEntity(entity);
-		node.setParentRelations(parentRelations);
-		node.setId(id);
-		node.setLoadedFields(loadedFields);
-		addOrJoinOneNodeToBody(node);
-	}
-
-	/**
-	 * Add or join an node into EntityNet body, if old node with same ID already
-	 * exist, join loaded fields and ParentRelation
-	 */
-	protected void addOrJoinOneNodeToBody(Node node) {
-		Node oldNode = findIfNodeAlreadyExist(node);
-		if (oldNode == null)
-			this.addNode(node);
-		else {
-			// join loaded fields
-			Set<String> newFields = node.getLoadedFields();
-			if (newFields == null || newFields.isEmpty())
-				return;
-			Set<String> oldFields = oldNode.getLoadedFields();
-			if (oldFields == null) {
-				oldFields = new HashSet<String>();
-				oldNode.setLoadedFields(oldFields);
-			}
-			for (String newField : newFields)
-				if (!oldFields.contains(newField)) {
-					oldFields.add(newField);
-					Object newValue = ClassCacheUtils.readValueFromBeanField(node.getEntity(), newField);
-					ClassCacheUtils.writeValueToBeanField(oldNode.getEntity(), newField, newValue);
-				}
-
-			// join parentRelations
-			List<ParentRelation> newParentRelations = node.getParentRelations();
-			if (newParentRelations == null || newParentRelations.isEmpty())
-				return;
-			List<ParentRelation> oldParentRelations = oldNode.getParentRelations();
-
-			if (oldParentRelations == null) {
-				oldParentRelations = new ArrayList<ParentRelation>();
-				oldNode.setParentRelations(oldParentRelations);
-			}
-			for (ParentRelation newP : newParentRelations) {
-				for (ParentRelation oldP : oldParentRelations) {
-					if (newP.equals(oldP))
-						break;
-				}
-				oldParentRelations.add(newP);
-			}
-		}
-	}
-
-	/** Add one node into EntityNet body */
-	protected void addNode(Node node) {
-		EntityNetException.assureNotNull(node, "Can not add null node");
-		EntityNetException.assureNotNull(node.getEntity(), "Can not add node with null entity");
-		Class<?> entityClass = node.getEntity().getClass();
-		LinkedHashMap<String, Node> nodeMap = body.get(entityClass);
-		if (nodeMap == null) {
-			nodeMap = new LinkedHashMap<String, Node>();
-			body.put(entityClass, nodeMap);
-		}
-		nodeMap.put(node.getId(), node);
-	}
-
-	// ===============MISC methods============
-	private Node findIfNodeAlreadyExist(Node node) {
-		if (node == null || node.getEntity() == null)
-			return null;
-		LinkedHashMap<String, Node> nodes = body.get(node.getEntity().getClass());
-		if (nodes == null)
-			return null;
-		return nodes.get(node.getId());
-	}
-
-	/** Return total how many nodes */
-	public int size() {
-		int size = 0;
-		for (LinkedHashMap<String, Node> map : body.values()) {
-			size += map.size();
-		}
-		return size;
-	}
-
-	/** Return a Node by given entityClass and nodeId */
-	public Node getOneNode(Class<?> entityClass, String nodeId) {
-		LinkedHashMap<String, Node> nodesMap = body.get(entityClass);
-		if (nodesMap == null)
-			return null;
-		return nodesMap.get(nodeId);
-	}
-
-	/** Return a entity by given entityClass and nodeId */
-	@SuppressWarnings("unchecked")
-	public <T> T getOneEntity(Class<?> entityClass, String nodeId) {
-		Node node = getOneNode(entityClass, nodeId);
-		if (node == null)
-			return null;
-		return (T) node.getEntity();
-	}
-
-	/** Return EntityNode list in EntityNet which type is entityClass */
-	public Set<Node> getAllNodeSet(Class<?> entityClass) {
-		Set<Node> result = new LinkedHashSet<Node>();
-		LinkedHashMap<String, Node> nodesMap = body.get(entityClass);
-		if (nodesMap == null || nodesMap.isEmpty())
-			return result;
-		result.addAll(nodesMap.values());
-		return result;
-	}
-
-	/** Return entity set in EntityNet which type is entityClass */
-	public <T> Set<T> getAllEntitySet(Class<T> entityClass) {
-		return EntityNetUtils.nodeCollection2EntitySet(getAllNodeSet(entityClass));
-	}
-
-	/** Return entity List in EntityNet which type is entityClass */
-	public <T> List<T> getAllEntityList(Class<T> entityClass) {
-		return EntityNetUtils.nodeCollection2EntityList(getAllNodeSet(entityClass));
-	}
-
-	// ============= Find methods=============================
-
-	/**
-	 * Find entity set in EntityNet by given path and entity input array
-	 */
-	public <T> Set<T> findEntitySet(Class<T> targetEntityClass, Path path, Object... entities) {
-		Set<Node> input = EntityNetUtils.entityArray2NodeSet(this, entities);
-		Map<Class<?>, Set<Node>> nodeMapSet = findNodeMapByNodeCollection(path, input);
-		Set<Node> nodeSet = nodeMapSet.get(targetEntityClass);
-		return EntityNetUtils.nodeCollection2EntitySet(nodeSet);
-	}
-
-	/**
-	 * Find entity set in EntityNet by given path and entity input collection
-	 */
-	public <T> Set<T> findEntitySet(Class<T> targetEntityClass, Path path, Collection<Object> entityCollection) {
-		Set<Node> input = new LinkedHashSet<Node>();
-		for (Object entity : entityCollection) {
-			Node node = EntityNetUtils.entity2Node(this, entity);
-			if (node != null)
-				input.add(node);
-		}
-		Map<Class<?>, Set<Node>> nodeMapSet = findNodeMapByNodeCollection(path, input);
-		Set<Node> nodeSet = nodeMapSet.get(targetEntityClass);
-		return EntityNetUtils.nodeCollection2EntitySet(nodeSet);
-	}
-
-	/**
-	 * Find entity set map in EntityNet by given path and entity input array
-	 */
-	public Map<Class<?>, Set<Object>> findEntityMap(Path path, Object... entities) {
-		Map<Class<?>, Set<Node>> nodeMap = findNodeMapByEntities(path, entities);
-		return EntityNetUtils.nodeSetMapToEntitySetMap(nodeMap);
-	}
-
-	/**
-	 * Find node set in EntityNet by given path and entity input array
-	 */
-	public Map<Class<?>, Set<Node>> findNodeMapByEntities(Path path, Object... entities) {
-		Set<Node> input = EntityNetUtils.entityArray2NodeSet(this, entities);
-		return findNodeMapByNodeCollection(path, input);
-	}
-
-	/**
-	 * Find node set in EntityNet by given path and entity input collection
-	 */
-	public Map<Class<?>, Set<Node>> findNodeMapByEntityCollection(Path path, Collection<Object> entityCollection) {
-		Set<Node> input = new LinkedHashSet<Node>();
-		for (Object entity : entityCollection) {
-			Node node = EntityNetUtils.entity2Node(this, entity);
-			if (node != null)
-				input.add(node);
-		}
-		return findNodeMapByNodeCollection(path, input);
-	}
-
-	/**
-	 * Find Node Map by Node collection
-	 */
-	public Map<Class<?>, Set<Node>> findNodeMapByNodeCollection(Path path, Collection<Node> input) {
-		Map<Class<?>, Set<Node>> result = new HashMap<Class<?>, Set<Node>>();
-		Path topPath = path.getTopPath();
-		topPath.initializePath(this);
-		findNodeSetforNodes(0, topPath, input, result);
-		return result;
-	}
-
-	/**
-	 * According given path and input Node Set, find related node set
-	 * 
-	 * @param level
-	 *            search level, start from 0
-	 * @param path
-	 *            The Path
-	 * @param input
-	 *            The input node collection
-	 * @param output
-	 *            The output node collection
-	 * @return Related node set
-	 */
-	private void findNodeSetforNodes(Integer level, Path path, Collection<Node> input,
-			Map<Class<?>, Set<Node>> result) {
-		if (level > 1000)
-			throw new EntityNetException(
-					"Search level beyond 1000, this may caused by a circular reference path chain.");
-		TableModel model = path.getTargetModel();
-		String type0 = path.getType().substring(0, 1);
-		String type1 = path.getType().substring(1, 2);
-		Class<?> targetClass = model.getEntityClass();
-
-		Set<Node> selected = new LinkedHashSet<Node>();
-		String pathUniqueString = path.getUniqueIdString();
-		Integer pathId = pathIdCache.get(pathUniqueString);
-
-		// Start
-		if ("S".equalsIgnoreCase(type0)) {
-			if (level != 0)
-				throw new EntityNetException("'S' type can only be used on path start");
-			// Check if cached
-			Map<Integer, Set<Node>> rootCache = queryCache.get("ROOT");
-			if ( path.getCacheable() && pathId != null && (rootCache != null)) {
-				Set<Node> cachedNodes = rootCache.get(pathId);
-				if (cachedNodes != null)
-					selected = cachedNodes;
-			} else {// check all targetClass
-				Collection<Node> nodesToCheck = getAllNodeSet(targetClass);
-				validateSelected(level, path, selected, nodesToCheck);
-				// cache it if allow cache
-				if (path.getCacheable() && !StrUtils.isEmpty(pathUniqueString)) {
-					cacheSelected("ROOT", pathUniqueString, selected);
-				}
-			}
-		} else
-		// Child
-		if ("C".equalsIgnoreCase(type0) && input != null && !input.isEmpty()) {
-			for (Node inputNode : input) {
-				Map<Integer, Set<Node>> childCache = queryCache.get(inputNode.getId());
-				if (path.getCacheable() && pathId != null && childCache != null) {
-					Set<Node> cachedNodes = childCache.get(pathId);
-					if (cachedNodes != null)
-						selected.addAll(cachedNodes);
-				} else {
-					// Find childNodes meat class/columns/id condition
-					Set<Node> nodesToCheck = new LinkedHashSet<Node>();
-					for (Entry<String, Node> cNode : body.get(targetClass).entrySet()) {
-						List<ParentRelation> prs = cNode.getValue().getParentRelations();
-						if (prs != null)
-							for (ParentRelation pr : prs) {
-								if (inputNode.getId().equals(pr.getParentId())
-										&& pr.getRefColumns().equalsIgnoreCase(path.getRefColumns())) {
-									nodesToCheck.add(cNode.getValue());
-									break;
-								}
-							}
+					if (!list.contains(from))
+						list.add(from);
+				} else if (fieldType.isAssignableFrom(Set.class)) {
+					Set set = (Set) ClassCacheUtils.readValueFromBeanField(to, tofield);
+					if (set == null) {
+						set = new HashSet<Object>();
+						ClassCacheUtils.writeValueToBeanField(to, tofield, set);
 					}
-
-					validateSelected(level, path, selected, nodesToCheck);
-
-					// now cached childNodes on parentNode
-					if (path.getCacheable() && !StrUtils.isEmpty(pathUniqueString)) {
-						cacheSelected(inputNode.getId(), pathUniqueString, selected);
+					if (!set.contains(from))
+						set.add(from);
+				} else if (fieldType.isAssignableFrom(Map.class)) {
+					Map map = (Map) ClassCacheUtils.readValueFromBeanField(to, tofield);
+					if (map == null) {
+						map = new HashMap();
+						ClassCacheUtils.writeValueToBeanField(to, tofield, map);
 					}
-				}
-			}
-		} else
-		// Parent
-		if ("P".equalsIgnoreCase(type0) && input != null && !input.isEmpty()) {
-			String targetTableName = model.getTableName();
-			EntityNetException.assureNotEmpty(targetTableName, "targetTableName can not be null");
-			for (Node inputNode : input) {
-				// Find parent nodes meat tableName/refColumns/nodeId condition
-				Set<Node> nodesToCheck = new LinkedHashSet<Node>();
-				List<ParentRelation> prs = inputNode.getParentRelations();
-				if (prs != null)
-					for (ParentRelation pr : prs) {
-						if (targetTableName.equalsIgnoreCase(pr.getParentTable())
-								&& path.getRefColumns().equalsIgnoreCase(pr.getRefColumns())) {
-							Node node = this.getOneNode(targetClass, pr.getParentId());
-							if (node != null)
-								nodesToCheck.add(node);
-						}
-					}
-				validateSelected(level, path, selected, nodesToCheck);
-				// now cached childNodes on parentNode
-				if (path.getCacheable() && !StrUtils.isEmpty(pathUniqueString)) {
-					cacheSelected(inputNode.getId(), pathUniqueString, selected);
+					Object entityId = oneRow.get("#" + fromAlias);
+					SqlBoxException.assureNotNull(entityId, "Can not find entityId for '" + fromAlias + "'");
+					if (!map.containsKey(entityId))
+						map.put(entityId, from);
+				} else {// No matter what type, give "from" value to "to"
+					ClassCacheUtils.writeValueToBeanField(to, tofield, from);
 				}
 			}
 		}
-		Set<Node> nodes = result.get(targetClass);
-		if (nodes == null) {
-			nodes = new LinkedHashSet<Node>();
-			result.put(targetClass, nodes);
-		}
-
-		if ("+".equals(type1) || "*".equals(type1))
-			nodes.addAll(selected);
-
-		if (!(path.getCacheable() && StrUtils.isEmpty(path.getUniqueIdString()))) {
-			if (selected.size() > 100000)
-				throw new EntityNetException(
-						"Query result return more than 100000 records to cache in memory, this may caused by careless programming.");
-		}
-
-		if (level > 10000)
-			throw new EntityNetException("Search depth >10000, this may caused by careless programming.");
-
-		if ("*".equals(type1) && !selected.isEmpty())
-			findNodeSetforNodes(level + 1, path, selected, result);
-
-		if (path.getNextPath() != null) {
-			findNodeSetforNodes(level + 1, path.getNextPath(), selected, result);
-		}
 	}
 
-	private void validateSelected(Integer level, Path path, Set<Node> selected, Collection<Node> nodesToCheck) {
-		NodeValidator checker = path.getNodeValidator();
-		if (checker == null)
-			checker = DefaultNodeValidator.instance;
-		for (Node node : nodesToCheck)
-			if (checker.validateNode(node, level, selected.size(), path))
-				selected.add(node);
-	}
-
-	private void cacheSelected(String nodeId, String pathUniqueString, Set<Node> selected) {
-		currentPathId++;
-		Integer pathId = currentPathId;
-		pathIdCache.put(pathUniqueString, pathId);
-		Map<Integer, Set<Node>> rootCache = queryCache.get(nodeId);
-		if (rootCache == null) {
-			rootCache = new HashMap<Integer, Set<Node>>();
-			queryCache.put(nodeId, rootCache);
+	public void putOneEntity(String alias, Object entityId, Object entity) {
+		LinkedHashMap<Object, Object> entityMap = body.get(alias);
+		if (entityMap == null) {
+			entityMap = new LinkedHashMap<Object, Object>();
+			body.put(alias, entityMap);
 		}
-		rootCache.put(pathId, selected);
+		entityMap.put(entityId, entity);
 	}
 
-	// getter & setter=======
-	/** Get SqlBoxContextConfig models */
-	public Map<Class<?>, TableModel> getConfigModels() {
-		return configModels;
+	public Object getOneEntity(String alias, Object entityId) {
+		Map<Object, Object> entityMap = body.get(alias);
+		if (entityMap == null)
+			return null;
+		return entityMap.get(entityId);
 	}
 
-	/** Get the EntityNet Body map */
-	public Map<Class<?>, LinkedHashMap<String, Node>> getBody() {
+	protected void getterSetter__________________________() {// NOSONAR
+	}
+
+	public Map<String, TableModel> getConfigs() {
+		return configs;
+	}
+
+	public EntityNet setConfigs(Map<String, TableModel> configs) {
+		this.configs = configs;
+		return this;
+	}
+
+	public List<Map<String, Object>> getRowData() {
+		return rowData;
+	}
+
+	public EntityNet setRowData(List<Map<String, Object>> rowData) {
+		this.rowData = rowData;
+		return this;
+	}
+
+	public List<String[]> getGivesList() {
+		return givesList;
+	}
+
+	public String getDebugInfo() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("\r\n=========givesList=========\r\n");
+		for (String[] gives : givesList) {
+			for (String str : gives) {
+				sb.append(str + " ");
+			}
+			sb.append("\r\n");
+		}
+		sb.append("\r\n=========configs=========\r\n");
+		for (TableModel tb : configs.values()) {
+			sb.append(tb.getDebugInfo());
+		}
+		sb.append("\r\n=========rowData=========\r\n");
+		for (Map<String, Object> row : rowData) {
+			sb.append(row.toString()).append("\r\n");
+		}
+
+		sb.append("\r\n=========body=========\r\n");
+		for (LinkedHashMap<Object, Object> row : body.values()) {
+			sb.append(row.toString()).append("\r\n");
+		}
+		return sb.toString();
+
+	}
+
+	public EntityNet addGivesList(List<String[]> givesList) {
+		if (givesList == null)
+			return this;
+		for (String[] strings : givesList) {
+			if (strings == null || strings.length < 2 || strings.length > 3)
+				throw new SqlBoxException("gives should have 2 or 3 parameters");
+			if (strings.length == 2)
+				give(strings[0], strings[1]);
+			else
+				give(strings[0], strings[1], strings[2]);
+		}
+		return this;
+	}
+
+	public EntityNet setGivesList(List<String[]> givesList) {
+		this.givesList = givesList;
+		return this;
+	}
+
+	public Map<String, LinkedHashMap<Object, Object>> getBody() {
 		return body;
-	} 
+	}
+
+	public void setBody(Map<String, LinkedHashMap<Object, Object>> body) {
+		this.body = body;
+	}
 
 }

@@ -11,14 +11,18 @@
  */
 package com.github.drinkjava2.jsqlbox.handler;
 
-import com.github.drinkjava2.jdbpro.DbProRuntimeException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import com.github.drinkjava2.jdbpro.DefaultOrderSqlHandler;
 import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
 import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdbpro.SingleTonHandlers;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.SqlBox;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxUtils;
-import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
+import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
+import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 /**
  * EntityListHandler is the SqlHandler used explain the Entity query SQL (For
@@ -28,40 +32,41 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
  * @since 1.0.0
  */
 @SuppressWarnings("all")
-public class EntityListHandler extends EntityNetHandler {
-	protected final Class<?> targetClass;
+public class EntityListHandler extends DefaultOrderSqlHandler {
+	protected Object config = null;
 
-	public EntityListHandler(Class<?> targetClass, Object... netConfigObjects) {
-		super(netConfigObjects);
-		this.targetClass = targetClass;
+	public EntityListHandler() {
 	}
 
-	public EntityListHandler(Class<?> targetClass) {
-		super(targetClass);
-		this.targetClass = targetClass;
-	}
-
-	public EntityListHandler(String alias, Class<?> targetClass) {
-		super(toTableModel(alias, targetClass));
-		this.targetClass = targetClass;
-	}
-
-	public static TableModel toTableModel(String alias, Class<?> targetClass) {
-		try {
-			Object o = targetClass.newInstance();
-			SqlBox box = SqlBoxUtils.createSqlBox(SqlBoxContext.gctx(), targetClass);
-			TableModel tb = box.getTableModel();
-			tb.setAlias(alias);
-			return tb;
-		} catch (Exception e) {
-			throw new DbProRuntimeException(e);
-		}
+	public EntityListHandler(Object config) {
+		this.config = config;
 	}
 
 	@Override
 	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
-		EntityNet net = (EntityNet) super.handle(runner, ps);
-		return net.getAllEntityList(targetClass);
+		Object cfg = null;
+		if (config != null) {
+			cfg = config;
+			if (ps.getModels() != null && ps.getModels().length > 0)
+				throw new SqlBoxException(
+						"EntityListHandler already have config parameter, no need extra TableModel sqlItem parameter");
+		} else {
+			Object[] tableModels = ps.getModels();
+			if (tableModels == null || tableModels.length==0)
+				throw new SqlBoxException("TableModel setting needed for EntityListHandler");
+			if (tableModels.length > 1)
+				throw new SqlBoxException("TableModel setting should only have 1 for EntityListHandler");
+			cfg = (TableModel) tableModels[0];
+		}
+
+		ps.setResultSetHandler(SingleTonHandlers.mapListHandler);
+		List<Map<String, Object>> maps = (List<Map<String, Object>>) runner.runPreparedSQL(ps);
+		List<Object> entityList = new ArrayList<Object>();
+		for (Map<String, Object> row : maps) {
+			Object entity = SqlBoxContextUtils.mapToEntityBean((SqlBoxContext) runner, cfg, row);
+			entityList.add(entity);
+		}
+		return entityList;
 	}
 
 }

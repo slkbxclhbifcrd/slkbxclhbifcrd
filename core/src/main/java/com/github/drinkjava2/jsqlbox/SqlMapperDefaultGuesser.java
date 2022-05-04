@@ -14,9 +14,12 @@ package com.github.drinkjava2.jsqlbox;
 import java.lang.reflect.Method;
 
 import com.github.drinkjava2.jdbpro.PreparedSQL;
-import com.github.drinkjava2.jdbpro.SqlType;
+import com.github.drinkjava2.jdbpro.SqlItem;
+import com.github.drinkjava2.jdbpro.SqlOption;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.StrUtils;
+import com.github.drinkjava2.jsqlbox.annotation.Ioc;
+import com.github.drinkjava2.jsqlbox.annotation.New;
 
 /**
  * Guess and execute the SQL for a annotated ActiveRecord entity's method
@@ -24,6 +27,7 @@ import com.github.drinkjava2.jdialects.StrUtils;
  * @author Yong Zhu
  * @since 1.0.8
  */
+@SuppressWarnings("unchecked")
 public class SqlMapperDefaultGuesser implements SqlMapperGuesser {
 	public static final SqlMapperGuesser instance = new SqlMapperDefaultGuesser();
 
@@ -40,57 +44,16 @@ public class SqlMapperDefaultGuesser implements SqlMapperGuesser {
 		}
 		String callerClassName = stacks[callerPos + 1].getClassName();
 		String callerMethodName = stacks[callerPos + 1].getMethodName();
+		if (callerClassName.endsWith(SqlMapperUtils.CHILD_SUFFIX))
+			callerClassName = callerClassName.substring(0,
+					callerClassName.length() - SqlMapperUtils.CHILD_SUFFIX.length());
 		Class<?> callerClass = ClassCacheUtils.checkClassExist(callerClassName);
 		if (callerClass == null)
 			throw new SqlBoxException("Can not find class '" + callerClassName + "'");
 		Method callerMethod = ClassCacheUtils.checkMethodExist(callerClass, callerMethodName);
 		if (callerMethod == null)
 			throw new SqlBoxException("Can not find method '" + callerMethodName + "' in '" + callerClassName + "'");
-		return theGuessBody(ctx, entity, callerClassName, callerMethod, params);
-	}
-
-	/**
-	 * The main logic part of guess, SubClass can override this method to do
-	 * different guess logic
-	 * 
-	 * @param ctx
-	 *            The SqlBoxContext instance
-	 * @param entity
-	 *            The ActiveRecord entity
-	 * @param callerClassName
-	 *            The caller Class Name
-	 * @param callerMethod
-	 *            The caller Method
-	 * @param params
-	 *            The SQL params
-	 * @return T The Result
-	 */
-	@SuppressWarnings("unchecked")
-	protected <T> T theGuessBody(SqlBoxContext ctx, Object entity, String callerClassName, Method callerMethod,
-			Object... params) {
-		PreparedSQL ps = SqlMapperUtils.getPreparedSqlAndHandles(callerClassName, callerMethod, ctx.getIocTool());
-		String sql = ps.getSql().trim();
-		if (StrUtils.startsWithIgnoreCase(sql, "select"))
-			ps.setType(SqlType.QUERY);
-		else if (StrUtils.startsWithIgnoreCase(sql, "delete"))
-			ps.setType(SqlType.UPDATE);
-		else if (StrUtils.startsWithIgnoreCase(sql, "update"))
-			ps.setType(SqlType.UPDATE);
-		else if (StrUtils.startsWithIgnoreCase(sql, "insert"))
-			ps.setType(SqlType.UPDATE);
-		else
-			ps.setType(SqlType.EXECUTE);// execute
-		boolean hasQuestionMark = sql.indexOf('?') > -1;
-		boolean useTemplate = sql.indexOf(':') > -1 || sql.indexOf("#{") > -1;
-		ps.setUseTemplate(useTemplate);
-		if (useTemplate && hasQuestionMark)
-			throw new SqlBoxException(
-					"guess() method can not determine use template or normal style for SQL '" + sql + "'");
-		if (useTemplate)
-			ps.setTemplateParamMap(SqlMapperUtils.buildParamMap(callerClassName, callerMethod.getName(), params));
-		else
-			ps.setParams(params);
-		SqlMapperUtils.autoGuessHandler(entity, ps, sql, callerMethod); // guess handler
+		PreparedSQL ps = buildPreparedSQL(ctx, callerClassName, callerMethod, params);
 		return (T) ctx.runPreparedSQL(ps);
 	}
 
@@ -112,8 +75,7 @@ public class SqlMapperDefaultGuesser implements SqlMapperGuesser {
 		Method callerMethod = ClassCacheUtils.checkMethodExist(callerClass, callerMethodName);
 		if (callerMethod == null)
 			throw new SqlBoxException("Can not find method '" + callerMethodName + "' in '" + callerClassName + "'");
-		PreparedSQL sp = SqlMapperUtils.getPreparedSqlAndHandles(callerClassName, callerMethod, ctx.getIocTool());
-		return sp.getSql();
+		return SqlMapperUtils.getSqlOfMethod(callerClassName, callerMethod);
 	}
 
 	@Override
@@ -134,10 +96,44 @@ public class SqlMapperDefaultGuesser implements SqlMapperGuesser {
 		Method callerMethod = ClassCacheUtils.checkMethodExist(callerClass, callerMethodName);
 		if (callerMethod == null)
 			throw new SqlBoxException("Can not find method '" + callerMethodName + "' in '" + callerClassName + "'");
+		PreparedSQL ps= buildPreparedSQL(ctx, callerClassName, callerMethod, params);
+		return ps;
+	}
 
-		PreparedSQL sp = SqlMapperUtils.getPreparedSqlAndHandles(callerClassName, callerMethod, ctx.getIocTool());
-		sp.setParams(params);
-		return sp;
+	private PreparedSQL buildPreparedSQL(SqlBoxContext ctx, String callerClassName, Method callerMethod,
+			Object... params) {
+		String sql = SqlMapperUtils.getSqlOfMethod(callerClassName, callerMethod);
+		Class<?>[] newClasses = SqlMapperUtils.getNewOrIocAnnotation(New.class, callerMethod);
+		Class<?>[] iocClasses = SqlMapperUtils.getNewOrIocAnnotation(Ioc.class, callerMethod);
+		Object[] realParams = new Object[1 + newClasses.length + iocClasses.length + params.length];
+		realParams[0] = sql;
+		int i = 1;
+		for (Class<?> newClaz : newClasses)
+			try {
+				realParams[i++] = newClaz.newInstance();
+			} catch (Exception e) {
+				throw new SqlBoxException(e);
+			}
+		for (Class<?> iocClaz : iocClasses)
+			realParams[i++] = new SqlItem(SqlOption.IOC, iocClaz);
+		for (Object para : params)
+			realParams[i++] = para;
+
+		PreparedSQL ps = ctx.pPrepare(realParams);
+		if (ps.getOperationType() == null)
+			if (StrUtils.startsWithIgnoreCase(ps.getSql(), "select"))
+				ps.setOperationType(SqlOption.QUERY);
+			else if (StrUtils.startsWithIgnoreCase(ps.getSql(), "delete"))
+				ps.setOperationType(SqlOption.UPDATE);
+			else if (StrUtils.startsWithIgnoreCase(ps.getSql(), "update"))
+				ps.setOperationType(SqlOption.UPDATE);
+			else if (StrUtils.startsWithIgnoreCase(ps.getSql(), "insert"))
+				ps.setOperationType(SqlOption.UPDATE);
+			else
+				throw new SqlBoxException(
+						"Can not guess SqlType, only can guess SQL started with select/delete/update/insert, need manually set SqlType");
+		ps.ifNullSetUseTemplate(sql.indexOf(':') > -1 || sql.indexOf('{') > -1 || sql.indexOf('[') > -1);
+		return ps;
 	}
 
 }

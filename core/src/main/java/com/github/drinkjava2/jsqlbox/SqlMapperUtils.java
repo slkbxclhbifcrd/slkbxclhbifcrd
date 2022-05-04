@@ -19,16 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.github.drinkjava2.jdbpro.IocTool;
-import com.github.drinkjava2.jdbpro.PreparedSQL;
-import com.github.drinkjava2.jdbpro.SingleTonHandlers;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.StrUtils;
-import com.github.drinkjava2.jsqlbox.annotation.Handlers;
+import com.github.drinkjava2.jsqlbox.annotation.Ioc;
+import com.github.drinkjava2.jsqlbox.annotation.New;
 import com.github.drinkjava2.jsqlbox.annotation.Sql;
 import com.github.drinkjava2.jsqlbox.compiler.DynamicCompileEngine;
-import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
-import com.github.drinkjava2.jsqlbox.handler.SSMapListHandler;
 
 /**
  * Store some public static methods of Guesser
@@ -37,19 +33,19 @@ import com.github.drinkjava2.jsqlbox.handler.SSMapListHandler;
  * @since 1.0.8
  */
 public abstract class SqlMapperUtils {// NOSONAR
+	public static final String CHILD_SUFFIX="_Child";
 
 	private static final Map<String, String[]> methodParamNamesCache = new ConcurrentHashMap<String, String[]>();
-	private static final Map<String, PreparedSQL> methodSQLCache = new ConcurrentHashMap<String, PreparedSQL>();
 
 	/**
-	 * This is the method body to build an instance based on abstract class which
-	 * extended from ActiveRecord or implemented ActiveRecordSupport
+	 * This is the method body to build an instance based on abstract class
+	 * which extended from ActiveRecord or implemented ActiveRecordSupport
 	 * 
 	 * @param activeClass
 	 * @return Object instance
 	 */
 	public static Class<?> createChildClass(Class<?> abstractClass) {
-		String fullClassName = abstractClass.getName() + "_Child";
+		String fullClassName = abstractClass.getName() + CHILD_SUFFIX;
 		Class<?> check = ClassCacheUtils.checkClassExist(fullClassName);
 		if (check != null)
 			return check;
@@ -86,7 +82,8 @@ public abstract class SqlMapperUtils {// NOSONAR
 				if (i != 0)
 					sb.append(",");
 				String trimedStr = params[i].trim();
-				sb.append(StrUtils.substringAfterLast(trimedStr, " "));
+				String pm=StrUtils.substringAfterLast(trimedStr, " ");
+				sb.append("bind(\"").append(pm).append("\", ").append(pm).append(")");
 			}
 			sb.append(");}");
 			body = StrUtils.substringAfter(heading, ";");
@@ -100,66 +97,7 @@ public abstract class SqlMapperUtils {// NOSONAR
 		TextUtils.javaFileCache.put(fullClassName, childClassSrc);
 		return childClass;
 	}
-
-	/** Automatically guess the sqlHandlers */
-	public static void autoGuessHandler(Object entity, PreparedSQL ps, String sql, Method method) {
-		if (ps.getSqlHandlers() != null && !ps.getSqlHandlers().isEmpty())
-			return;
-		if (ps.getResultSetHandler() != null)
-			return;
-		String methodType = method.getGenericReturnType().toString();
-		if (sql.indexOf(".**") > -1) {
-			if ("java.util.List<java.util.Map<java.lang.String, java.lang.Object>>".equals(methodType))
-				ps.addSqlHandler(new SSMapListHandler(entity.getClass()));
-			else if (methodType.startsWith("java.util.List"))
-				ps.addSqlHandler(new EntityListHandler(entity.getClass()));
-		} else {
-			if ("java.util.List<java.util.Map<java.lang.String, java.lang.Object>>".equals(methodType))
-				ps.setResultSetHandler(SingleTonHandlers.mapListHandler);
-		}
-	}
-
-	/** Get the PreparedSQL from a abstract method, but do not set parameters */
-	public static PreparedSQL getPreparedSqlAndHandles(String callerClassName, Method callerMethod, IocTool iocTool) {// NOSONAR
-		// key is only inside used by cache
-		String key = callerClassName + "@#$^!" + callerMethod.getName();
-		PreparedSQL result = methodSQLCache.get(key);
-		if (result != null)
-			return result.newCopy();
-		else
-			result = new PreparedSQL();
-
-		Annotation[] annos = callerMethod.getAnnotations();
-		Sql sqlAnno = null;
-		for (Annotation anno : annos) {
-			if (Sql.class.equals(anno.annotationType()))
-				sqlAnno = (Sql) anno;
-			if (Handlers.class.equals(anno.annotationType())) {
-				Class<?>[] array = ((Handlers) anno).value();
-				for (Class<?> claz : array)
-					result.addHandler(claz, iocTool);
-			}
-		}
-		String sql = null;
-		if (sqlAnno != null)
-			sql = sqlAnno.value()[0];
-		else {
-			String src = null;
-			try {
-				src = TextUtils.getJavaSourceCodeUTF8(callerClassName);
-			} catch (Exception e) {
-				throw new SqlBoxException("Method '" + callerMethod.getName() + "' in '" + callerClassName
-						+ "' have no Sql annotation or text.");
-			}
-			sql = StrUtils.substringAfter(src, callerMethod.getName() + "(");
-			sql = StrUtils.substringBetween(sql, "/*-", "*/");
-		}
-		if (sql != null)
-			sql = sql.trim();
-		result.setSql(sql);
-		methodSQLCache.put(key, result);
-		return result.newCopy();
-	}
+ 
 
 	public static Map<String, Object> buildParamMap(String callerClassName, String callerMethodName, Object... params) {
 		Map<String, Object> map = new HashMap<String, Object>();
@@ -172,6 +110,7 @@ public abstract class SqlMapperUtils {// NOSONAR
 		return map;
 	}
 
+	/** Get method name String[], this method only works for Text support case, i.e., put java in resouce folder */
 	public static String[] getMethodParamNames(String classFullName, String callerMethodName) {
 		String key = classFullName + "@#!$^" + callerMethodName;
 		if (methodParamNamesCache.containsKey(key))
@@ -189,6 +128,48 @@ public abstract class SqlMapperUtils {// NOSONAR
 			}
 		methodParamNamesCache.put(key, l.toArray(new String[l.size()]));
 		return l.toArray(new String[l.size()]);
+	}
+
+	/** Get the sql from @Sql annotation or text */
+	public static String getSqlOfMethod(String callerClassName, Method callerMethod) {// NOSONAR
+		Annotation[] annos = callerMethod.getAnnotations();
+		String sql = null;
+		for (Annotation anno : annos)
+			if (Sql.class.equals(anno.annotationType())) {
+				sql = ((Sql) anno).value()[0];
+				break;
+			}
+		if (sql == null) {
+			String src = null;
+			try {
+				src = TextUtils.getJavaSourceCodeUTF8(callerClassName);
+				sql = StrUtils.substringAfter(src, callerMethod.getName() + "(");
+				sql = StrUtils.substringBetween(sql, "/*-", "*/");
+			} catch (Exception e) {// NOSONAR
+			}
+		}
+		if (sql != null)
+			sql = sql.trim();
+		return sql;
+	}
+
+	/** Get the @New and @Ioc annotation values */
+	public static Class<?>[] getNewOrIocAnnotation(Class<?> annotation, Method callerMethod) {// NOSONAR
+		List<Object> result = new ArrayList<Object>();
+		Annotation[] annos = callerMethod.getAnnotations();
+		for (Annotation anno : annos)
+			if (annotation.equals(anno.annotationType())) {
+				if (New.class.equals(annotation)) {
+					Class<?>[] array = ((New) anno).value();
+					for (Class<?> claz : array)
+						result.add(claz);
+				} else {
+					Class<?>[] array = ((Ioc) anno).value();
+					for (Class<?> claz : array)
+						result.add(claz);
+				}
+			}
+		return result.toArray(new Class<?>[result.size()]);
 	}
 
 }

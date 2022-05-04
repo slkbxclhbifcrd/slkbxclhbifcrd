@@ -35,10 +35,11 @@ import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
  * @author Yong Zhu
  * @since 1.7.0
  */
+@SuppressWarnings("rawtypes")
 public class PreparedSQL {
 
 	/** SQL Operation Type */
-	private SqlType type;
+	private SqlOption operationType;
 
 	/** Choose use master or slave options */
 	private SqlOption masterSlaveOption;
@@ -56,7 +57,7 @@ public class PreparedSQL {
 	private Object[] params;
 
 	/** If set true, will use templateEngine to render SQL */
-	private Boolean useTemplate = false;
+	private Boolean useTemplate = null;
 
 	/** Optional, store a SqlTemplateEngine used only for this PreparedSQL */
 	private SqlTemplateEngine templateEngine;
@@ -67,33 +68,27 @@ public class PreparedSQL {
 	/** Optional,SqlHandler instance list */
 	private List<SqlHandler> sqlHandlers;
 
-	/** Optional,ResultSetHandler instance */
+	/** Optional,ResultSetHandler instance, only allow have one */
 	private ResultSetHandler<?> resultSetHandler;
+
+	/** Handers in this list will disabled */
+	private List<Class<?>> disabledHandlers;
+
+	/** TableModels, this is designed for ORM program */
+	private Object[] models;
+
+	/** Give List, this is designed for ORM program */
+	private List<String[]> givesList = null;
 
 	public PreparedSQL() {// default constructor
 	}
 
-	public PreparedSQL(SqlType type, Connection conn, ResultSetHandler<?> rsh, String sql, Object... params) {
-		this.type = type;
+	public PreparedSQL(SqlOption type, Connection conn, ResultSetHandler<?> rsh, String sql, Object... params) {
+		this.operationType = type;
 		this.connection = conn;
 		this.resultSetHandler = rsh;
 		this.sql = sql;
 		this.params = params;
-	}
-
-	/** Clone self to get a new PreparedSQL copy, this is a shallow clone */
-	public PreparedSQL newCopy() {
-		PreparedSQL ps = new PreparedSQL();
-		ps.setType(this.type);
-		ps.setConnection(this.connection);
-		ps.setSql(this.sql);
-		ps.setParams(this.params);
-		ps.setUseTemplate(this.useTemplate);
-		ps.setTemplateEngine(this.templateEngine);
-		ps.setTemplateParamMap(this.templateParamMap);
-		ps.setSqlHandlers(this.sqlHandlers);
-		ps.setResultSetHandler(this.resultSetHandler);
-		return ps;
 	}
 
 	/**
@@ -101,7 +96,7 @@ public class PreparedSQL {
 	 */
 	public String getDebugInfo() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("\ntype=").append(type);
+		sb.append("\ntype=").append(operationType);
 		sb.append("\nsql=").append(sql);
 		sb.append("\nparams=").append(Arrays.deepToString(params));
 		sb.append("\nmasterSlaveSelect=").append(masterSlaveOption);
@@ -111,6 +106,8 @@ public class PreparedSQL {
 		sb.append("\nuseTemplate=").append(useTemplate);
 		sb.append("\ntemplateEngine=").append(templateEngine);
 		sb.append("\ntemplateParams=").append(templateParamMap);
+		sb.append("\ndisabledHandlers=").append(disabledHandlers);
+		sb.append("\nmasterSlaveOption=").append(masterSlaveOption);
 		sb.append("\n");
 		return sb.toString();
 	}
@@ -126,9 +123,28 @@ public class PreparedSQL {
 		params[params.length - 1] = param;
 	}
 
+	public void addModel(Object model) {
+		if (models == null)
+			models = new Object[1];
+		else {
+			Object[] newModels = new Object[models.length + 1];
+			System.arraycopy(models, 0, newModels, 0, models.length);
+			models = newModels;
+		}
+		models[models.length - 1] = model;
+	}
+
+	public void addGives(String[] gives) {
+		if (givesList == null)
+			givesList = new ArrayList<String[]>();
+		if (gives == null || gives.length < 2)
+			throw new DbProRuntimeException("addGives at least need 2 alias parameters");
+		givesList.add(gives);
+	}
+
 	/**
-	 * Add map content to current template map, if keys already exist will use
-	 * new value replace
+	 * Add map content to current template map, if keys already exist will use new
+	 * value replace
 	 */
 	public void addTemplateMap(Map<String, Object> map) {
 		if (map == null)
@@ -161,6 +177,28 @@ public class PreparedSQL {
 		sqlHandlers.add(sqlHandler);
 	}
 
+	public void disableHandlers(Object[] handlersClass) {
+		if (handlersClass == null || handlersClass.length == 0)
+			throw new DbProRuntimeException("disableHandlers method need at least 1 parameter");
+		if (disabledHandlers == null)
+			disabledHandlers = new ArrayList<Class<?>>();
+		for (Object obj : handlersClass)
+			disabledHandlers.add((Class<?>) obj);
+	}
+
+	public boolean isDisabledHandler(Object handler) {
+		if (disabledHandlers == null || disabledHandlers.isEmpty())
+			return false;
+		for (Class<?> disabled : disabledHandlers)
+			if (disabled.equals(handler.getClass()))
+				return true;
+		return false;
+	}
+
+	public void enableAllHandlers() {
+		disabledHandlers = null;
+	}
+
 	public int getParamSize() {
 		if (params == null)
 			return 0;
@@ -178,35 +216,27 @@ public class PreparedSQL {
 		this.resultSetHandler = rsh;
 	}
 
-	/**
-	 * @param handlerOrHandlerClass
-	 *            a SqlHandler or ResultSetHandler instance or class
-	 * @return true if added
-	 */
-	@SuppressWarnings("rawtypes")
-	public void addHandler(Object handlerOrHandlerClass, IocTool iocTool) {
-		if (handlerOrHandlerClass == null)
-			throw new DbProRuntimeException("Handler Or Handler class can not be null");
-		if (handlerOrHandlerClass instanceof ResultSetHandler)
-			setResultSetHandler(((ResultSetHandler) handlerOrHandlerClass));
-		else if (handlerOrHandlerClass instanceof SqlHandler)
-			addSqlHandler((SqlHandler) handlerOrHandlerClass);
-		else if (handlerOrHandlerClass instanceof Class) {
-			Class itemClass = (Class) handlerOrHandlerClass;
-			try {
-				if (ResultSetHandler.class.isAssignableFrom(itemClass))
-					setResultSetHandler((ResultSetHandler) itemClass.newInstance());
-				else if (SqlHandler.class.isAssignableFrom(itemClass))
-					addSqlHandler((SqlHandler) itemClass.newInstance());
-				else {
-					Object handler = iocTool.getBean((Class<?>) handlerOrHandlerClass);
-					addHandler(handler, null);
-				}
-			} catch (Exception e) {
-				throw new DbProRuntimeException(e);
-			}
-		} else
-			throw new DbProRuntimeException("Can not create handler instance for '" + handlerOrHandlerClass + "'");
+	public void addHandler(ResultSetHandler handler) {
+		setResultSetHandler(handler);
+	}
+
+	public void addHandler(SqlHandler handler) {
+		addSqlHandler(handler);
+	}
+
+	public void addNoParamHandlerByClass(Class handlerClass) {
+		if (handlerClass == null)
+			throw new DbProRuntimeException("HandlerClass can not be null");
+		try {
+			if (ResultSetHandler.class.isAssignableFrom(handlerClass))
+				setResultSetHandler((ResultSetHandler) handlerClass.newInstance());
+			else if (SqlHandler.class.isAssignableFrom(handlerClass))
+				addSqlHandler((SqlHandler) handlerClass.newInstance());
+			else
+				throw new DbProRuntimeException("ResultSetHandler class or SqlHandler class required");
+		} catch (Exception e) {
+			throw new DbProRuntimeException(e);
+		}
 	}
 
 	public Object[] getParams() {
@@ -215,7 +245,7 @@ public class PreparedSQL {
 		return params;
 	}
 
-	public void addGlobalAndThreadedHandlers(DbPro dbPro) {
+	public void addGlobalAndThreadedHandlers(ImprovedQueryRunner dbPro) {
 		if (dbPro.getSqlHandlers() != null)
 			for (SqlHandler handler : dbPro.getSqlHandlers())
 				addSqlHandler(handler);
@@ -229,16 +259,28 @@ public class PreparedSQL {
 		}
 	}
 
+	/** If current type is null, set with new type value */
+	public void ifNullSetType(SqlOption type) {
+		if (this.operationType == null)
+			this.operationType = type;
+	}
+
+	/** If current type is null, set with new type value */
+	public void ifNullSetUseTemplate(Boolean useTemplate) {
+		if (this.useTemplate == null)
+			this.useTemplate = useTemplate;
+	}
+
 	protected void GetterSetters_________________________() {// NOSONAR
 		// === below this line are normal getter && setter======
 	}
 
-	public SqlType getType() {
-		return type;
+	public SqlOption getOperationType() {
+		return operationType;
 	}
 
-	public void setType(SqlType type) {
-		this.type = type;
+	public void setOperationType(SqlOption operationType) {
+		this.operationType = operationType;
 	}
 
 	public Connection getConnection() {
@@ -274,6 +316,8 @@ public class PreparedSQL {
 	}
 
 	public Map<String, Object> getTemplateParamMap() {
+		if (templateParamMap == null)
+			return new HashMap<String, Object>();
 		return templateParamMap;
 	}
 
@@ -297,12 +341,8 @@ public class PreparedSQL {
 		this.params = params;
 	}
 
-	public SqlOption getMasterSlaveSelect() {
-		return masterSlaveOption;
-	}
-
-	public void setMasterSlaveSelect(SqlOption masterSlaveSelect) {
-		this.masterSlaveOption = masterSlaveSelect;
+	public void setMasterSlaveOption(SqlOption masterSlaveOption) {
+		this.masterSlaveOption = masterSlaveOption;
 	}
 
 	public DbPro getSwitchTo() {
@@ -311,6 +351,36 @@ public class PreparedSQL {
 
 	public void setSwitchTo(DbPro switchTo) {
 		this.switchTo = switchTo;
+	}
+
+	public SqlOption getMasterSlaveOption() {
+		return masterSlaveOption;
+	}
+
+	public List<Class<?>> getDisabledHandlers() {
+		return disabledHandlers;
+	}
+
+	public void setDisabledHandlers(List<Class<?>> disabledHandlers) {
+		this.disabledHandlers = disabledHandlers;
+	}
+
+ 
+
+	public Object[] getModels() {
+		return models;
+	}
+
+	public void setModels(Object[] models) {
+		this.models = models;
+	}
+
+	public List<String[]> getGivesList() {
+		return givesList;
+	}
+
+	public void setGivesList(List<String[]> givesList) {
+		this.givesList = givesList;
 	}
 
 }

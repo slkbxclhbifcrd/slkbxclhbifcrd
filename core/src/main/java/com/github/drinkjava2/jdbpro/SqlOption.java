@@ -16,40 +16,105 @@
 package com.github.drinkjava2.jdbpro;
 
 /**
- * SqlItemType type is an enum type
+ * SqlOption system how to explain a SqlItem, SqlItem like "Message" in windows,
+ * SqlOption is the "Message" type.
  * 
  * @author Yong Zhu
  * @since 1.7.0.3
  */
 public enum SqlOption {
-	SQL, // Build a SQL String piece, need String type followed
+	// ----------Sql Items explained by DbPro ------------
+	/** Append a SQL String piece */
+	SQL,
 
-	PARAM, // Build SQL parameter or parameters, need Object types followed
+	/** Append a parameter or parameter array */
+	PARAM,
 
-	PUT, // Append [key1,value1, key2,value2...] parameters array (for SqlTemplateEngine)
+	/** Append a "?" String and append a parameter or parameter array */
+	QUESTION_PARAM,
 
-	QUESTION_PARAM, // Append a "?" at end of SQL and append a parameter or parameter array
+	/** BIND Key-Values pairs "key1,value1, key2,value2..." for SqlTemplateEngine */
+	BIND, //
 
-	NOT_NULL, // Usage: NOT_NUL("user_name=?", name), when name is null, nothing will be
-				// appended into SQL and parameters
+	/**
+	 * Usage: NOT_NUL("user_name=?", name), when name is null, nothing will be
+	 * appended into SQL and parameters, otherwise return a "user_name=?" String and
+	 * a SQL parameter
+	 */
+	NOT_NULL,
 
-	VALUES_QUESTIONS, // Append a " values(?,?,?....?)" String at end of SQL
+	/** Append a " values(?,?,?....?)" String at end of SQL */
+	VALUES_QUESTIONS,
 
-	SWITCHTO, // Switch to another DbPro or subClass instance to run the SQL
+	// ----------Special Items ------------
+	/** Switch to another DbPro or subClass (SqlBoxContext) to execute SQL */
+	SWITCHTO,
+
+	/** Give one or more class as parameter, instance will created by IocTool */
+	IOC,
+
+	/** Disable handles according given handlers' class */
+	DISABLE_HANDLERS, //
+
+	/** Disable handles according given handlers' class */
+	ENABLE_HANDLERS,
+
+	/** Force use template style */
+	USE_TEMPLATE,
+
+	// ------Sql Operation type--------
+	/** It's a EXECUTE type SQL */
+	EXECUTE,
+
+	/** It's a UPDATE type SQL */
+	UPDATE,
+
+	/** It's a INSERT type SQL */
+	INSERT,
+
+	/** It's a QUERY type SQL */
+	QUERY,
+
+	/**
+	 * IGNORE type SqlItem always be ignored, but user can use this type to inject
+	 * some parameters
+	 */
+	IGNORE,
+
+	// ================================================================
+	// Below items designed for jSqlBox or other projects to explain
+	// ================================================================
 
 	// ------Master_Slave Options-------
-	USE_AUTO, // Tell system to choose master or slave database automatically (write:master,
-				// read:if in Transaction use master otherwise use on slave)
+	/**
+	 * Tell system to choose master or slave database automatically (write:master,
+	 * read:if in Transaction use master otherwise use one slave)
+	 */
+	USE_AUTO,
 
-	USE_MASTER, // Tell system force use master database (write:master, read:master)
+	/** Tell system force use master database (write and read:master ) */
+	USE_MASTER,
 
-	USE_SLAVE, // Tell system force use slave database (write:all slaves, read:one slave)
+	/** Tell system force use slave database (write:all slaves, read:one slave) */
+	USE_SLAVE, //
 
-	USE_BOTH, // Tell system force use master and slave database (write: master + all slaves,
-				// read: master)
+	/**
+	 * Tell system force use master and slave database (write: master + all slaves,
+	 * read: master)
+	 */
+	USE_BOTH,
 
-	// -------Sharding Options--------
-	SHARD_TABLE, // Tell system this is a "SHARD_TABLE" SqlItem
+	// ------- sharding items -----------
+	/** Tell system this is a "SHARD_TABLE" item */
+	SHARD_TABLE,
 
-	SHARD_DATABASE // Tell system this is a "SHARD_DATABASE" SqlItem
+	/** Tell system this is a "SHARD_DATABASE" item */
+	SHARD_DATABASE,
+
+	/** GIVE, GIVE_BOTH option are designed for ORM Query */
+	GIVE, GIVE_BOTH,
+
+	/** MODEL, MODEL_ALIAS, MODEL_AUTO_ALIAS CONFIGS are designed for ORM Query */
+	MODEL, MODEL_ALIAS, MODEL_AUTO_ALIAS
+
 }

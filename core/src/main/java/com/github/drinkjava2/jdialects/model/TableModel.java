@@ -6,9 +6,12 @@
 package com.github.drinkjava2.jdialects.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
+import com.github.drinkjava2.jdialects.DebugUtils;
 import com.github.drinkjava2.jdialects.DialectException;
 import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.annotation.jpa.GenerationType;
@@ -54,16 +57,16 @@ public class TableModel {
 	private List<ColumnModel> columns = new ArrayList<ColumnModel>();
 
 	/** IdGenerators */
-	private List<IdGenerator> idGenerators = new ArrayList<IdGenerator>();
+	private List<IdGenerator> idGenerators;
 
 	/** Foreign Keys */
-	private List<FKeyModel> fkeyConstraints = new ArrayList<FKeyModel>();
+	private List<FKeyModel> fkeyConstraints;
 
 	/** Indexes */
-	private List<IndexModel> indexConsts = new ArrayList<IndexModel>();
+	private List<IndexModel> indexConsts;
 
 	/** Unique constraints */
-	private List<UniqueModel> uniqueConsts = new ArrayList<UniqueModel>();
+	private List<UniqueModel> uniqueConsts;
 
 	/**
 	 * Map to which entityClass, this field is designed to ORM tool to use
@@ -92,6 +95,7 @@ public class TableModel {
 		tb.check = this.check;
 		tb.comment = this.comment;
 		tb.engineTail = this.engineTail;
+		tb.entityClass = this.entityClass;
 		if (!columns.isEmpty())
 			for (ColumnModel item : columns) {
 				ColumnModel newItem = item.newCopy();
@@ -99,21 +103,21 @@ public class TableModel {
 				tb.columns.add(newItem);
 			}
 
-		if (!idGenerators.isEmpty())
+		if (idGenerators != null && !idGenerators.isEmpty())
 			for (IdGenerator item : idGenerators)
-				tb.idGenerators.add(item.newCopy());
+				tb.getIdGenerators().add(item.newCopy());
 
-		if (!fkeyConstraints.isEmpty())
+		if (fkeyConstraints != null && !fkeyConstraints.isEmpty())
 			for (FKeyModel item : fkeyConstraints)
-				tb.fkeyConstraints.add(item.newCopy());
+				tb.getFkeyConstraints().add(item.newCopy());
 
-		if (!indexConsts.isEmpty())
+		if (indexConsts != null && !indexConsts.isEmpty())
 			for (IndexModel item : indexConsts)
-				tb.indexConsts.add(item.newCopy());
+				tb.getIndexConsts().add(item.newCopy());
 
-		if (!uniqueConsts.isEmpty())
+		if (uniqueConsts != null && !uniqueConsts.isEmpty())
 			for (UniqueModel item : uniqueConsts)
-				tb.uniqueConsts.add(item.newCopy());
+				tb.getUniqueConsts().add(item.newCopy());
 		return tb;
 	}
 
@@ -136,7 +140,7 @@ public class TableModel {
 		DialectException.assureNotNull(generator);
 		DialectException.assureNotNull(generator.getGenerationType());
 		DialectException.assureNotEmpty(generator.getIdGenName(), "IdGenerator name can not be empty");
-		idGenerators.add(generator);
+		getIdGenerators().add(generator);
 	}
 
 	/**
@@ -208,7 +212,7 @@ public class TableModel {
 	 * Remove a FKey by given fkeyName
 	 */
 	public TableModel removeFKey(String fkeyName) {
-		List<FKeyModel> fkeys = this.getFkeyConstraints();
+		List<FKeyModel> fkeys = getFkeyConstraints();
 		Iterator<FKeyModel> fkeyIter = fkeys.iterator();
 		while (fkeyIter.hasNext())
 			if (fkeyIter.next().getFkeyName().equalsIgnoreCase(fkeyName))
@@ -254,6 +258,19 @@ public class TableModel {
 	}
 
 	/**
+	 * Return ColumnModel object by columnName, if not found, return null;
+	 */
+	public ColumnModel getColumnByColOrEntityFieldName(String colOrFieldName) {
+		for (ColumnModel columnModel : columns) {
+			if (columnModel.getColumnName() != null && columnModel.getColumnName().equalsIgnoreCase(colOrFieldName))
+				return columnModel;
+			if (columnModel.getEntityField() != null && columnModel.getEntityField().equalsIgnoreCase(colOrFieldName))
+				return columnModel;
+		}
+		return null;
+	}
+
+	/**
 	 * @return First found ShardTable Column , if not found , return null
 	 */
 	public ColumnModel getShardTableColumn() {
@@ -262,7 +279,7 @@ public class TableModel {
 				return columnModel;// return first found only
 		return null;
 	}
-	
+
 	/**
 	 * @return First found ShardDatabase Column , if not found , return null
 	 */
@@ -279,7 +296,7 @@ public class TableModel {
 	public FKeyModel fkey() {
 		FKeyModel fkey = new FKeyModel();
 		fkey.setTableName(this.tableName);
-		this.fkeyConstraints.add(fkey);
+		getFkeyConstraints().add(fkey);
 		return fkey;
 	}
 
@@ -290,7 +307,7 @@ public class TableModel {
 		FKeyModel fkey = new FKeyModel();
 		fkey.setTableName(this.tableName);
 		fkey.setFkeyName(fkeyName);
-		this.fkeyConstraints.add(fkey);
+		getFkeyConstraints().add(fkey);
 		return fkey;
 	}
 
@@ -309,7 +326,7 @@ public class TableModel {
 	 */
 	public IndexModel index() {
 		IndexModel index = new IndexModel();
-		this.indexConsts.add(index);
+		getIndexConsts().add(index);
 		return index;
 	}
 
@@ -319,7 +336,7 @@ public class TableModel {
 	public IndexModel index(String indexName) {
 		IndexModel index = new IndexModel();
 		index.setName(indexName);
-		this.indexConsts.add(index);
+		getIndexConsts().add(index);
 		return index;
 	}
 
@@ -328,7 +345,7 @@ public class TableModel {
 	 */
 	public UniqueModel unique() {
 		UniqueModel unique = new UniqueModel();
-		this.uniqueConsts.add(unique);
+		getUniqueConsts().add(unique);
 		return unique;
 	}
 
@@ -338,7 +355,7 @@ public class TableModel {
 	public UniqueModel unique(String uniqueName) {
 		UniqueModel unique = new UniqueModel();
 		unique.setName(uniqueName);
-		this.uniqueConsts.add(unique);
+		getUniqueConsts().add(unique);
 		return unique;
 	}
 
@@ -357,7 +374,7 @@ public class TableModel {
 	 * and name
 	 */
 	public IdGenerator getIdGenerator(GenerationType generationType, String name) {
-		return getIdGenerator(generationType, name, this.getIdGenerators());
+		return getIdGenerator(generationType, name, getIdGenerators());
 	}
 
 	/**
@@ -372,7 +389,7 @@ public class TableModel {
 	 * Search and return the IdGenerator in this TableModel by its name
 	 */
 	public IdGenerator getIdGenerator(String name) {
-		return getIdGenerator(null, name, this.getIdGenerators());
+		return getIdGenerator(null, name, getIdGenerators());
 	}
 
 	/**
@@ -423,7 +440,43 @@ public class TableModel {
 		return null;
 	}
 
+	public int getPKeyCount() {
+		int pkeyCount = 0;
+		for (ColumnModel col : columns)
+			if (col.getPkey() && !col.getTransientable())
+				pkeyCount++;
+		return pkeyCount;
+	}
+
+	public ColumnModel getFirstPKeyColumn() {
+		for (ColumnModel col : columns)
+			if (col.getPkey() && !col.getTransientable())
+				return col;
+		return null;
+	}
+
+	/** Get pkey columns sorted by column name */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public List<ColumnModel> getPKeyColsSortByColumnName() {
+		List<ColumnModel> pkeyCols = new ArrayList<ColumnModel>();
+		for (ColumnModel col : columns)
+			if (col.getPkey() && !col.getTransientable())
+				pkeyCols.add(col);
+		Collections.sort(pkeyCols, new Comparator() {
+			public int compare(Object o1, Object o2) {
+				return ((ColumnModel) o1).getColumnName().compareTo(((ColumnModel) o1).getColumnName());
+			}
+		});
+		return pkeyCols;
+	}
+
+	public String getDebugInfo() {
+		return DebugUtils.getTableModelDebugInfo(this);
+	}
 	// getter & setter=========================
+
+	protected void getAndSetters____________________________() {// NOSONAR
+	}
 
 	public String getTableName() {
 		return tableName;
@@ -458,6 +511,8 @@ public class TableModel {
 	}
 
 	public List<FKeyModel> getFkeyConstraints() {
+		if (fkeyConstraints == null)
+			fkeyConstraints = new ArrayList<FKeyModel>();
 		return fkeyConstraints;
 	}
 
@@ -474,6 +529,8 @@ public class TableModel {
 	}
 
 	public List<IndexModel> getIndexConsts() {
+		if (indexConsts == null)
+			indexConsts = new ArrayList<IndexModel>();
 		return indexConsts;
 	}
 
@@ -482,6 +539,8 @@ public class TableModel {
 	}
 
 	public List<UniqueModel> getUniqueConsts() {
+		if (uniqueConsts == null)
+			uniqueConsts = new ArrayList<UniqueModel>();
 		return uniqueConsts;
 	}
 
@@ -490,6 +549,8 @@ public class TableModel {
 	}
 
 	public List<IdGenerator> getIdGenerators() {
+		if (idGenerators == null)
+			idGenerators = new ArrayList<IdGenerator>();
 		return idGenerators;
 	}
 

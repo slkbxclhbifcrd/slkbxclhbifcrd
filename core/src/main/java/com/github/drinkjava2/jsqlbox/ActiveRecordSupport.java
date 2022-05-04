@@ -12,6 +12,7 @@
 package com.github.drinkjava2.jsqlbox;
 
 import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdbpro.SqlItem;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 
@@ -82,6 +83,10 @@ public interface ActiveRecordSupport {// NOSONAR
 	/**  Load entity by given id (P-Key) or id Map  */
 	public <T> T loadById(Object idOrIdMap, Object... optionalSqlItems);
 	
+	/**  Load entity by given query  */
+	public <T> T loadByQuery(Object... sqlItems);
+	
+	
 	/**
 	 * Link style set values for entity field, format like:
 	 * user.put("id","id1").put("name","Sam").put("address","Beijing","phone","12345",
@@ -122,5 +127,15 @@ public interface ActiveRecordSupport {// NOSONAR
 	 * @return
 	 */
 	public ActiveRecordSupport useContext(SqlBoxContext ctx);
+	
+	
+	/**
+	 * For tXxxx style templateEngine use, return a SqlItemType.PUT type SqlItem
+	 * instance,
+	 * 
+	 * Usage: put("key1",value1,"key2",value2...);
+	 */
+	public SqlItem bind(Object... parameters);
+
 
 }

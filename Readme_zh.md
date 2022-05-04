@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  一盒在手，天下我有
+  全栈数据库持久层工具
 </p>
 
 <p align="center">
@@ -21,16 +21,16 @@
 # 简介 | Intro
 
 jSqlBox是一个小而全的跨数据库、提供多种SQL写法、ActiveRecord、ORM查询、主从及分库分表、声明式事务等功能的数据库持久层工具。简单地说，是一个全栈数据库持久层工具。  
-jSqlBox运行于Java6及以上。
+jSqlBox有Java6和Java8两个版本。
 
 # 优点 | Advantages
 
 - **架构优良**：模块式架构，各个模块都可以脱离jSqlBox单独存在。
 - **跨数据库**：基于jDialects，支持70多种数据库的分页、函数变换，是Hibernate之外少有的支持跨数据库DDL生成的工具。
-- **尺寸小**： 仅有jSqlBoxt和DbUtils两个依赖包,合计约500k大小。
+- **尺寸小**： 仅有jSqlBox和DbUtils两个依赖包,合计约500k大小。
 - **与DbUtils兼容**：继承于DbUtils, 原有基于DbUtils的项目可以无缝升级到jSqlBox。
-- **多种SQL写法**：Inline方法、模板方法、DataMapper、ActiveRecord、链式写法、SqlMapper，NoSQL查询等。
-- **多项技术创新**：Inline风格、多行文本支持、NoSQL查询、支持重构的SQL写法、ActiveRecord与SqlMapper合体等。
+- **多种SQL写法**：Inline方法、模板方法、DataMapper、ActiveRecord、链式写法、SqlMapper等。
+- **多项技术创新**：Inline风格、多行文本支持、NoSQL树结构查询、支持重构的SQL写法、ActiveRecord与SqlMapper合体等。
 - **动态配置**：除了支持实体Bean注解式配置，jSqlBox还支持在运行期动态更改配置。
 - **无会话设计**：无会话设计(Sessionless)，是一个真正轻量级的、全功能的持久层工具，也可以作为其它持久层工具的补丁来使用。
 - **自带声明式事务**：基于独立小巧的声明式事务工具jTransactions。也支持配置成Spring事务。
@@ -57,8 +57,16 @@ jSqlBox运行于Java6及以上。
 ```xml
 <dependency>
    <groupId>com.github.drinkjava2</groupId>
-   <artifactId>jsqlbox</artifactId>
-   <version>1.0.7</version> <!--或最新版-->
+   <artifactId>jsqlbox</artifactId> <!--Java6、7环境-->
+   <version>2.0.0</version>  
+</dependency> 
+```
+或
+```xml
+<dependency>
+   <groupId>com.github.drinkjava2</groupId>
+   <artifactId>jsqlbox-java8</artifactId> <!--Java8环境-->
+   <version>2.0.0</version>  
 </dependency> 
 ```
 

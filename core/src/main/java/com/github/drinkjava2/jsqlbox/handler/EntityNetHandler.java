@@ -12,33 +12,30 @@
 package com.github.drinkjava2.jsqlbox.handler;
 
 import java.util.List;
+import java.util.Map;
 
 import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
 import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxException;
+import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 
 /**
- * EntityNetHandler is a SqlHandler used explain the Entity query SQL (For
- * example 'select u.** from users u') and return a EntityNet instance
+ * EntityNetHandler used to convert SQL query result to EntityNet
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
-@SuppressWarnings("all")
 public class EntityNetHandler extends SSMapListHandler {
-
-	public EntityNetHandler(Object... netConfigObjects) {
-		super(netConfigObjects);
-	}
 
 	@Override
 	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
-		Object result = super.handle(runner, ps);
-		if (result != null && result instanceof List<?>) {
-			if (config == null)
-				throw new SqlBoxException("Can not build netConfig for Map List result");
-		}
-		return ((SqlBoxContext) runner).netCreate((List) result, this.config);
+		EntityNet qry = new EntityNet();
+		qry.config(ps.getModels());
+		qry.addGivesList(ps.getGivesList());
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> result = (List<Map<String, Object>>) super.handle(runner, ps);
+		qry.translateToEntity((SqlBoxContext) runner, result);
+		return qry;
 	}
+
 }

@@ -167,7 +167,7 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 		if (StrUtils.isEmpty(tableName))
 			tableName = entityClass.getSimpleName();
 		TableModel model = new TableModel(tableName); // Build the tableModel
-
+		model.setEntityClass(entityClass );
 		if (!tableMap.isEmpty()) {
 			// Index
 			Annotation[] indexes = (Annotation[]) tableMap.get("indexes");
@@ -245,13 +245,9 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 
 			Field field = ReflectionUtils.findField(entityClass, entityfieldName);
 			if (field == null)
-				continue;
-			if (!TypeUtils.canMapToSqlType(propertyClass) && getFirstEntityAnno(field, "Transient").isEmpty()) {
-				throw new DialectException("In class '" + entityClass + "',  feild '" + entityfieldName
-						+ "' can not map to a SQL type, need use @Transient annotation to disable it");
-			}
+				continue; 
 
-			if (!getFirstEntityAnno(field, "Transient").isEmpty()) {
+			if (!getFirstEntityAnno(field, "Transient").isEmpty()  || !TypeUtils.canMapToSqlType(propertyClass)) {
 				ColumnModel col = new ColumnModel(entityfieldName);
 				col.setColumnType(TypeUtils.toType(propertyClass));
 				col.setLengths(new Integer[] { 255, 0, 0 });

@@ -14,6 +14,8 @@ package com.github.drinkjava2.jsqlbox;
 import java.lang.reflect.Method;
 
 import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdbpro.SqlItem;
+import com.github.drinkjava2.jdbpro.SqlOption;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
@@ -79,8 +81,8 @@ public class ActiveRecord implements ActiveRecordSupport {
 	}
 
 	@Override
-	public ColumnModel columnModel(String columnName) {
-		return box().getTableModel().getColumn(columnName);
+	public ColumnModel columnModel(String colOrFieldName) {
+		return box().getTableModel().getColumnByColOrEntityFieldName(colOrFieldName);
 	}
 
 	@Override
@@ -141,16 +143,24 @@ public class ActiveRecord implements ActiveRecordSupport {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
 			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return ctx.load(this,  optionalSqlItems);
+		return ctx.load(this, optionalSqlItems);
 	}
-	
-	@SuppressWarnings("unchecked")
+ 
 	@Override
 	public <T> T loadById(Object idOrIdMap, Object... optionalSqlItems) {
 		SqlBoxContext ctx = ctx();
 		if (ctx == null)
 			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return  ctx.loadById((Class<T>)this.getClass(), idOrIdMap, optionalSqlItems);
+		return ctx.loadById(this, idOrIdMap, optionalSqlItems);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> T loadByQuery(Object... sqlItems) {
+		SqlBoxContext ctx = ctx();
+		if (ctx == null)
+			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		return ctx.loadByQuery((Class<T>) this.getClass(), sqlItems);
 	}
 
 	@Override
@@ -208,6 +218,11 @@ public class ActiveRecord implements ActiveRecordSupport {
 	@Override
 	public PreparedSQL guessPreparedSQL(Object... params) {
 		return ctx().getSqlMapperGuesser().doGuessPreparedSQL(ctx(), this, params);
+	}
+
+	@Override
+	public SqlItem bind(Object... parameters) {
+		return new SqlItem(SqlOption.BIND, parameters);
 	}
 
 }

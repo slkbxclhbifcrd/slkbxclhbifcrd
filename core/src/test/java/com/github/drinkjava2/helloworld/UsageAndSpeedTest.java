@@ -5,9 +5,9 @@ import static com.github.drinkjava2.jdbpro.JDBPRO.PARA0;
 import static com.github.drinkjava2.jdbpro.JDBPRO.PARAMS;
 import static com.github.drinkjava2.jdbpro.JDBPRO.QUES;
 import static com.github.drinkjava2.jdbpro.JDBPRO.VALUESQUES;
+import static com.github.drinkjava2.jdbpro.JDBPRO.bind;
 import static com.github.drinkjava2.jdbpro.JDBPRO.notNull;
 import static com.github.drinkjava2.jdbpro.JDBPRO.param;
-import static com.github.drinkjava2.jdbpro.JDBPRO.put;
 import static com.github.drinkjava2.jdbpro.JDBPRO.question;
 import static com.github.drinkjava2.jdbpro.JDBPRO.sql;
 import static com.github.drinkjava2.jdbpro.JDBPRO.valuesQuestions;
@@ -29,6 +29,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.jbeanbox.BeanBox;
+import com.github.drinkjava2.jdbpro.IocTool;
 import com.github.drinkjava2.jdbpro.template.BasicSqlTemplate;
 import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
 import com.github.drinkjava2.jdialects.annotation.jpa.Column;
@@ -38,7 +40,7 @@ import com.github.drinkjava2.jdialects.springsrc.utils.ClassUtils;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
-import com.github.drinkjava2.jsqlbox.annotation.Handlers;
+import com.github.drinkjava2.jsqlbox.annotation.New;
 import com.github.drinkjava2.jsqlbox.annotation.Sql;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -83,10 +85,10 @@ public class UsageAndSpeedTest {
 	public void speedTest() throws Exception {
 		try {
 			PRINT_TIMEUSED = false;
-			REPEAT_TIMES = 10;// warm up
+			REPEAT_TIMES = 1;// warm up
 			runTestMethods();
 			PRINT_TIMEUSED = true;
-			REPEAT_TIMES = 15;// Change to 10000 to do speed test
+			REPEAT_TIMES = 1;// Change to 10000 to do speed test
 			System.out.println("Compare method execute time for repeat " + REPEAT_TIMES + " times:");
 			runTestMethods();
 		} finally {
@@ -210,9 +212,21 @@ public class UsageAndSpeedTest {
 			this.guess(name, address);
 		};
 
-		@Handlers(MapListHandler.class)
+		@New(MapListHandler.class)
 		@Sql("select * from users where name=? and address=?")
 		public List<Map<String, Object>> selectUsers(String name, String address) {
+			return this.guess(name, address);
+		};
+
+		@New(MapListHandler.class)
+		@Sql("select * from users where name=:name and address=:address")
+		public List<Map<String, Object>> selectUsersBindParam(String name, String address) {
+			return this.guess(bind("name", name, "address", address));
+		};
+
+		@New(MapListHandler.class)
+		@Sql("select * from users where name='${name}' and address=:address")
+		public List<Map<String, Object>> selectUsersUnbindParam(String name, String address) {
 			return this.guess(name, address);
 		};
 
@@ -395,13 +409,13 @@ public class UsageAndSpeedTest {
 			UserAR tom = new UserAR("Tom", "China");
 			paramMap.put("user", sam);
 			ctx2.tExecute("insert into users (name, address) values(#{user.name},:user.address)", paramMap);
-			ctx2.tExecute("update users set name=#{user.name}, address=:user.address", put("user", tom));
+			ctx2.tExecute("update users set name=#{user.name}, address=:user.address", bind("user", tom));
 			Assert.assertEquals(1L,
 					ctx2.tQueryForObject("select count(*) from users where name=#{name} and address=:addr",
-							put("name", "Tom", "addr", "China")));
+							bind("name", "Tom", "addr", "China")));
 			ctx2.tExecute("delete from users where "//
-					, " name=:name ", put("name", "Tom")//
-					, " or address=#{address}", put("address", "China")//
+					, " name=:name ", bind("name", "Tom")//
+					, " or address=#{address}", bind("address", "China")//
 			);
 		}
 	}
@@ -422,7 +436,7 @@ public class UsageAndSpeedTest {
 	}
 
 	@Test
-	public void activeRecordStyle() {// TODO: debug at here
+	public void activeRecordStyle() {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
 		UserAR user = new UserAR();
 		user.useContext(ctx); // Use ctx as SqlBoxContext
@@ -508,24 +522,30 @@ public class UsageAndSpeedTest {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void abstractSqlMapperUseText() {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		ctx.setIocTool(new IocTool() {
+			public <T> T getBean(Class<?> configClass) {
+				return BeanBox.getBean(configClass);
+			}
+		});
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
-		AbstractUser user = SqlBoxContext.createMapper(AbstractUser.class);
+		AbstractUser mapper = SqlBoxContext.createMapper(AbstractUser.class);
 		for (int i = 0; i < REPEAT_TIMES; i++) {
-			user.insertOneUser("Sam", "Canada");
-			user.ctx().iUpdate(user.updateUserPreparedSQL("Tom", "China"));
-			List<Map<String, Object>> users = user.selectUserListMap("Tom", "China");
+			mapper.insertOneUser("Sam", "Canada");
+			mapper.updateUserPreparedSQL("Tom", "China");
+			List<Map<String, Object>> users = mapper.selectUserListMap("Tom", "China");
 			Assert.assertEquals(1, users.size());
-			List<AbstractUser> users2 = user.selectAbstractUserList("Tom", "China");
+			List<TextedUser> users2 = mapper.selectAbstractUserListUnBind("Tom", "China");
 			Assert.assertEquals(1, users2.size());
-			user.deleteUsers("Tom", "China");
-			Assert.assertEquals(0, user.ctx().pQueryForLongValue("select count(*) from	 users"));
+			mapper.deleteUsers("Tom", "China");
+			Assert.assertEquals(0, mapper.ctx().pQueryForLongValue("select count(*) from	 users"));
 		}
 	}
 
-	public void otherTestsNotForSpeedTest______________() {
+	protected void BelowNotForSpeedTest_______________________() {
 		// below methods are test usages only, not join to speed test
 	}
 
@@ -536,13 +556,13 @@ public class UsageAndSpeedTest {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource, config);
 		UserAR user = new UserAR("Sam", "Canada");
 		UserAR tom = new UserAR("Tom", "China");
-		ctx.tExecute("insert into users (name, address) values([user.name], [user.address])", put("user", user));
-		ctx.tExecute("update users set name=[user.name], address=[user.address]", put("user", tom));
+		ctx.tExecute("insert into users (name, address) values([user.name], [user.address])", bind("user", user));
+		ctx.tExecute("update users set name=[user.name], address=[user.address]", bind("user", tom));
 		Assert.assertEquals(1L,
 				ctx.tQueryForObject("select count(*) from users where ${col}= [name] and address=[addr]",
-						put("name", "Tom"), put("addr", "China"), put("$col", "name")));
-		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", put("u", tom), put("$t", tom),
-				put("$nm", "name"));
+						bind("name", "Tom"), bind("addr", "China"), bind("$col", "name")));
+		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", bind("u", tom), bind("$t", tom),
+				bind("$nm", "name"));
 	}
 
 	@Test
@@ -551,13 +571,13 @@ public class UsageAndSpeedTest {
 		SqlTemplateEngine engine = new BasicSqlTemplate("[", "]", true, true);
 		UserAR user = new UserAR("Sam", "Canada");
 		UserAR tom = new UserAR("Tom", "China");
-		ctx.tExecute("insert into users (name, address) values(#{user.name}, #{user.address})", put("user", user));
-		ctx.tExecute(engine, "update users set name=[user.name], address=[user.address]", put("user", tom));
+		ctx.tExecute("insert into users (name, address) values(#{user.name}, #{user.address})", bind("user", user));
+		ctx.tExecute(engine, "update users set name=[user.name], address=[user.address]", bind("user", tom));
 		Assert.assertEquals(1L,
 				ctx.tQueryForObject(engine, "select count(*) from users where ${col}= [name] and address=[addr]",
-						put("name", "Tom"), put("addr", "China"), put("$col", "name")));
-		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", put("u", tom), put("$t", tom),
-				put("$nm", "name"), engine);
+						bind("name", "Tom"), bind("addr", "China"), bind("$col", "name")));
+		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", bind("u", tom), bind("$t", tom),
+				bind("$nm", "name"), engine);
 	}
 
 	/** Use const String can make SQL support Java Bean field refactoring */
@@ -591,6 +611,46 @@ public class UsageAndSpeedTest {
 	}
 
 	@Test
+	public void activeRecordLoadByQuery() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		UserAR user = new UserAR();
+		user.useContext(ctx); // Use ctx as SqlBoxContext
+		user.setName("Sam");
+		user.setAddress("Canada");
+		user.insert();
+		UserAR user2 = new UserAR().useContext(ctx).loadByQuery("select * from ", UserAR.TABLE);
+		Assert.assertEquals("Sam", user2.getName());
+	}
+
+	@Test
+	public void dataMapperCrudTest() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		// ctx.setAllowShowSQL(true);
+		UserAR user = new UserAR();
+		for (int i = 1; i <= 10; i++) {
+			user.setName("Tom" + i);
+			user.setAddress("China" + i);
+			ctx.insert(user);
+		}
+		user = new UserAR();
+		user.setName("Tom8");
+		ctx.load(user);
+		Assert.assertEquals("China8", user.getAddress());
+
+		user = ctx.loadById(UserAR.class, "Tom7");
+		Assert.assertEquals("China7", user.getAddress());
+
+		user.setAddress("Canada");
+		ctx.update(user);
+		Assert.assertEquals("Canada",  ctx.loadById(UserAR.class, "Tom7").getAddress());
+
+		ctx.delete(user);
+		ctx.delete(user, " or name=?", param("Tom2"));
+
+		Assert.assertEquals(7, ctx.loadAll(UserAR.class, " where name>?", param("Tom1")).size());
+	}
+
+	@Test
 	public void conditionsQuery() {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
 		final String name = "Tom";
@@ -602,7 +662,7 @@ public class UsageAndSpeedTest {
 				" ,address ", param(address), //
 				") ", valuesQuestions());
 		ctx.pExecute("update users set ", //
-				notNull(" name=?,", name), //
+				notNull(" name", "=", "?, ", name), //
 				notNull(" age=?,", age), //
 				sql(" address=? "), address //
 		);
@@ -615,4 +675,47 @@ public class UsageAndSpeedTest {
 		ctx.nExecute("delete from users");
 	}
 
+	@Test
+	public void sqlMapperSqlAnnobindParam() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
+		UserMapper user = new UserMapper();
+		user.insertOneUser("Sam", "Canada");
+		user.updateAllUser("Tom", "China");
+		List<Map<String, Object>> users = user.selectUsersBindParam("Tom", "China");
+		Assert.assertEquals(1, users.size());
+	}
+ 
+	@Test
+	public void sqlMapperSqlAnnoUnbindParam() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		//ctx.setAllowShowSQL(true);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
+		UserMapper user = new UserMapper();
+		user.insertOneUser("Sam", "Canada");
+		user.updateAllUser("Tom", "China");
+		List<Map<String, Object>> users = user.selectUsersUnbindParam("Tom", "China");
+		Assert.assertEquals(1, users.size());
+	}
+
+	@SuppressWarnings("deprecation")
+	@Test
+	public void abstractSqlMapperUseTextUnbindAndBind() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
+		ctx.setIocTool(new IocTool() {
+			public <T> T getBean(Class<?> configClass) {
+				return BeanBox.getBean(configClass);
+			}
+		});
+		AbstractUser mapper = SqlBoxContext.createMapper(AbstractUser.class);
+		mapper.insertOneUser("Sam", "Canada");
+		mapper.updateUserPreparedSQL("Tom", "China");
+		List<TextedUser> users2 = mapper.selectAbstractUserListUnBind("Tom", "China");
+		Assert.assertEquals(1, users2.size());
+
+		TextedUser u = users2.get(0);
+		List<TextedUser> users3 = mapper.selectAbstractUserListBind("Tom", u);
+		Assert.assertEquals(1, users3.size());
+	}
 }
