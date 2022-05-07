@@ -52,12 +52,14 @@ jSqlBox有Java6和Java8两个版本。
 
 # 下载地址 | Download
 
-[点此去下载](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)
+[点此去下载](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)   
+
+或在pom.xml中加入：
 
 ```xml
 <dependency>
    <groupId>com.github.drinkjava2</groupId>
-   <artifactId>jsqlbox</artifactId> <!--Java6、7环境-->
+   <artifactId>jsqlbox</artifactId> <!--用于Java6、7环境-->
    <version>2.0.0</version>  
 </dependency> 
 ```
