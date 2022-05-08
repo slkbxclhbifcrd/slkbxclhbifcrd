@@ -1,7 +1,7 @@
 package com.github.drinkjava2.test;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.giExecute;
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.giQueryForLongValue;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.iExecute;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.iQueryForLongValue;
 
 import java.util.List;
 
@@ -21,7 +21,7 @@ import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
  * Java8+, so in Java8 and above, a POJO can implements ActiveRecordJava8
  * interface to obtain CRUD methods instead of extends ActiveRecord class
  */
-public class ActiveEntityTest implements ActiveEntity {
+public class ActiveEntityTest implements ActiveEntity<ActiveEntityTest> {
 	@Id
 	private String name;
 	private Integer age;
@@ -44,7 +44,7 @@ public class ActiveEntityTest implements ActiveEntity {
 
 	@Sql("select * from ActiveEntityTest where age>=?")
 	public List<ActiveEntityTest> selectUsers(Integer age) {
-		return guess(age, new EntityListHandler(ActiveEntityTest.class));
+		return guess(age, new EntityListHandler(), ActiveEntityTest.class);
 	};
 
 	@Before
@@ -53,10 +53,10 @@ public class ActiveEntityTest implements ActiveEntity {
 				.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", ""));
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);
 		for (String ddl : ctx.toCreateDDL(ActiveEntityTest.class))
-			giExecute(ddl);
+			iExecute(ddl);
 		for (int i = 0; i < 100; i++)
 			new ActiveEntityTest().put("name", "name" + i, "age", i).insert();
-		Assert.assertEquals(100, giQueryForLongValue("select count(*) from ActiveEntityTest"));
+		Assert.assertEquals(100, iQueryForLongValue("select count(*) from ActiveEntityTest"));
 	}
 
 	@Test

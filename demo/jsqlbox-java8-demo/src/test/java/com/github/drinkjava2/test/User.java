@@ -13,7 +13,7 @@ import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
 import com.github.drinkjava2.jsqlbox.handler.PaginHandler;
 
 @Table(name = "usertb")
-public class User extends ActiveRecord {
+public class User extends ActiveRecord<User> {
 
 	@UUID25
 	@Id
@@ -59,6 +59,6 @@ public class User extends ActiveRecord {
 
 	public List<User> pageQuery(PaginHandler pagin, Object... conditions) {
 		giQueryForLongValue("select count(1) from usertb where 1=1 ", conditions);
-		return giQuery(new EntityListHandler(User.class), "select * from usertb where 1=1", conditions, pagin);
+		return giQuery(new EntityListHandler(), User.class, "select * from usertb where 1=1", conditions, pagin);
 	}
 }

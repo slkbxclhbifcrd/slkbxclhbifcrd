@@ -11,7 +11,7 @@
  */
 package jsqlboxtx;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.*;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.iQueryForLongValue;
 
 import java.util.Properties;
 
@@ -68,6 +68,7 @@ public class XATransactionTest {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	@Before
 	public void init() {
 		BeanBox.regAopAroundAnnotation(TX.class, SpringTxIBox.class);
@@ -110,7 +111,7 @@ public class XATransactionTest {
 	@TX
 	public void insertAccountsBad() {
 		new Bank().put("bankId", 0L, "balance", 100L).insert();
-		Assert.assertEquals(1, giQueryForLongValue("select count(*) from bank", masters[0]));
+		Assert.assertEquals(1, iQueryForLongValue("select count(*) from bank", masters[0]));
 		System.out.println("In insertAccountsBad() method, 1 record inserted in database0, but will rollback");
 		new Bank().put("bankId", 1L, "balance", 100L).insert();
 		new Bank().put("bankId", 2L, "balance", 1 / 0).insert();// div 0!
@@ -131,18 +132,18 @@ public class XATransactionTest {
 		} catch (Exception e) {
 			System.out.println("Div 0 RuntimeException caused no records be inserted into any database.");
 		}
-		Assert.assertEquals(0, giQueryForLongValue("select count(*) from bank", masters[0]));
-		Assert.assertEquals(0, giQueryForLongValue("select count(*) from bank", masters[1]));
-		Assert.assertEquals(0, giQueryForLongValue("select count(*) from bank", masters[2]));
+		Assert.assertEquals(0, iQueryForLongValue("select count(*) from bank", masters[0]));
+		Assert.assertEquals(0, iQueryForLongValue("select count(*) from bank", masters[1]));
+		Assert.assertEquals(0, iQueryForLongValue("select count(*) from bank", masters[2]));
 
 		tester.insertAccountsGood();
-		Assert.assertEquals(1, giQueryForLongValue("select count(*) from bank", masters[0]));
-		Assert.assertEquals(1, giQueryForLongValue("select count(*) from bank", masters[1]));
-		Assert.assertEquals(1, giQueryForLongValue("select count(*) from bank", masters[2]));
+		Assert.assertEquals(1, iQueryForLongValue("select count(*) from bank", masters[0]));
+		Assert.assertEquals(1, iQueryForLongValue("select count(*) from bank", masters[1]));
+		Assert.assertEquals(1, iQueryForLongValue("select count(*) from bank", masters[2]));
 	}
 
 	//@formatter:off 
-	public static class Bank extends ActiveRecord {
+	public static class Bank extends ActiveRecord<Bank> {
 		@ShardDatabase({ "MOD", "3" })
 		@Id
 		private Long bankId;

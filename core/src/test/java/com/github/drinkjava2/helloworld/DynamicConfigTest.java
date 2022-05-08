@@ -16,11 +16,9 @@ import org.junit.Test;
 
 import com.github.drinkjava2.config.TestBase;
 import com.github.drinkjava2.jdialects.TableModelUtils;
-import com.github.drinkjava2.jdialects.annotation.jdia.UUID32;
 import com.github.drinkjava2.jdialects.annotation.jpa.Column;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.SqlBox;
 import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 /**
@@ -32,8 +30,7 @@ import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 public class DynamicConfigTest extends TestBase {
 
-	public static class UserDemo extends ActiveRecord {
-		@UUID32
+	public static class UserDemo extends ActiveRecord<UserDemo> {
 		private String id;
 
 		@Column(name = "user_name2", length = 32)
@@ -61,68 +58,75 @@ public class DynamicConfigTest extends TestBase {
 		}
 	}
 
-	public static class UserDemoSqlBox extends SqlBox {
-		{
-			TableModel t = TableModelUtils.entity2Model(UserDemo.class);
-			t.addColumn("anotherColumn1").STRING(40);
-			this.setTableModel(t);
-		}
+	@Test
+	public void doTest() {
+		TableModel model = TableModelUtils.entity2Model(UserDemo.class);
+		// A new column dynamically created
+		model.addColumn("anotherColumn2").VARCHAR(10);
+		createAndRegTables(model);
+
+		UserDemo u = new UserDemo();
+		u.setId("u1");
+		u.setUserName("Sam");
+
+		// A Fake PKey dynamically created
+		model.column("id").pkey();
+		ctx.entityInsert(u, model);
+
+		u.setUserName("Tom");
+		u.update(model);
+
+		Assert.assertEquals(1L, ctx.iQueryForLongValue("select count(*) from table2", model));
 	}
 
 	@Test
-	public void doTest() {
-		TableModel t = new UserDemoSqlBox().getTableModel();
+	public void testDynamicConfig() {
+		TableModel model = TableModelUtils.entity2Model(UserDemo.class);
+		model.column("id").pkey();
+		createAndRegTables(model);
 
-		// A new column dynamically created
-		t.addColumn("anotherColumn2").VARCHAR(10);
-		createAndRegTables(t);
-		UserDemo u = new UserDemo();
+		UserDemo u1 = new UserDemo();
+		u1.setId("u1");
+		u1.setUserName("Tom");
+		u1.insert(model);
 
-		// A Fake PKey dynamically cretated
-		u.columnModel("id").pkey();
-		u.setUserName("Sam");
-		ctx.insert(u);
+		UserDemo u2 = ctx.entityLoadById(UserDemo.class, "u1", model);
+		Assert.assertEquals("Tom", u2.getUserName());
 
-		u.setUserName("Tom");
-		u.update();
-
-		Assert.assertEquals(1L, ctx.nQueryForObject("select count(*) from table2"));
+		model.column("userName").setTransientable(true);
+		UserDemo u3 = ctx.entityLoadById(UserDemo.class, "u1", model);
+		Assert.assertEquals(null, u3.getUserName());
 	}
 
 	@Test
 	public void doQueryTest() {
 		createAndRegTables(UserDemo.class);
-		UserDemo u = new UserDemo().put("userName", "Tom").insert();
+		UserDemo u = new UserDemo().put("id", "u1", "userName", "Tom").insert();
 
-		u.columnModel("id").pkey();
+		TableModel t = TableModelUtils.entity2Model(UserDemo.class);
+		t.getColumnByFieldName("id").pkey();// Fake Pkey
+		u.setId("u1");
 		u.setUserName(null);
-		u.load();
+		u.load(t);
 		Assert.assertEquals("Tom", u.getUserName());
 
 		u.setUserName(null);
-		u.loadById(u.getId());
-		Assert.assertEquals("Tom", u.getUserName());
+		UserDemo newU = u.loadById(u.getId(), t);
+		Assert.assertEquals("Tom", newU.getUserName());
 
-		// TODO: different load configurations
-		UserDemo u2 = ctx.loadById(UserDemo.class, u.getId(), u.tableModel());
+		UserDemo u2 = ctx.entityLoadById(UserDemo.class, u.getId(), t);
 		Assert.assertEquals("Tom", u2.getUserName());
 
-		u.columnModel("userName").setTransientable(true);
-		UserDemo u3 = ctx.loadById(UserDemo.class, u.getId(), u);
+		t.getColumnByFieldName("userName").setTransientable(true);// ignore userName
+		UserDemo u3 = ctx.entityLoadById(UserDemo.class, u.getId(), t);
 		Assert.assertEquals(null, u3.getUserName());
-
-		UserDemo u4 = ctx.loadById(UserDemo.class, u.getId(), u.tableModel());
-		Assert.assertEquals(null, u4.getUserName());
-
-		UserDemo u5 = ctx.loadById(UserDemo.class, u.getId(), u.box());
-		Assert.assertEquals(null, u5.getUserName());
 	}
 
 	@Test(expected = SqlBoxException.class)
 	public void doExceptionTest() {
 		createAndRegTables(UserDemo.class);
 		UserDemo u = new UserDemo().put("userName", "Tom").insert();
-		ctx.loadById(UserDemo.class, u.getId());
+		ctx.entityLoadById(UserDemo.class, u.getId());
 	}
 
 }

@@ -34,7 +34,7 @@ public enum SqlOption {
 	QUESTION_PARAM,
 
 	/** BIND Key-Values pairs "key1,value1, key2,value2..." for SqlTemplateEngine */
-	BIND, //
+	BIND,
 
 	/**
 	 * Usage: NOT_NUL("user_name=?", name), when name is null, nothing will be
@@ -54,7 +54,7 @@ public enum SqlOption {
 	IOC,
 
 	/** Disable handles according given handlers' class */
-	DISABLE_HANDLERS, //
+	DISABLE_HANDLERS,
 
 	/** Disable handles according given handlers' class */
 	ENABLE_HANDLERS,
@@ -75,11 +75,8 @@ public enum SqlOption {
 	/** It's a QUERY type SQL */
 	QUERY,
 
-	/**
-	 * IGNORE type SqlItem always be ignored, but user can use this type to inject
-	 * some parameters
-	 */
-	IGNORE,
+	/** OTHER type SqlItem used to store some other items */
+	OTHER,
 
 	// ================================================================
 	// Below items designed for jSqlBox or other projects to explain
@@ -96,13 +93,17 @@ public enum SqlOption {
 	USE_MASTER,
 
 	/** Tell system force use slave database (write:all slaves, read:one slave) */
-	USE_SLAVE, //
+	USE_SLAVE,
 
 	/**
 	 * Tell system force use master and slave database (write: master + all slaves,
 	 * read: master)
 	 */
 	USE_BOTH,
+
+	// ------TableModel about options---
+	/** Mark alias names for TableModels */
+	ALIAS,
 
 	// ------- sharding items -----------
 	/** Tell system this is a "SHARD_TABLE" item */
@@ -111,10 +112,19 @@ public enum SqlOption {
 	/** Tell system this is a "SHARD_DATABASE" item */
 	SHARD_DATABASE,
 
-	/** GIVE, GIVE_BOTH option are designed for ORM Query */
-	GIVE, GIVE_BOTH,
+	/** GIVE, GIVE_BOTH option are designed for ORM query */
+	GIVE,
 
-	/** MODEL, MODEL_ALIAS, MODEL_AUTO_ALIAS CONFIGS are designed for ORM Query */
-	MODEL, MODEL_ALIAS, MODEL_AUTO_ALIAS
+	GIVE_BOTH,
 
+	// ------- Entity CURD items -----------
+	/**
+	 * This option is designed for ORM insert and update CURD method, mark a
+	 * "IGNORE_NULL" item"
+	 */
+	IGNORE_NULL,
+
+	// ------- Entity CURD items -----------
+	/** This option is designed for ORM, will be parsed as a left join SQL */
+	AUTO_SQL
 }

@@ -1,82 +1,81 @@
 package com.github.drinkjava2.functionstest.entitynet;
 
-import java.util.List;
-import java.util.Set;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.alias;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.give;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.github.drinkjava2.config.TestBase;
 import com.github.drinkjava2.functionstest.entitynet.entities.TreeNode;
-import com.github.drinkjava2.jdialects.TableModelUtils;
-import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
-import com.github.drinkjava2.jsqlbox.entitynet.Path;
 import com.github.drinkjava2.jsqlbox.handler.EntityNetHandler;
 
 public class EntityNetTreeTest extends TestBase {
 	@Before
-	public void init() {
+	public void init() {// See "orm.png" in root folder
 		super.init();
-		// ctx.setAllowShowSQL(true);
-		TableModel[] models = TableModelUtils.entity2Models(TreeNode.class);
-		createAndRegTables(models);
-		new TreeNode().putFields("id", "comments", "pid", "line", "lvl");
-		new TreeNode().putValues("A", "found a bug", null, 1, 1).insert();
-		new TreeNode().putValues("B", "is a worm?", "A", 2,2).insert();
-		new TreeNode().putValues("E", "no", "B", 3, 3).insert();
-		new TreeNode().putValues("F", "is a bug", "B", 4, 3).insert();
-		new TreeNode().putValues("C", "oh, a bug", "A", 5, 2).insert();
-		new TreeNode().putValues("G", "need solve it", "C", 6, 3).insert();
-		new TreeNode().putValues("D", "careful it bites", "A", 7, 2).insert();
-		new TreeNode().putValues("H", "it does not bite", "D", 8, 3).insert();
-		new TreeNode().putValues("J", "found the reason", "H", 9, 4).insert();
-		new TreeNode().putValues("K", "solved", "H", 10, 4).insert();
-		new TreeNode().putValues("L", "uploaded", "H", 11, 4).insert();
-		new TreeNode().putValues("I", "well done!", "D", 12, 3).insert();
-		new TreeNode().putValues("END", "end tag", null, 13, 0).insert();
+		createAndRegTables(TreeNode.class);
+		TreeNode t = new TreeNode();
+		t.putFields("id", "comments", "pid", "line", "lvl");
+		t.putValues("A", "found a bug", null, 1, 1).insert();
+		t.putValues("B", "is a worm?", "A", 2, 2).insert();
+		t.putValues("E", "no", "B", 3, 3).insert();
+		t.putValues("F", "is a bug", "B", 4, 3).insert();
+		t.putValues("t", "oh, a bug", "A", 5, 2).insert();
+		t.putValues("G", "need solve it", "t", 6, 3).insert();
+		t.putValues("D", "careful it bites", "A", 7, 2).insert();
+		t.putValues("H", "it does not bite", "D", 8, 3).insert();
+		t.putValues("J", "found the reason", "H", 9, 4).insert();
+		t.putValues("K", "solved", "H", 10, 4).insert();
+		t.putValues("L", "uploaded", "H", 11, 4).insert();
+		t.putValues("I", "well done!", "D", 12, 3).insert();
+		t.putValues("END", "end tag", null, 13, 0).insert();
 		System.out.println();
 	}
 
+	private static final Object[] targets = new Object[] { new EntityNetHandler(), TreeNode.class, TreeNode.class,
+			alias("t", "p"), give("p", "t", "parent"), give("t", "p", "childs") };
+
 	@Test
 	public void testSearchTreeChild() {
-		EntityNet net = ctx.netLoad(TreeNode.class);
-		Set<TreeNode> TreeNodes = net.findEntitySet(TreeNode.class,
-				new Path("S+", TreeNode.class).where("id=? or id=?", "B", "D").nextPath("C*", TreeNode.class, "pid"));
-		for (TreeNode node : TreeNodes)
-			System.out.print(node.getId() + " ");
-		Assert.assertEquals(9, TreeNodes.size());
+		EntityNet net = ctx.iQuery(targets, "select t.**, t.pid as p_id from treenodetb t");
+		TreeNode node = net.pickOneEntity("t", "A");
+		printTree(node, 0);
+
+		System.out.println("====================");
+		node = net.pickOneEntity("t", "D");
+		printTree(node, 0);
 	}
 
 	@Test
-	public void testSearchTreeChild2() {
-		EntityNet net = ctx.netLoad(TreeNode.class);
-		Set<TreeNode> TreeNodes = net.findEntitySet(TreeNode.class, new Path("C*", TreeNode.class, "pid"),
-				new TreeNode("B"), new TreeNode("D"));
-		for (TreeNode node : TreeNodes)
-			System.out.print(node.getId() + " ");
-		Assert.assertEquals(7, TreeNodes.size());
+	public void subTreeSearch() {// see https://my.oschina.net/drinkjava2/blog/181863
+		System.out.println("==========Sub trea load==========");
+		TreeNode d = new TreeNode().loadById("D");
+		loadSubTreeByGivenNode(d);
 	}
 
-	@Test
-	public void testSearchTreeParent() {
-		EntityNet net = ctx.netLoad(TreeNode.class);
-		Set<TreeNode> TreeNodes = net.findEntitySet(TreeNode.class,
-				new Path("S-", TreeNode.class).where("id='F' or id='K'").nextPath("P*", TreeNode.class, "pid"));
-		for (TreeNode node : TreeNodes)
-			System.out.print(node.getId() + " ");
-		Assert.assertEquals(4, TreeNodes.size());
+	/**
+	 * Use one SQL to load a whole sub-tree,see
+	 * https://my.oschina.net/drinkjava2/blog/1818631
+	 */
+	public void loadSubTreeByGivenNode(TreeNode d) {
+		EntityNet net = ctx.pQuery(targets,
+				"select t.**, t.pid as p_id from treenodetb t where t.line>=? and t.line< (select min(line) from treenodetb where line>? and lvl<=?) ",
+				d.getLine(), d.getLine(), d.getLvl());
+		TreeNode node = net.pickOneEntity("t", d.getId());
+		printTree(node, 0);
 	}
-	
-	@Test
-	public void subTreeSearch() {//see https://my.oschina.net/drinkjava2/blog/1818631 
-		EntityNet net = ctx.pQuery(new EntityNetHandler(TreeNode.class),
-				"select t.** from treenodetb t where t.line>=? and t.line< (select min(line) from treenodetb where line>? and lvl<=?)",7,7,2);
-		List<TreeNode> TreeNodes = net.getAllEntityList(TreeNode.class); 
-		for (TreeNode node : TreeNodes)
-			System.out.print(node.getId() + " ");
-		Assert.assertEquals(6, TreeNodes.size());
+
+	private static void printTree(TreeNode node, int space) {
+		space++;
+		for (int i = 1; i < space; i++)
+			System.out.print("  ");
+		System.out.println(node.getId() + (node.getParent() != null ? "  Parent:" + node.getParent().getId() : " "));
+		if (node.getChilds() != null)
+			for (TreeNode c : node.getChilds())
+				printTree(c, space);
+		space--;
 	}
 
 }

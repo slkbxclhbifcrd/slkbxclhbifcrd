@@ -28,15 +28,17 @@ import org.apache.commons.dbutils.ResultSetHandler;
 import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
 
 /**
- * PreparedSQL is a POJO used for store SQL, parameter, ResultSetHandlers,
- * SqlHandlers, Connection and templateEngine..., this is a temporary object
- * prepared for lower layer JDBC tool to access database
+ * PreparedSQL is a temporary object used for store SQL, parameter,
+ * ResultSetHandlers, SqlHandlers, Connection and templateEngine..., it's not
+ * thread-safe
  * 
  * @author Yong Zhu
  * @since 1.7.0
  */
 @SuppressWarnings("rawtypes")
 public class PreparedSQL {
+
+	private StringBuilder sqlBuilder = new StringBuilder();
 
 	/** SQL Operation Type */
 	private SqlOption operationType;
@@ -74,11 +76,26 @@ public class PreparedSQL {
 	/** Handers in this list will disabled */
 	private List<Class<?>> disabledHandlers;
 
+	/** Store "SqlOption.Other" type SqlItem */
+	private List<SqlItem> others = null;
+
+	/**
+	 * Designed for ORM program, if set true will ignore fields with null value in
+	 * insert & update methods
+	 */
+	private Boolean ignoreNull = null;
+
 	/** TableModels, this is designed for ORM program */
 	private Object[] models;
 
-	/** Give List, this is designed for ORM program */
+	/** Alias of TableModels, this is designed for ORM Program */
+	private String[] aliases;
+
+	/** Give List, this is designed for ORM program's EntityNet */
 	private List<String[]> givesList = null;
+
+	/** EntityNet, this is designed for ORM program's EntityNet */
+	private Object entityNet = null;
 
 	public PreparedSQL() {// default constructor
 	}
@@ -112,6 +129,11 @@ public class PreparedSQL {
 		return sb.toString();
 	}
 
+	public StringBuilder addSql(Object sqlPiece) {
+		sqlBuilder.append(sqlPiece);
+		return sqlBuilder;
+	}
+
 	public void addParam(Object param) {
 		if (params == null)
 			params = new Object[1];
@@ -124,14 +146,24 @@ public class PreparedSQL {
 	}
 
 	public void addModel(Object model) {
-		if (models == null)
+		if (models == null) {
 			models = new Object[1];
-		else {
+			aliases = new String[1];
+		} else {
 			Object[] newModels = new Object[models.length + 1];
 			System.arraycopy(models, 0, newModels, 0, models.length);
 			models = newModels;
+			String[] newAliases = new String[aliases.length + 1];
+			System.arraycopy(aliases, 0, newAliases, 0, aliases.length);
+			aliases = newAliases;
 		}
 		models[models.length - 1] = model;
+	}
+
+	public void setLastAliases(String... alias) {
+		for (int i = 0; i < alias.length; i++) {
+			aliases[models.length - alias.length + i] = alias[i];
+		}
 	}
 
 	public void addGives(String[] gives) {
@@ -140,6 +172,13 @@ public class PreparedSQL {
 		if (gives == null || gives.length < 2)
 			throw new DbProRuntimeException("addGives at least need 2 alias parameters");
 		givesList.add(gives);
+	}
+	
+	public void giveBoth(String  alias1, String alias2) {  
+		if (givesList == null)
+			givesList = new ArrayList<String[]>();
+		givesList.add(new String[] { alias1, alias2 });
+		givesList.add(new String[] { alias2, alias1 });
 	}
 
 	/**
@@ -271,6 +310,12 @@ public class PreparedSQL {
 			this.useTemplate = useTemplate;
 	}
 
+	public void addOther(SqlItem obj) {
+		if (others == null)
+			others = new ArrayList<SqlItem>();
+		others.add(obj);
+	}
+
 	protected void GetterSetters_________________________() {// NOSONAR
 		// === below this line are normal getter && setter======
 	}
@@ -365,7 +410,13 @@ public class PreparedSQL {
 		this.disabledHandlers = disabledHandlers;
 	}
 
- 
+	public String[] getAliases() {
+		return aliases;
+	}
+
+	public void setAliases(String[] aliases) {
+		this.aliases = aliases;
+	}
 
 	public Object[] getModels() {
 		return models;
@@ -381,6 +432,38 @@ public class PreparedSQL {
 
 	public void setGivesList(List<String[]> givesList) {
 		this.givesList = givesList;
+	}
+
+	public Object getEntityNet() {
+		return entityNet;
+	}
+
+	public void setEntityNet(Object entityNet) {
+		this.entityNet = entityNet;
+	}
+
+	public List<SqlItem> getOthers() {
+		return others;
+	}
+
+	public void setOthers(List<SqlItem> others) {
+		this.others = others;
+	}
+
+	public StringBuilder getSqlBuilder() {
+		return sqlBuilder;
+	}
+
+	public void setSqlBuilder(StringBuilder sqlBuilder) {
+		this.sqlBuilder = sqlBuilder;
+	}
+
+	public Boolean getIgnoreNull() {
+		return ignoreNull;
+	}
+
+	public void setIgnoreNull(Boolean ignoreNull) {
+		this.ignoreNull = ignoreNull;
 	}
 
 }

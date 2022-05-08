@@ -156,7 +156,7 @@ public class UsageAndSpeedTest {
 	}
 
 	@Table(name = UserAR.TABLE)
-	public static class UserAR extends ActiveRecord {
+	public static class UserAR extends ActiveRecord<UserAR> {
 		public static final String TABLE = "users";
 		public static final String NAME = "name";
 		public static final String ADDRESS = "address";
@@ -298,7 +298,7 @@ public class UsageAndSpeedTest {
 				conn = ctx.prepareConnection();
 				ctx.execute(conn, "insert into users (name,address) values(?,?)", "Sam", "Canada");
 				ctx.execute(conn, "update users set name=?, address=?", "Tom", "China");
-				Assert.assertEquals(1L, ctx.queryForObject(conn,
+				Assert.assertEquals(1L, ctx.queryForLongValue(conn,
 						"select count(*) from users where name=? and address=?", "Tom", "China"));
 				ctx.execute(conn, "delete from users where name=? or address=?", "Tom", "China");
 			} catch (SQLException e) {
@@ -321,7 +321,7 @@ public class UsageAndSpeedTest {
 				ctx.execute("insert into users (name,address) values(?,?)", "Sam", "Canada");
 				ctx.execute("update users set name=?, address=?", "Tom", "China");
 				Assert.assertEquals(1L,
-						ctx.queryForObject("select count(*) from users where name=? and address=?", "Tom", "China"));
+						ctx.queryForLongValue("select count(*) from users where name=? and address=?", "Tom", "China"));
 				ctx.execute("delete from users where name=? or address=?", "Tom", "China");
 			} catch (SQLException e) {
 				e.printStackTrace();
@@ -367,7 +367,7 @@ public class UsageAndSpeedTest {
 			ctx.nExecute("insert into users (name,address) values(?,?)", "Sam", "Canada");
 			ctx.nExecute("update users set name=?, address=?", "Tom", "China");
 			Assert.assertEquals(1L,
-					ctx.nQueryForObject("select count(*) from users where name=? and address=?", "Tom", "China"));
+					ctx.nQueryForLongValue("select count(*) from users where name=? and address=?", "Tom", "China"));
 			ctx.nExecute("delete from users where name=? or address=?", "Tom", "China");
 		}
 	}
@@ -382,7 +382,7 @@ public class UsageAndSpeedTest {
 					" address ", param("Canada"), //
 					") ", valuesQuestions());
 			ctx.iExecute("update users set name=?,address=?", param("Tom", "China"));
-			Assert.assertEquals(1L, ctx.iQueryForObject("select count(*) from users where name=? and address=?",
+			Assert.assertEquals(1L, ctx.iQueryForLongValue("select count(*) from users where name=? and address=?",
 					param("Tom", "China")));
 			ctx.iExecute("delete from users where name=", question("Tom"), " or address=", question("China"));
 		}
@@ -394,7 +394,7 @@ public class UsageAndSpeedTest {
 		for (int i = 0; i < REPEAT_TIMES; i++) {
 			ctx.pExecute("insert into users (name,address,age) ", "Sam", "Canada", 10, valuesQuestions());
 			ctx.pExecute("update users set name=?", "Tom", sql(", address=?"), "China", sql(", age=?"), null);
-			Assert.assertEquals(1L, ctx.pQueryForObject(
+			Assert.assertEquals(1L, ctx.pQueryForLongValue(
 					"select count(*) from users where name=? and address=? and age is ?", "Tom", "China", null));
 			ctx.pExecute("delete from users where name=? or address=?", "Tom", "China");
 		}
@@ -411,7 +411,7 @@ public class UsageAndSpeedTest {
 			ctx2.tExecute("insert into users (name, address) values(#{user.name},:user.address)", paramMap);
 			ctx2.tExecute("update users set name=#{user.name}, address=:user.address", bind("user", tom));
 			Assert.assertEquals(1L,
-					ctx2.tQueryForObject("select count(*) from users where name=#{name} and address=:addr",
+					ctx2.tQueryForLongValue("select count(*) from users where name=#{name} and address=:addr",
 							bind("name", "Tom", "addr", "China")));
 			ctx2.tExecute("delete from users where "//
 					, " name=:name ", bind("name", "Tom")//
@@ -427,11 +427,11 @@ public class UsageAndSpeedTest {
 			UserPOJO user = new UserPOJO();
 			user.setName("Sam");
 			user.setAddress("Canada");
-			ctx.insert(user);
+			ctx.entityInsert(user);
 			user.setAddress("China");
-			ctx.update(user);
-			UserPOJO sam2 = ctx.loadById(UserPOJO.class, "Sam");
-			ctx.delete(sam2);
+			ctx.entityUpdateTry(user);
+			UserPOJO sam2 = ctx.entityLoadById(UserPOJO.class, "Sam");
+			ctx.entityDeleteTry(sam2);
 		}
 	}
 
@@ -447,7 +447,7 @@ public class UsageAndSpeedTest {
 			user.setAddress("China");
 			user.update();
 			UserAR user2 = new UserAR().useContext(ctx).loadById("Sam");
-			user2.delete();
+			user2.delete(ctx);
 		}
 	}
 
@@ -462,7 +462,7 @@ public class UsageAndSpeedTest {
 			user.insert();
 			user.setAddress("China");
 			user.update();
-			UserAR user2 = ctx.loadById(UserAR.class, "Sam");
+			UserAR user2 = ctx.entityLoadById(UserAR.class, "Sam");
 			user2.delete();
 		}
 	}
@@ -497,9 +497,42 @@ public class UsageAndSpeedTest {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
+	@Test
+	public void abstractSqlMapperUseText() {
+		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		ctx.setIocTool(new IocTool() {
+			public <T> T getBean(Class<?> configClass) {
+				return BeanBox.getBean(configClass);
+			}
+		});
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
+		AbstractUser mapper = SqlBoxContext.createMapper(AbstractUser.class);
+		for (int i = 0; i < REPEAT_TIMES; i++) {
+			mapper.insertOneUser("Sam", "Canada");
+			mapper.updateUserPreparedSQL("Tom", "China");
+			List<Map<String, Object>> users = mapper.selectUserListMap("Tom", "China");
+			Assert.assertEquals(1, users.size());
+			List<TextedUser> users2 = mapper.selectAbstractUserList1("Tom", "China");
+			Assert.assertEquals(1, users2.size());
+			mapper.deleteUsers("Tom", "China");
+			Assert.assertEquals(0, mapper.ctx().pQueryForLongValue("select count(*) from users"));
+		}
+	}
+
+	protected void BelowNotForSpeedTest_JustDoSomeUnitTest__________________() {
+		// below methods are for unit test only, not for speed test
+	}
+
+	@SuppressWarnings("deprecation")
 	@Test
 	public void sqlMapperUseText2() {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		ctx.setIocTool(new IocTool() {
+			public <T> T getBean(Class<?> configClass) {
+				return BeanBox.getBean(configClass);
+			}
+		});
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
 		TextedUser user = new TextedUser();
 		for (int i = 0; i < REPEAT_TIMES; i++) {
@@ -517,36 +550,12 @@ public class UsageAndSpeedTest {
 			List<TextedUser> u4 = user.selectUsersByText3("Tom", "China");
 			Assert.assertEquals(1, u4.size());
 
+			List<TextedUser> u5 = user.selectUsersByText4("Tom", "China");
+			Assert.assertEquals(1, u5.size());
+
 			user.deleteUsers("Tom", "China");
 			Assert.assertEquals(0, user.ctx().pQueryForLongValue("select count(*) from users"));
 		}
-	}
-
-	@SuppressWarnings("deprecation")
-	@Test
-	public void abstractSqlMapperUseText() {
-		SqlBoxContext ctx = new SqlBoxContext(dataSource);
-		ctx.setIocTool(new IocTool() {
-			public <T> T getBean(Class<?> configClass) {
-				return BeanBox.getBean(configClass);
-			}
-		});
-		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
-		AbstractUser mapper = SqlBoxContext.createMapper(AbstractUser.class);
-		for (int i = 0; i < REPEAT_TIMES; i++) {
-			mapper.insertOneUser("Sam", "Canada");
-			mapper.updateUserPreparedSQL("Tom", "China");
-			List<Map<String, Object>> users = mapper.selectUserListMap("Tom", "China");
-			Assert.assertEquals(1, users.size());
-			List<TextedUser> users2 = mapper.selectAbstractUserListUnBind("Tom", "China");
-			Assert.assertEquals(1, users2.size());
-			mapper.deleteUsers("Tom", "China");
-			Assert.assertEquals(0, mapper.ctx().pQueryForLongValue("select count(*) from	 users"));
-		}
-	}
-
-	protected void BelowNotForSpeedTest_______________________() {
-		// below methods are test usages only, not join to speed test
 	}
 
 	@Test
@@ -559,7 +568,7 @@ public class UsageAndSpeedTest {
 		ctx.tExecute("insert into users (name, address) values([user.name], [user.address])", bind("user", user));
 		ctx.tExecute("update users set name=[user.name], address=[user.address]", bind("user", tom));
 		Assert.assertEquals(1L,
-				ctx.tQueryForObject("select count(*) from users where ${col}= [name] and address=[addr]",
+				ctx.tQueryForLongValue("select count(*) from users where ${col}= [name] and address=[addr]",
 						bind("name", "Tom"), bind("addr", "China"), bind("$col", "name")));
 		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", bind("u", tom), bind("$t", tom),
 				bind("$nm", "name"));
@@ -574,7 +583,7 @@ public class UsageAndSpeedTest {
 		ctx.tExecute("insert into users (name, address) values(#{user.name}, #{user.address})", bind("user", user));
 		ctx.tExecute(engine, "update users set name=[user.name], address=[user.address]", bind("user", tom));
 		Assert.assertEquals(1L,
-				ctx.tQueryForObject(engine, "select count(*) from users where ${col}= [name] and address=[addr]",
+				ctx.tQueryForLongValue(engine, "select count(*) from users where ${col}= [name] and address=[addr]",
 						bind("name", "Tom"), bind("addr", "China"), bind("$col", "name")));
 		ctx.tExecute("delete from users where ${nm}='${t.name}' or address=:u.address", bind("u", tom), bind("$t", tom),
 				bind("$nm", "name"), engine);
@@ -607,7 +616,7 @@ public class UsageAndSpeedTest {
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("name", "Sam");
 		UserAR user2 = new UserAR().useContext(ctx).loadById(map);
-		user2.delete();
+		user2.delete(ctx);
 	}
 
 	@Test
@@ -618,8 +627,8 @@ public class UsageAndSpeedTest {
 		user.setName("Sam");
 		user.setAddress("Canada");
 		user.insert();
-		UserAR user2 = new UserAR().useContext(ctx).loadByQuery("select * from ", UserAR.TABLE);
-		Assert.assertEquals("Sam", user2.getName());
+		UserAR user2 = new UserAR().useContext(ctx).loadById(user.getName());
+		Assert.assertEquals("Canada", user2.getAddress());
 	}
 
 	@Test
@@ -630,24 +639,24 @@ public class UsageAndSpeedTest {
 		for (int i = 1; i <= 10; i++) {
 			user.setName("Tom" + i);
 			user.setAddress("China" + i);
-			ctx.insert(user);
+			ctx.entityInsert(user);
 		}
 		user = new UserAR();
 		user.setName("Tom8");
-		ctx.load(user);
+		ctx.entityLoad(user);
 		Assert.assertEquals("China8", user.getAddress());
 
-		user = ctx.loadById(UserAR.class, "Tom7");
+		user = ctx.entityLoadById(UserAR.class, "Tom7");
 		Assert.assertEquals("China7", user.getAddress());
 
 		user.setAddress("Canada");
-		ctx.update(user);
-		Assert.assertEquals("Canada",  ctx.loadById(UserAR.class, "Tom7").getAddress());
+		ctx.entityUpdateTry(user);
+		Assert.assertEquals("Canada", ctx.entityLoadById(UserAR.class, "Tom7").getAddress());
 
-		ctx.delete(user);
-		ctx.delete(user, " or name=?", param("Tom2"));
+		ctx.entityDeleteTry(user);
+		ctx.entityDeleteTry(user, " or name=?", param("Tom2"));
 
-		Assert.assertEquals(7, ctx.loadAll(UserAR.class, " where name>?", param("Tom1")).size());
+		Assert.assertEquals(7, ctx.entityFindAll(UserAR.class, " where name>?", param("Tom1")).size());
 	}
 
 	@Test
@@ -685,11 +694,11 @@ public class UsageAndSpeedTest {
 		List<Map<String, Object>> users = user.selectUsersBindParam("Tom", "China");
 		Assert.assertEquals(1, users.size());
 	}
- 
+
 	@Test
 	public void sqlMapperSqlAnnoUnbindParam() {
 		SqlBoxContext ctx = new SqlBoxContext(dataSource);
-		//ctx.setAllowShowSQL(true);
+		// ctx.setAllowShowSQL(true);
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);// use global default context
 		UserMapper user = new UserMapper();
 		user.insertOneUser("Sam", "Canada");
@@ -711,11 +720,11 @@ public class UsageAndSpeedTest {
 		AbstractUser mapper = SqlBoxContext.createMapper(AbstractUser.class);
 		mapper.insertOneUser("Sam", "Canada");
 		mapper.updateUserPreparedSQL("Tom", "China");
-		List<TextedUser> users2 = mapper.selectAbstractUserListUnBind("Tom", "China");
+		List<TextedUser> users2 = mapper.selectAbstractUserList1("Tom", "China");
 		Assert.assertEquals(1, users2.size());
 
 		TextedUser u = users2.get(0);
-		List<TextedUser> users3 = mapper.selectAbstractUserListBind("Tom", u);
+		List<TextedUser> users3 = mapper.selectAbstractUserList2("Tom", u);
 		Assert.assertEquals(1, users3.size());
 	}
 }

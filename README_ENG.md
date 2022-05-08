@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  The brand new Java persistence tool 全新的Java持久层工具
+  Java persistence tool Java
 </p>
 
 <p align="center">
@@ -19,15 +19,14 @@
 </p>
 
 # Intro
-
-jSqlBox is a Java persistence tool, runs on JDK6 or above.
+jSqlBox is a Java persistence tool 
 
 # Advantages
 - **Excellent architecture**: Modular architecture, each module can be separated from jSqlBox alone.
 - **Cross-database**: Based on jDialects, support pagination、functions translating, and DDL output for more than 70 kinds of databases.
 - **Small size**: All dependent packages total about 500k.
 - **Compatible with DbUtils**: Inherited from DbUtils, the original DbUtils-based project can be seamlessly upgrade to jSqlBox.
-- **Multiple SQL methods**: Inline method, template method, DataMapper, ActiveRecord, chaining, SqlMapper, NoSQL query, etc.
+- **Multiple SQL methods**: Inline method, template method, DataMapper, ActiveRecord, chaining, query, etc.
 - **A number of technical innovations**: Inline writing, multi-line text support, NoSQL query, ActiveRecord, and SqlMapper fit.
 - **Dynamic Configuration**: In addition to support annotation configuration, jSqlBox also supports dynamic configuration changes at runtime.
 - **No session design**: Sessionless, a truly lightweight tool
@@ -56,7 +55,7 @@ jSqlBox is a Java persistence tool, runs on JDK6 or above.
 <dependency>
    <groupId>com.github.drinkjava2</groupId>
    <artifactId>jsqlbox</artifactId>
-   <version>1.0.7</version> <!--Or latest version-->
+   <version>2.0.1</version> <!--Or latest version-->
 </dependency> 
 ```
 

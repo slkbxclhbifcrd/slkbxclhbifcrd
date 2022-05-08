@@ -1,7 +1,7 @@
 package activerecordtext;
 
 import static com.github.drinkjava2.jdbpro.JDBPRO.param;
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.model;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.alias;
 
 import java.util.List;
 import java.util.Map;
@@ -9,8 +9,10 @@ import java.util.Map;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 
 import com.github.drinkjava2.helloworld.UsageAndSpeedTest.UserAR;
+import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jsqlbox.TextUtils;
+import com.github.drinkjava2.jsqlbox.annotation.Ioc;
 import com.github.drinkjava2.jsqlbox.annotation.New;
 import com.github.drinkjava2.jsqlbox.annotation.Sql;
 import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
@@ -65,7 +67,7 @@ public class TextedUser extends UserAR {
 	 */
 
 	public List<Map<String, Object>> selectUsersMapListByText2(String name, String address) {
-		return this.guess(name, address, new SSMapListHandler(TextedUser.class));
+		return this.guess(name, address, new SSMapListHandler(), TextedUser.class, alias("u"));
 	};
 	/*-
 	   select u.**
@@ -76,7 +78,7 @@ public class TextedUser extends UserAR {
 	 */
 
 	public List<TextedUser> selectUsersByText2(String name, String address) {
-		return this.guess(name, address, new EntityListHandler(), model(TextedUser.class));
+		return this.guess(name, address, new EntityListHandler(), TextedUser.class);
 	}
 	/*-
 	   select *
@@ -87,7 +89,7 @@ public class TextedUser extends UserAR {
 	 */
 
 	public List<TextedUser> selectUsersByText3(String name, String address) {
-		return this.ctx().iQuery(new EntityListHandler(), model(TextedUser.class), this.guessSQL(), param(name),
+		return this.ctx().iQuery(new EntityListHandler(), TextedUser.class, this.guessSQL(), param(name),
 				param(address));
 	}
 	/*-
@@ -97,6 +99,24 @@ public class TextedUser extends UserAR {
 	      where 
 	         u.name=? and address=?
 	 */
+	
+	@Ioc(EntityListHandlerBox2.class)
+	public List<TextedUser> selectUsersByText4(String name, String address) {
+		return this.guess(name, address);
+	}
+	/*-
+	   select * 
+	   from 
+	   users u
+	      where 
+	         u.name=? and address=?
+	 */
+	
+	public static class EntityListHandlerBox2 extends BeanBox {
+		public Object[] create() {
+			return new Object[] { new EntityListHandler(), TextedUser.class };
+		}
+	}
 
 	public static void main(String[] args) {
 		String javaSourceCode = TextUtils.getJavaSourceCodeUTF8(TextedUser.class);

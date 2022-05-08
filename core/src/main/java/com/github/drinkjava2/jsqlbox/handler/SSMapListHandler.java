@@ -17,25 +17,16 @@ import com.github.drinkjava2.jdbpro.SingleTonHandlers;
 
 /**
  * SSMapListHandler is a SqlHandler used to explain alias.** to real columns in
- * SQL, example:
+ * SQL and return a Map List, SS means star-star, example:
  * 
- * select u.** from users u ==> select u.name, u.address, u.age from users u
- * 
- * And return a Map List
+ * select u.** from users u ==> select u.name as u_name, u.address as u_address
+ * from users u
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
 @SuppressWarnings("all")
 public class SSMapListHandler extends SSHandler {
-
-	public SSMapListHandler() {
-
-	}
-
-	public SSMapListHandler(Object... configs) {
-		super(configs);
-	}
 
 	@Override
 	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {

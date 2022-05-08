@@ -9,7 +9,7 @@ import com.github.drinkjava2.jdialects.annotation.jpa.Table;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 
 @Table(name = "usertb")
-public class User extends ActiveRecord {
+public class User extends ActiveRecord<User> {
 	@Id
 	String id;
 
@@ -24,6 +24,8 @@ public class User extends ActiveRecord {
 	Address address;
 
 	List<Role> roleList;
+	
+	List<Email> emailList;
 
 	Map<Integer, Role> roleMap;
 
@@ -99,6 +101,14 @@ public class User extends ActiveRecord {
 
 	public void setRoleMap(Map<Integer, Role> roleMap) {
 		this.roleMap = roleMap;
+	}
+
+	public List<Email> getEmailList() {
+		return emailList;
+	}
+
+	public void setEmailList(List<Email> emailList) {
+		this.emailList = emailList;
 	}
 
 }

@@ -20,7 +20,6 @@ import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
 import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jdbpro.SingleTonHandlers;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
 import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
@@ -33,37 +32,21 @@ import com.github.drinkjava2.jsqlbox.SqlBoxException;
  */
 @SuppressWarnings("all")
 public class EntityListHandler extends DefaultOrderSqlHandler {
-	protected Object config = null;
-
-	public EntityListHandler() {
-	}
-
-	public EntityListHandler(Object config) {
-		this.config = config;
-	}
 
 	@Override
 	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
-		Object cfg = null;
-		if (config != null) {
-			cfg = config;
-			if (ps.getModels() != null && ps.getModels().length > 0)
-				throw new SqlBoxException(
-						"EntityListHandler already have config parameter, no need extra TableModel sqlItem parameter");
-		} else {
-			Object[] tableModels = ps.getModels();
-			if (tableModels == null || tableModels.length==0)
-				throw new SqlBoxException("TableModel setting needed for EntityListHandler");
-			if (tableModels.length > 1)
-				throw new SqlBoxException("TableModel setting should only have 1 for EntityListHandler");
-			cfg = (TableModel) tableModels[0];
-		}
+		Object[] tableModels = ps.getModels();
+		if (tableModels == null || tableModels.length == 0)
+			throw new SqlBoxException("TableModel setting needed for EntityListHandler");
+		if (tableModels.length > 1)
+			throw new SqlBoxException("TableModel setting should only have 1 for EntityListHandler");
+		TableModel model = (TableModel) tableModels[0];
 
 		ps.setResultSetHandler(SingleTonHandlers.mapListHandler);
 		List<Map<String, Object>> maps = (List<Map<String, Object>>) runner.runPreparedSQL(ps);
 		List<Object> entityList = new ArrayList<Object>();
 		for (Map<String, Object> row : maps) {
-			Object entity = SqlBoxContextUtils.mapToEntityBean((SqlBoxContext) runner, cfg, row);
+			Object entity = SqlBoxContextUtils.mapToEntityBean( model, row);
 			entityList.add(entity);
 		}
 		return entityList;

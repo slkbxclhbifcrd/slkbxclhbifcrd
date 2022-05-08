@@ -1,138 +1,164 @@
 package com.github.drinkjava2.jsqlbox;
 
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.github.drinkjava2.jdbpro.PreparedSQL;
 import com.github.drinkjava2.jdbpro.SqlItem;
 import com.github.drinkjava2.jdbpro.SqlOption;
+import com.github.drinkjava2.jdialects.ArrayUtils;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
+import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 
 /**
- * ActiveEntity is a interface has default methods only supported for
- * Java8+, so in Java8 and above, a POJO can implements ActiveEntity
- * interface to obtain CRUD methods instead of extends ActiveRecord class
+ * ActiveEntity is a interface has default methods only supported for Java8+, so
+ * in Java8 and above, a POJO can implements ActiveEntity interface to obtain
+ * CRUD methods instead of extends ActiveRecord class
  */
-
-public interface ActiveEntity extends ActiveRecordSupport {
+@SuppressWarnings("unchecked")
+public interface ActiveEntity<T> extends ActiveRecordSupport<T> {
 
 	@Override
-	public default SqlBox box() {
-		SqlBox box = SqlBoxUtils.findBoxOfPOJO(this);
-		if (box == null) {
-			box = SqlBoxUtils.createSqlBox(SqlBoxContext.gctx(), this.getClass());
-			SqlBoxUtils.bindBoxToPOJO(this, box);
+	public default SqlBoxContext ctx(Object... optionItems) {
+		for (Object item : optionItems)
+			if (item != null && item instanceof SqlBoxContext)
+				return (SqlBoxContext) item;
+		return SqlBoxContext.getGlobalSqlBoxContext();
+	}
+
+	@Override
+	public default T insert(Object... optionItems) {
+		return (T) ctx(optionItems).entityInsert(this, optionItems);
+	}
+
+	@Override
+	public default T update(Object... optionItems) {
+		return ctx(optionItems).entityUpdate(this, optionItems);
+	}
+
+	@Override
+	public default int updateTry(Object... optionItems) {
+		return ctx(optionItems).entityUpdateTry(this, optionItems);
+	}
+
+	@Override
+	public default void delete(Object... optionItems) {
+		ctx(optionItems).entityDelete(this, optionItems);
+	}
+
+	@Override
+	public default int deleteTry(Object... optionItems) {
+		return ctx(optionItems).entityDeleteTry(this, optionItems);
+	}
+
+	@Override
+	public default void deleteById(Object id, Object... optionItems) {
+		ctx(optionItems).entityDeleteById(this.getClass(), id, optionItems);
+	}
+
+	@Override
+	public default int deleteByIdTry(Object id, Object... optionItems) {
+		return ctx(optionItems).entityDeleteByIdTry(this.getClass(), id, optionItems);
+	}
+
+	@Override
+	public default boolean exist(Object... optionItems) {
+		return ctx(optionItems).entityExist(this, optionItems);
+	}
+
+	@Override
+	public default boolean existById(Object id, Object... optionItems) {
+		return ctx(optionItems).entityExistById(this.getClass(), id, optionItems);
+	}
+
+	@Override
+	public default T load(Object... optionItems) {
+		return (T) ctx(optionItems).entityLoad(this, optionItems);
+	}
+
+	@Override
+	public default int loadTry(Object... optionItems) {
+		return ctx(optionItems).entityLoadTry(this, optionItems);
+	}
+
+	@Override
+	public default T loadById(Object id, Object... optionItems) {
+		return (T) ctx(optionItems).entityLoadById(this.getClass(), id, optionItems);
+	}
+
+	@Override
+	public default T loadByIdTry(Object id, Object... optionItems) {
+		return (T) ctx(optionItems).entityLoadByIdTry(this.getClass(), id, optionItems);
+	}
+
+	@Override
+	public default List<T> findAll(Object... optionItems) {
+		return (List<T>) ctx(optionItems).entityFindAll(this.getClass(), optionItems);
+	}
+
+	@Override
+	public default List<T> findByIds(Iterable<?> ids, Object... optionItems) {
+		return (List<T>) ctx(optionItems).entityFindByIds(this.getClass(), ids, optionItems);
+	}
+
+	@Override
+	public default List<T> findBySQL(Object... optionItems) {
+		return (List<T>) ctx(optionItems).iQueryForEntityList(this.getClass(), optionItems);
+	}
+
+	@Override
+	public default List<T> findBySample(Object sampleBean, Object... optionItems) {
+		return ctx(optionItems).entityFindBySample(sampleBean, optionItems);
+	}
+
+	static Object[] insertThisClassIfNotHave(Object entity, Object... optionItems) {
+		Object[] items = optionItems;
+		TableModel[] models = SqlBoxContextUtils.findAllModels(optionItems);
+		if (models.length == 0)
+			throw new SqlBoxException("No TableMode found for entity.");
+		TableModel model = models[0];
+		if (!entity.getClass().equals(model.getEntityClass())) {// NOSONAR
+			model = TableModelUtils.entity2ReadOnlyModel(entity.getClass());
+			items = ArrayUtils.insertArray(model, items);
 		}
-		return box;
+		return items;
 	}
 
 	@Override
-	public default SqlBox bindedBox() {
-		return SqlBoxUtils.findBoxOfPOJO(this);
+	public default <E> E findOneRelated(Object... optionItems) {
+		Object[] items = insertThisClassIfNotHave(this, optionItems);
+		return ctx(optionItems).entityFindRelatedOne(this, items);
 	}
 
 	@Override
-	public default void bindBox(SqlBox box) {
-		SqlBoxUtils.bindBoxToPOJO(this, box);
+	public default <E> List<E> findRelatedList(Object... optionItems) {
+		Object[] items = insertThisClassIfNotHave(this, optionItems);
+		return ctx(optionItems).entityFindRelatedList(this, items);
 	}
 
 	@Override
-	public default void unbindBox() {
-		SqlBoxUtils.unbindBoxOfPOJO(this);
+	public default <E> Set<E> findRelatedSet(Object... optionItems) {
+		Object[] items = insertThisClassIfNotHave(this, optionItems);
+		return ctx(optionItems).entityFindRelatedSet(this, items);
 	}
 
 	@Override
-	public default TableModel tableModel() {
-		return box().getTableModel();
+	public default <E> Map<Object, E> findRelatedMap(Object... optionItems) {
+		Object[] items = insertThisClassIfNotHave(this, optionItems);
+		return ctx(optionItems).entityFindRelatedMap(this, items);
 	}
 
 	@Override
-	public default ColumnModel columnModel(String columnName) {
-		return box().getTableModel().getColumn(columnName);
+	public default int countAll(Object... optionItems) {
+		return ctx(optionItems).entityCountAll(this.getClass(), optionItems);
 	}
 
 	@Override
-	public default String table() {
-		return box().getTableModel().getTableName();
-	}
-
-	@Override
-	public default ActiveRecordSupport alias(String alias) {
-		box().getTableModel().setAlias(alias);
-		return this;
-	}
-
-	@Override
-	public default SqlBoxContext ctx() {
-		SqlBox theBox = box();
-		if (theBox.getContext() == null)
-			theBox.setContext(SqlBoxContext.getGlobalSqlBoxContext());
-		return theBox.getContext();
-	}
-
-	@Override
-	public default ActiveRecordSupport useContext(SqlBoxContext ctx) {
-		box().setContext(ctx);
-		return this;
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public default <T> T insert(Object... optionalSqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		ctx.insert(this, optionalSqlItems);
-		return (T) this;
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public default <T> T update(Object... optionalSqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		ctx.update(this, optionalSqlItems);
-		return (T) this;
-	}
-
-	@Override
-	public default void delete(Object... optionalSqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		ctx.delete(this, optionalSqlItems);
-	}
-
-	@Override
-	public default <T> T load(Object... optionalSqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return ctx.load(this, optionalSqlItems);
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public default <T> T loadById(Object idOrIdMap, Object... optionalSqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return ctx.loadById((Class<T>) this.getClass(), idOrIdMap, optionalSqlItems);
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public default <T> T loadByQuery(Object... sqlItems) {
-		SqlBoxContext ctx = ctx();
-		if (ctx == null)
-			throw new SqlBoxException(SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return ctx.loadByQuery((Class<T>) this.getClass(), sqlItems);
-	}
-
-	@Override
-	public default ActiveRecordSupport put(Object... fieldAndValues) {
+	public default T put(Object... fieldAndValues) {
 		for (int i = 0; i < fieldAndValues.length / 2; i++) {
 			String field = (String) fieldAndValues[i * 2];
 			Object value = fieldAndValues[i * 2 + 1];
@@ -143,17 +169,17 @@ public interface ActiveEntity extends ActiveRecordSupport {
 				throw new SqlBoxException(e);
 			}
 		}
-		return this;
+		return (T) this;
 	}
 
 	@Override
-	public default ActiveRecordSupport putFields(String... fieldNames) {
+	public default T putFields(String... fieldNames) {
 		lastTimePutFieldsCache.set(fieldNames);
-		return this;
+		return (T) this;
 	}
 
 	@Override
-	public default ActiveRecordSupport putValues(Object... values) {
+	public default T putValues(Object... values) {
 		String[] fields = lastTimePutFieldsCache.get();
 		if (values.length == 0 || fields == null || fields.length == 0)
 			throw new SqlBoxException("putValues fields or values can not be empty");
@@ -170,11 +196,11 @@ public interface ActiveEntity extends ActiveRecordSupport {
 				throw new SqlBoxException(e);
 			}
 		}
-		return this;
+		return (T) this;
 	}
 
 	@Override
-	public default <T> T guess(Object... params) {// NOSONAR
+	public default <U> U guess(Object... params) {// NOSONAR
 		return ctx().getSqlMapperGuesser().guess(ctx(), this, params);
 	}
 
@@ -191,5 +217,25 @@ public interface ActiveEntity extends ActiveRecordSupport {
 	@Override
 	public default SqlItem bind(Object... parameters) {
 		return new SqlItem(SqlOption.BIND, parameters);
+	}
+
+	@Override
+	public default String shardTB(Object... optionItems) {
+		TableModel model = SqlBoxContextUtils.findTableModel(this.getClass(), optionItems);
+		ColumnModel col = model.getShardTableColumn();
+		if (col == null || col.getShardTable() == null || col.getShardTable().length == 0)
+			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
+		Object shardKey1 = ClassCacheUtils.readValueFromBeanField(this, col.getColumnName());
+		return SqlBoxContextUtils.getShardedTB(ctx(), model.getEntityClass(), shardKey1);
+	}
+
+	@Override
+	public default SqlBoxContext shardDB(Object... optionItems) {
+		TableModel model = SqlBoxContextUtils.findTableModel(this.getClass(), optionItems);
+		ColumnModel col = model.getShardDatabaseColumn();
+		if (col == null || col.getShardDatabase() == null || col.getShardDatabase().length == 0)
+			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
+		Object shardKey1 = ClassCacheUtils.readValueFromBeanField(this, col.getColumnName());
+		return SqlBoxContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
 	}
 }

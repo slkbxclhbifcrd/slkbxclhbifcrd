@@ -26,7 +26,6 @@ import java.lang.annotation.Target;
  */
 @Target({ METHOD })
 @Retention(RUNTIME)
-
 public @interface Ioc {
 	/**
 	 * The Object classes (can more than 1 )

@@ -11,9 +11,6 @@
  */
 package com.github.drinkjava2.jsqlbox.handler;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.github.drinkjava2.jdbpro.DefaultOrderSqlHandler;
 import com.github.drinkjava2.jdbpro.ImprovedQueryRunner;
 import com.github.drinkjava2.jdbpro.PreparedSQL;
@@ -21,15 +18,14 @@ import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.FKeyModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
 import com.github.drinkjava2.jsqlbox.SqlBoxException;
-import com.github.drinkjava2.jsqlbox.SqlBoxStrUtils;
 
 /**
  * SSHandler is used to explain alias.** to real columns in SQL, transient
  * columns not included, the example:
  * 
- * select u.** from users u ==> select u.name, u.address, u.age from users u
+ * select u.** from users u ==> select u.name as u_name, u.address as u_address
+ * from users u
  * 
  * SS means star-star
  * 
@@ -38,28 +34,16 @@ import com.github.drinkjava2.jsqlbox.SqlBoxStrUtils;
  */
 @SuppressWarnings("all")
 public class SSHandler extends DefaultOrderSqlHandler {
-	public Object[] models;
-
-	public SSHandler() {
-
-	}
-
-	public SSHandler(Object... configs) {
-		if (configs == null && configs.length == 0)
-			return;
-		models = new Object[configs.length];
-		for (int i = 0; i < configs.length; i++)
-			models[i] = SqlBoxContextUtils.configToModel(configs[i]);
-	}
 
 	@Override
 	public Object handle(ImprovedQueryRunner runner, PreparedSQL ps) {
-		Object[] tableModels = models;
-		if (tableModels == null)
-			tableModels = ps.getModels();
+		Object[] tableModels = ps.getModels();
 		if (tableModels == null || tableModels.length == 0)
 			throw new SqlBoxException("TableModel items needed for SSHandler");
-		String sql = explainNetQuery(ps.getSql(), tableModels);
+		String[] aliases = ps.getAliases();
+		if (aliases == null || aliases.length != tableModels.length)
+			throw new SqlBoxException("Alias qty not same as TableModel qty.");
+		String sql = explainNetQuery(ps);
 		ps.setSql(sql);
 		return runner.runPreparedSQL(ps);
 	}
@@ -73,16 +57,16 @@ public class SSHandler extends DefaultOrderSqlHandler {
 	 * u.##  ==> u.id as u_id
 	 * </pre>
 	 */
-	private String explainNetQuery(String sqlString, Object[] tableModels) {// NOSONAR
-		SqlBoxException.assureNotEmpty(sqlString, "Sql can not be empty");
-		String sql = SqlBoxStrUtils.formatSQL(sqlString);
+	private String explainNetQuery(PreparedSQL ps) {// NOSONAR
+		String sql = StrUtils.formatSQL(ps.getSql());
+		SqlBoxException.assureNotEmpty(ps.getSql(), "Sql can not be empty");
 		int pos = sql.indexOf(".**");
 		if (pos < 0)
 			pos = sql.indexOf(".##");
 		while (pos >= 0) {
 			StringBuilder aliasSB = new StringBuilder();
 			for (int i = pos - 1; i >= 0; i--) {
-				if (SqlBoxStrUtils.isNormalLetters(sql.charAt(i)))
+				if (StrUtils.isNormalLetters(sql.charAt(i)))
 					aliasSB.insert(0, sql.charAt(i));
 				else
 					break;
@@ -110,7 +94,7 @@ public class SSHandler extends DefaultOrderSqlHandler {
 			StringBuilder tableNameSb = new StringBuilder();
 			for (int i = posAlias - 1; i >= 0; i--) {
 				char c = sql.charAt(i);
-				if (SqlBoxStrUtils.isNormalLetters(c))
+				if (StrUtils.isNormalLetters(c))
 					tableNameSb.insert(0, c);
 				else if (tableNameSb.length() > 0)
 					break;
@@ -119,7 +103,7 @@ public class SSHandler extends DefaultOrderSqlHandler {
 				throw new SqlBoxException("Alias '" + alias + "' not found tablename in SQL");
 			String tbStr = tableNameSb.toString();
 
-			sql = replaceStarStarToColumn(sql, alias, tbStr, tableModels);
+			sql = replaceStarStarToColumn(sql, alias, tbStr, ps);
 			pos = sql.indexOf(".**");
 			if (pos < 0)
 				pos = sql.indexOf(".##");
@@ -136,20 +120,16 @@ public class SSHandler extends DefaultOrderSqlHandler {
 	 * u.##  ==> u.id as u_id
 	 * </pre>
 	 */
-	private static String replaceStarStarToColumn(String sql, String alias, String tableName, Object[] tableModels) {
+	private static String replaceStarStarToColumn(String sql, String alias, String tableName, PreparedSQL ps) {
 		String result = sql;
 		if (sql.contains(alias + ".**")) {
 			StringBuilder sb = new StringBuilder();
-			for (Object obj : tableModels) {
-				TableModel tb = (TableModel) obj;
+			for (int i = 0; i < ps.getModels().length; i++) {
+				TableModel tb = (TableModel) ps.getModels()[i];
 				if (tableName.equalsIgnoreCase(tb.getTableName())) {
-					if (StrUtils.isEmpty(tb.getAlias()))
-						tb.setAlias(alias);
-					else {
-						if (!alias.equalsIgnoreCase(tb.getAlias()))
-							throw new SqlBoxException(
-									"Alias '" + alias + "' not same as tableModel's alias '" + tb.getAlias() + "'");
-					}
+					if (!alias.equalsIgnoreCase(ps.getAliases()[i]))
+						throw new SqlBoxException(
+								"Alias '" + alias + "' not same as tableModel's alias '" + ps.getAliases()[i] + "'");
 					for (ColumnModel col : tb.getColumns()) {
 						if (!col.getTransientable())
 							sb.append(alias).append(".").append(col.getColumnName()).append(" as ").append(alias)
@@ -167,15 +147,11 @@ public class SSHandler extends DefaultOrderSqlHandler {
 
 		if (sql.contains(alias + ".##")) {// Pkey and Fkey only
 			StringBuilder sb = new StringBuilder();
-			for (Object obj : tableModels) {
-				TableModel tb = (TableModel) obj;
+			for (int i = 0; i < ps.getModels().length; i++) {
+				TableModel tb = (TableModel) ps.getModels()[i];
 				if (tableName.equalsIgnoreCase(tb.getTableName())) {
-					if (StrUtils.isEmpty(tb.getAlias()))
-						tb.setAlias(alias);
-					else {
-						if (!alias.equalsIgnoreCase(tb.getAlias()))
-							throw new SqlBoxException("Alias '" + alias + "' not same as tableModel's alias");
-					}
+					if (!alias.equalsIgnoreCase(ps.getAliases()[i]))
+						throw new SqlBoxException("Alias '" + alias + "' not same as tableModel's alias");
 					for (ColumnModel col : tb.getColumns()) {
 						boolean found = false;
 						if (!col.getTransientable()) {

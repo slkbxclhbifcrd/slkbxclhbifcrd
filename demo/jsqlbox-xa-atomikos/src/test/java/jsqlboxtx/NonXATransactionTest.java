@@ -11,7 +11,7 @@
  */
 package jsqlboxtx;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.giQueryForLongValue;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.iQueryForLongValue;
 
 import java.sql.Connection;
 
@@ -45,6 +45,7 @@ public class NonXATransactionTest {
 	final static int MASTER_DATABASE_QTY = 2; // total 2 databases
 	final static SqlBoxContext[] masters = new SqlBoxContext[MASTER_DATABASE_QTY];
 
+	@SuppressWarnings("deprecation")
 	@Before
 	public void init() {
 		SqlBoxContextConfig.setGlobalNextConnectionManager(TinyTxConnectionManager.instance());
@@ -88,12 +89,12 @@ public class NonXATransactionTest {
 		} catch (Exception e) {
 			System.out.println("Div 0 RuntimeException happened, but 1 database did not rollback ");
 		}
-		Assert.assertEquals(1L, giQueryForLongValue("select count(*) from bank", masters[0]));
-		Assert.assertEquals(0L, giQueryForLongValue("select count(*) from bank", masters[1]));
+		Assert.assertEquals(1L, iQueryForLongValue("select count(*) from bank", masters[0]));
+		Assert.assertEquals(0L, iQueryForLongValue("select count(*) from bank", masters[1]));
 
 	}
 
-	public static class Bank extends ActiveRecord {
+	public static class Bank extends ActiveRecord<Bank> {
 		@ShardDatabase({ "MOD", "3" })
 		@Id
 		private Long bankId;

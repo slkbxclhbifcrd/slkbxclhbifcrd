@@ -31,15 +31,18 @@ public class SqlBoxContextConfig extends DbProConfig {
 	protected static ShardingTool[] globalNextShardingTools = new ShardingTool[] { new ShardingModTool(),
 			new ShardingRangeTool() };
 	protected static SnowflakeCreator globalNextSnowflakeCreator = null;
-	
-	
+	protected static Object[] globalNextSsModels = null;
+
 	private Dialect dialect = globalNextDialect;
-	private SqlMapperGuesser sqlMapperGuesser = globalNextSqlMapperGuesser ;
-	private SnowflakeCreator snowflakeCreator = globalNextSnowflakeCreator ;
-	private ShardingTool[] shardingTools = globalNextShardingTools ;
+	private SqlMapperGuesser sqlMapperGuesser = globalNextSqlMapperGuesser;
+	private SnowflakeCreator snowflakeCreator = globalNextSnowflakeCreator;
+	private ShardingTool[] shardingTools = globalNextShardingTools;
 
 	public SqlBoxContextConfig() {
 		super();
+	}
+
+	protected void getterAndSetters______________________() {// NOSONAR
 	}
 
 	public Dialect getDialect() {
@@ -77,13 +80,13 @@ public class SqlBoxContextConfig extends DbProConfig {
 
 	protected void staticGlobalNextMethods______________________() {// NOSONAR
 	}
-	
+
 	public static Dialect getGlobalNextDialect() {
-		return  globalNextDialect;
+		return globalNextDialect;
 	}
 
 	public static SqlMapperGuesser getGlobalNextSqlMapperGuesser() {
-		return  globalNextSqlMapperGuesser;
+		return globalNextSqlMapperGuesser;
 	}
 
 	public static void setGlobalNextSqlMapperGuesser(SqlMapperGuesser sqlMapperGuesser) {
@@ -109,4 +112,13 @@ public class SqlBoxContextConfig extends DbProConfig {
 	public static void setGlobalNextSnowflakeCreator(SnowflakeCreator snowflakeCreator) {
 		globalNextSnowflakeCreator = snowflakeCreator;
 	}
+
+	public static Object[] getGlobalNextSsModels() {
+		return globalNextSsModels;
+	}
+
+	public static void setGlobalNextSsModels(Object[] globalNextSsModels) {
+		SqlBoxContextConfig.globalNextSsModels = globalNextSsModels;
+	}
+
 }

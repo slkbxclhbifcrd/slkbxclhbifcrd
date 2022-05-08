@@ -16,7 +16,7 @@
 package com.github.drinkjava2.functionstest;
 
 import static com.github.drinkjava2.jdbpro.JDBPRO.param;
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.modelAlias;
+import static com.github.drinkjava2.jsqlbox.JSQLBOX.alias;
 
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +41,7 @@ import com.github.drinkjava2.jsqlbox.handler.EntityNetHandler;
 @SuppressWarnings("all")
 public class CompoundPKeyTest extends TestBase {
 
-	public static class CmpEntity extends ActiveRecord {
+	public static class CmpEntity extends ActiveRecord<CmpEntity> {
 		@Id
 		String firstName;
 
@@ -109,9 +109,9 @@ public class CompoundPKeyTest extends TestBase {
 
 	@Test
 	public void testOrmQry() {
-		EntityNet net = ctx.iQuery(new EntityNetHandler(), "select u.** from CmpEntity u",
-				modelAlias(CmpEntity.class, "u"), " where age>?", param(5));
-		List<CmpEntity> entities = net.pickEntityList("u");
+		EntityNet net = ctx.iQuery(new EntityNetHandler(), "select u.** from CmpEntity u", CmpEntity.class, alias("u"),
+				" where age>?", param(5));
+		List<CmpEntity> entities = net.pickEntityList(CmpEntity.class);
 		Assert.assertEquals(5, entities.size());
 
 		// Map as entityId
@@ -120,13 +120,13 @@ public class CompoundPKeyTest extends TestBase {
 		idMap.put("firstName", "Sam");
 		idMap.put("middleName", "Y");
 		idMap.put("age", 6);
-		CmpEntity entity = net.pickOneEntity("u", idMap);
+		CmpEntity entity = net.pickOneEntity(CmpEntity.class, idMap);
 		Assert.assertEquals(new Integer(6), entity.getAge());
 
 		// Entity as entityId
 		CmpEntity entityBean = new CmpEntity();
 		entityBean.put("firstName", "Sam", "middleName", "Y", "lastName", "Zhu", "age", 6);
-		CmpEntity entity2 = net.pickOneEntity("u", entityBean);
+		CmpEntity entity2 = net.pickOneEntity(CmpEntity.class, entityBean);
 		Assert.assertEquals(new Integer(6), entity2.getAge());
 	}
 

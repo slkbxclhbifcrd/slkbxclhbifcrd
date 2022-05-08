@@ -73,10 +73,7 @@ public class TableModel {
 	 */
 	private Class<?> entityClass;
 
-	/**
-	 * The alias name for this table, this field is designed to ORM tool use
-	 */
-	private String alias;
+	private Boolean readOnly = false;
 
 	public TableModel() {
 		super();
@@ -87,7 +84,7 @@ public class TableModel {
 	}
 
 	/**
-	 * @return a copy of this TableModel
+	 * @return an editable copy of current TableModel
 	 */
 	public TableModel newCopy() {// NOSONAR
 		TableModel tb = new TableModel();
@@ -124,12 +121,14 @@ public class TableModel {
 	/** Add a TableGenerator */
 	public void tableGenerator(String name, String tableName, String pkColumnName, String valueColumnName,
 			String pkColumnValue, Integer initialValue, Integer allocationSize) {
+		checkReadOnly();
 		addGenerator(new TableIdGenerator(name, tableName, pkColumnName, valueColumnName, pkColumnValue, initialValue,
 				allocationSize));
 	}
 
 	/** Add a UUIDAnyGenerator */
 	public void uuidAny(String name, Integer length) {
+		checkReadOnly();
 		addGenerator(new UUIDAnyGenerator(name, length));
 	}
 
@@ -137,6 +136,7 @@ public class TableModel {
 	 * Add a "create table..." DDL to generate ID, similar like JPA's TableGen
 	 */
 	public void addGenerator(IdGenerator generator) {
+		checkReadOnly();
 		DialectException.assureNotNull(generator);
 		DialectException.assureNotNull(generator.getGenerationType());
 		DialectException.assureNotEmpty(generator.getIdGenName(), "IdGenerator name can not be empty");
@@ -156,6 +156,7 @@ public class TableModel {
 	 *            The allocationSize
 	 */
 	public void sequenceGenerator(String name, String sequenceName, Integer initialValue, Integer allocationSize) {
+		checkReadOnly();
 		this.addGenerator(new SequenceIdGenerator(name, sequenceName, initialValue, allocationSize));
 	}
 
@@ -163,6 +164,7 @@ public class TableModel {
 	 * Add a Sequence Generator, note: not all database support sequence
 	 */
 	public void sortedUUIDGenerator(String name, Integer sortedLength, Integer uuidLength) {
+		checkReadOnly();
 		DialectException.assureNotNull(name);
 		if (this.getIdGenerator(GenerationType.SORTED_UUID, name) != null)
 			throw new DialectException("Duplicated sortedUUIDGenerator name '" + name + "'");
@@ -173,6 +175,7 @@ public class TableModel {
 	 * Add the table check, note: not all database support table check
 	 */
 	public TableModel check(String check) {
+		checkReadOnly();
 		this.check = check;
 		return this;
 	}
@@ -181,6 +184,7 @@ public class TableModel {
 	 * Add the table comment, note: not all database support table comment
 	 */
 	public TableModel comment(String comment) {
+		checkReadOnly();
 		this.comment = comment;
 		return this;
 	}
@@ -189,6 +193,7 @@ public class TableModel {
 	 * Add a ColumnModel
 	 */
 	public TableModel addColumn(ColumnModel column) {
+		checkReadOnly();
 		DialectException.assureNotNull(column);
 		DialectException.assureNotEmpty(column.getColumnName(), "Column's columnName can not be empty");
 		column.setTableModel(this);
@@ -200,6 +205,7 @@ public class TableModel {
 	 * Remove a ColumnModel by given columnName
 	 */
 	public TableModel removeColumn(String columnName) {
+		checkReadOnly();
 		List<ColumnModel> oldColumns = this.getColumns();
 		Iterator<ColumnModel> columnIter = oldColumns.iterator();
 		while (columnIter.hasNext())
@@ -212,6 +218,7 @@ public class TableModel {
 	 * Remove a FKey by given fkeyName
 	 */
 	public TableModel removeFKey(String fkeyName) {
+		checkReadOnly();
 		List<FKeyModel> fkeys = getFkeyConstraints();
 		Iterator<FKeyModel> fkeyIter = fkeys.iterator();
 		while (fkeyIter.hasNext())
@@ -225,9 +232,12 @@ public class TableModel {
 	 * with columnName
 	 */
 	public ColumnModel column(String columnName) {// NOSONAR
-		ColumnModel col = getColumn(columnName);
-		if (col != null)
-			return col;
+		for (ColumnModel columnModel : columns) {
+			if (columnModel.getColumnName() != null && columnModel.getColumnName().equalsIgnoreCase(columnName))
+				return columnModel;
+			if (columnModel.getEntityField() != null && columnModel.getEntityField().equalsIgnoreCase(columnName))
+				return columnModel;
+		}
 		return addColumn(columnName);
 	}
 
@@ -238,6 +248,7 @@ public class TableModel {
 	 * @return the Column object
 	 */
 	public ColumnModel addColumn(String columnName) {
+		checkReadOnly();
 		DialectException.assureNotEmpty(columnName, "columnName can not be empty");
 		for (ColumnModel columnModel : columns)
 			if (columnName.equalsIgnoreCase(columnModel.getColumnName()))
@@ -248,25 +259,37 @@ public class TableModel {
 	}
 
 	/**
-	 * Return ColumnModel object by columnName, if not found, return null;
+	 * Get ColumnModel by column Name or field name ignore case, if not found,
+	 * return null
 	 */
-	public ColumnModel getColumn(String columnName) {
-		for (ColumnModel columnModel : columns)
-			if (columnModel.getColumnName() != null && columnModel.getColumnName().equalsIgnoreCase(columnName))
-				return columnModel;
-		return null;
-	}
-
-	/**
-	 * Return ColumnModel object by columnName, if not found, return null;
-	 */
-	public ColumnModel getColumnByColOrEntityFieldName(String colOrFieldName) {
+	public ColumnModel getColumn(String colOrFieldName) {
 		for (ColumnModel columnModel : columns) {
 			if (columnModel.getColumnName() != null && columnModel.getColumnName().equalsIgnoreCase(colOrFieldName))
 				return columnModel;
 			if (columnModel.getEntityField() != null && columnModel.getEntityField().equalsIgnoreCase(colOrFieldName))
 				return columnModel;
 		}
+		return null;
+	}
+
+	/**
+	 * Get ColumnModel by columnName ignore case, if not found, return null
+	 */
+	public ColumnModel getColumnByColName(String colName) {
+		for (ColumnModel columnModel : columns) {
+			if (columnModel.getColumnName() != null && columnModel.getColumnName().equalsIgnoreCase(colName))
+				return columnModel;
+		}
+		return null;
+	}
+
+	/**
+	 * Get ColumnModel by entity field name ignore case, if not found, return null
+	 */
+	public ColumnModel getColumnByFieldName(String fieldName) {
+		for (ColumnModel columnModel : columns)
+			if (columnModel.getEntityField() != null && columnModel.getEntityField().equalsIgnoreCase(fieldName))
+				return columnModel;
 		return null;
 	}
 
@@ -294,8 +317,10 @@ public class TableModel {
 	 * Start add a foreign key definition in DDL, detail usage see demo
 	 */
 	public FKeyModel fkey() {
+		checkReadOnly();
 		FKeyModel fkey = new FKeyModel();
 		fkey.setTableName(this.tableName);
+		fkey.setTableModel(this);
 		getFkeyConstraints().add(fkey);
 		return fkey;
 	}
@@ -304,9 +329,11 @@ public class TableModel {
 	 * Start add a foreign key definition in DDL, detail usage see demo
 	 */
 	public FKeyModel fkey(String fkeyName) {
+		checkReadOnly();
 		FKeyModel fkey = new FKeyModel();
 		fkey.setTableName(this.tableName);
 		fkey.setFkeyName(fkeyName);
+		fkey.setTableModel(this);
 		getFkeyConstraints().add(fkey);
 		return fkey;
 	}
@@ -325,7 +352,9 @@ public class TableModel {
 	 * Start add a Index in DDL, detail usage see demo
 	 */
 	public IndexModel index() {
+		checkReadOnly();
 		IndexModel index = new IndexModel();
+		index.setTableModel(this);
 		getIndexConsts().add(index);
 		return index;
 	}
@@ -334,8 +363,10 @@ public class TableModel {
 	 * Start add a Index in DDL, detail usage see demo
 	 */
 	public IndexModel index(String indexName) {
+		checkReadOnly();
 		IndexModel index = new IndexModel();
 		index.setName(indexName);
+		index.setTableModel(this);
 		getIndexConsts().add(index);
 		return index;
 	}
@@ -344,7 +375,9 @@ public class TableModel {
 	 * Start add a unique constraint in DDL, detail usage see demo
 	 */
 	public UniqueModel unique() {
+		checkReadOnly();
 		UniqueModel unique = new UniqueModel();
+		unique.setTableModel(this);
 		getUniqueConsts().add(unique);
 		return unique;
 	}
@@ -353,8 +386,10 @@ public class TableModel {
 	 * Start add a unique constraint in DDL, detail usage see demo
 	 */
 	public UniqueModel unique(String uniqueName) {
+		checkReadOnly();
 		UniqueModel unique = new UniqueModel();
 		unique.setName(uniqueName);
+		unique.setTableModel(this);
 		getUniqueConsts().add(unique);
 		return unique;
 	}
@@ -365,6 +400,7 @@ public class TableModel {
 	 * for MySQL
 	 */
 	public TableModel engineTail(String engineTail) {
+		checkReadOnly();
 		this.engineTail = engineTail;
 		return this;
 	}
@@ -473,6 +509,11 @@ public class TableModel {
 	public String getDebugInfo() {
 		return DebugUtils.getTableModelDebugInfo(this);
 	}
+
+	private void checkReadOnly() {
+		if (readOnly)
+			throw new DialectException("TableModel '" + tableName + "' is readOnly, can not be modified.");
+	}
 	// getter & setter=========================
 
 	protected void getAndSetters____________________________() {// NOSONAR
@@ -483,6 +524,7 @@ public class TableModel {
 	}
 
 	public void setTableName(String tableName) {
+		checkReadOnly();
 		this.tableName = tableName;
 	}
 
@@ -491,6 +533,7 @@ public class TableModel {
 	}
 
 	public void setCheck(String check) {
+		checkReadOnly();
 		this.check = check;
 	}
 
@@ -499,6 +542,7 @@ public class TableModel {
 	}
 
 	public void setComment(String comment) {
+		checkReadOnly();
 		this.comment = comment;
 	}
 
@@ -507,6 +551,7 @@ public class TableModel {
 	}
 
 	public void setColumns(List<ColumnModel> columns) {
+		checkReadOnly();
 		this.columns = columns;
 	}
 
@@ -517,6 +562,7 @@ public class TableModel {
 	}
 
 	public void setFkeyConstraints(List<FKeyModel> fkeyConstraints) {
+		checkReadOnly();
 		this.fkeyConstraints = fkeyConstraints;
 	}
 
@@ -525,6 +571,7 @@ public class TableModel {
 	}
 
 	public void setEngineTail(String engineTail) {
+		checkReadOnly();
 		this.engineTail = engineTail;
 	}
 
@@ -535,6 +582,7 @@ public class TableModel {
 	}
 
 	public void setIndexConsts(List<IndexModel> indexConsts) {
+		checkReadOnly();
 		this.indexConsts = indexConsts;
 	}
 
@@ -545,6 +593,7 @@ public class TableModel {
 	}
 
 	public void setUniqueConsts(List<UniqueModel> uniqueConsts) {
+		checkReadOnly();
 		this.uniqueConsts = uniqueConsts;
 	}
 
@@ -555,6 +604,7 @@ public class TableModel {
 	}
 
 	public void setIdGenerators(List<IdGenerator> idGenerators) {
+		checkReadOnly();
 		this.idGenerators = idGenerators;
 	}
 
@@ -563,14 +613,18 @@ public class TableModel {
 	}
 
 	public void setEntityClass(Class<?> entityClass) {
+		checkReadOnly();
 		this.entityClass = entityClass;
 	}
 
-	public String getAlias() {
-		return alias;
+	public Boolean getReadOnly() {
+		return readOnly;
 	}
 
-	public void setAlias(String alias) {
-		this.alias = alias;
+	public void setReadOnly(Boolean readOnly) {
+		if (this.readOnly)
+			throw new DialectException("TableModel '" + tableName + "' is readOnly, can not be modified.");
+		this.readOnly = readOnly;
 	}
+
 }
