@@ -338,15 +338,23 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	public static void appendLeftJoinSQL(PreparedSQL ps) {
 		Object[] m = ps.getModels();
 		String[] a = ps.getAliases();
-		SqlBoxException.assureTrue(m != null && m.length > 0);
-		SqlBoxException.assureTrue(a != null && a.length > 0);
-		SqlBoxException.assureTrue(m.length == m.length);// NOSONAR
+		SqlBoxException.assureTrue(m != null && m != null & m.length == a.length);
 
 		StringBuilder sb = new StringBuilder(" select ");
+		boolean ifFirst = true;
 		for (int i = 0; i < m.length; i++) {
-			if (i > 0)
-				sb.append(", ");
-			sb.append(a[i]).append(".**");
+
+			TableModel md = (TableModel) m[i];
+			for (ColumnModel col : md.getColumns()) {
+				if (col.getTransientable())
+					continue;
+				if (ifFirst)
+					ifFirst = false;
+				else
+					sb.append(", ");
+				sb.append(a[i]).append(".").append(col.getColumnName()).append(" as ").append(a[i]).append("_")
+						.append(col.getColumnName());
+			}
 		}
 		sb.append(" from ");
 		sb.append(((TableModel) m[0]).getTableName()).append(" ").append(a[0]).append(" ");
@@ -355,7 +363,6 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			sb.append(((TableModel) m[i]).getTableName()).append(" ").append(a[i]);
 			sb.append(" on ");
 			appendKeyEquelsSqlPiece(sb, a[i - 1], ((TableModel) m[i - 1]), a[i], ((TableModel) m[i]));
-
 		}
 		ps.addSql(sb.toString());
 	}
@@ -395,7 +402,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			sb.append(a).append(".").append(col).append("=").append(b).append(".")
 					.append(fkey.getRefTableAndColumns()[i + 1]).append(" ");
 			i++;
-		} 
+		}
 	}
 
 	@SuppressWarnings("unused")
@@ -806,12 +813,12 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
 		SqlBoxException.assureNotNull(model.getEntityClass());
-	
+
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
-	
+
 		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityBean.getClass());
 		for (String fieldName : readMethods.keySet()) {
 			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
@@ -825,7 +832,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 				where.append(col.getColumnName()).append("=? ");
 				if (col.getShardTable() != null) // Sharding Table?
 					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
-	
+
 				if (col.getShardDatabase() != null) // Sharding DB?
 					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
 			} else
@@ -833,7 +840,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		}
 		if (where.isEmpty())
 			throw new SqlBoxException("No primary key found for entityBean");
-	
+
 		jSQL.append("select count(1) from ");
 		if (shardTableItem != null)
 			jSQL.append(shardTableItem);
@@ -842,14 +849,14 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 		jSQL.append(" where ").addAll(where);
-	
+
 		if (optionItems != null)
 			for (Object item : optionItems)
 				jSQL.append(item);
-	
+
 		if (optionModel == null)
 			jSQL.frontAdd(model);
-	
+
 		long result = ctx.iQueryForLongValue(jSQL.toObjectArray());
 		if (result == 1)
 			return true;
@@ -868,12 +875,12 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
 		SqlBoxException.assureNotNull(model.getEntityClass());
-	
+
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
-	
+
 		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityClass);
 		for (String fieldName : readMethods.keySet()) {
 			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
@@ -887,7 +894,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 				where.append(col.getColumnName()).append("=? ");
 				if (col.getShardTable() != null) // Sharding Table?
 					shardTableItem = shardTB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
-	
+
 				if (col.getShardDatabase() != null) // Sharding DB?
 					shardDbItem = shardDB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
 			} else
@@ -895,7 +902,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		}
 		if (where.isEmpty())
 			throw new SqlBoxException("No primary key found for entityBean");
-	
+
 		jSQL.append("select count(1) from ");
 		if (shardTableItem != null)
 			jSQL.append(shardTableItem);
@@ -904,14 +911,14 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 		jSQL.append(" where ").addAll(where);
-	
+
 		if (optionItems != null)
 			for (Object item : optionItems)
 				jSQL.append(item);
-	
+
 		if (optionModel == null)
 			jSQL.frontAdd(model);
-	
+
 		long result = ctx.iQueryForLongValue(jSQL.toObjectArray());
 		if (result == 1)
 			return true;
@@ -929,14 +936,14 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
 		SqlBoxException.assureNotNull(model.getEntityClass());
-	
+
 		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityClass);
 		for (String fieldName : writeMethods.keySet()) {
 			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
 			if (!col.getTransientable() && (col.getShardTable() != null || col.getShardDatabase() != null))
 				throw new SqlBoxException("Fail to count entity quantity because sharding columns exist.");
 		}
-	
+
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		jSQL.append("select count(1) from ").append(model.getTableName());
 		if (optionItems != null)
@@ -1081,7 +1088,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		}
 		return result;
 	}
- 
+
 	@SuppressWarnings("unchecked")
 	public static <T> List<T> entityFindBySample(SqlBoxContext ctx, Object sampleBean, Object... sqlItems) {
 		return (List<T>) entityFindAll(ctx, sampleBean.getClass(),
@@ -1112,11 +1119,11 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	@SuppressWarnings("unchecked")
 	public static <E> List<E> entityFindRelatedList(SqlBoxContext ctx, Object entity, Object... sqlItems) {
 		if (sqlItems.length == 0)
-			throw new SqlBoxException("Target entity class is required"); 
-		for (Object item : sqlItems) 
+			throw new SqlBoxException("Target entity class is required");
+		for (Object item : sqlItems)
 			if (item instanceof EntityNet)
-				return ((EntityNet) item).findRelatedList(ctx, entity, sqlItems); 
-		 
+				return ((EntityNet) item).findRelatedList(ctx, entity, sqlItems);
+
 		SqlBoxException.assureNotNull(entity);
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
@@ -1130,9 +1137,9 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	public static <E> Set<E> entityFindRelatedSet(SqlBoxContext ctx, Object entity, Object... sqlItems) {
 		if (sqlItems.length == 0)
 			throw new SqlBoxException("Target entity class is required");
-		for (Object item : sqlItems)  
+		for (Object item : sqlItems)
 			if (item instanceof EntityNet)
-				return ((EntityNet) item).findRelatedSet(ctx, entity, sqlItems); 
+				return ((EntityNet) item).findRelatedSet(ctx, entity, sqlItems);
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
 		Object[] notModelAlias = findNotModelAlias(sqlItems);
@@ -1145,9 +1152,9 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	public static <E> Map<Object, E> entityFindRelatedMap(SqlBoxContext ctx, Object entity, Object... sqlItems) {
 		if (sqlItems.length == 0)
 			throw new SqlBoxException("Target entity class is required");
-		for (Object item : sqlItems)  
+		for (Object item : sqlItems)
 			if (item instanceof EntityNet)
-				return ((EntityNet) item).findRelatedMap(ctx, entity, sqlItems); 
+				return ((EntityNet) item).findRelatedMap(ctx, entity, sqlItems);
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
 		Object[] notModelAlias = findNotModelAlias(sqlItems);
