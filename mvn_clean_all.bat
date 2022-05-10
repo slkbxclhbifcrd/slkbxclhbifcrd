@@ -18,9 +18,27 @@ cd..
 cd jsqlbox-beetlsql
 call mvn clean
 call mvn eclipse:clean
+cd.. 
+
+cd jsqlbox-in-actframework
+call mvn clean
+call mvn eclipse:clean
+call del .act.*
+call del act.*
 cd..
 
+cd jsqlbox-in-jfinal
+call mvn clean
+call mvn eclipse:clean
+cd.. 
+
+
 cd jsqlbox-in-spring
+call mvn clean
+call mvn eclipse:clean
+cd..
+
+cd jsqlbox-in-springboot
 call mvn clean
 call mvn eclipse:clean
 cd..
