@@ -21,15 +21,17 @@
 
   <groupId>org.actframework.demo</groupId>
   <artifactId>jsqlbox-in-actframework</artifactId>
-  <version>1.6.4</version>
+  <version>1.0</version>
 
   <name>jsqlbox-in-actframework Demo</name>
   <description>Demonstrates a simple transaction app with jSqlBox in ActFramework</description>
   <url>https://gitee.com/drinkjava2/jSqlBox</url>
 
   <properties> 
+	<maven.compiler.source>1.8</maven.compiler.source>  
     <maven.compiler.target>1.8</maven.compiler.target>
-    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.build.source>1.8</maven.build.source>	
+	<maven.build.target>1.8</maven.build.target>
     <app.entry>demo.transaction.jsqlbox.TransactionDemoApp</app.entry>
   </properties>
 
@@ -48,8 +50,15 @@
      <!-- jSqlBox is ORM tool -->
      <dependency>
         <groupId>com.github.drinkjava2</groupId>
-        <artifactId>jsqlbox-java8</artifactId> <!--Java8环境-->
-        <version>2.0.2</version>
+        <artifactId>jsqlbox-java8</artifactId>
+        <version>2.0.3</version><!--Or newest jSqlBox -->
+     </dependency> 
+      
+      <!-- Guice is a IOC/AOP tool-->
+     <dependency>
+          <groupId>com.google.inject</groupId>
+          <artifactId>guice</artifactId>
+          <version>4.2.0</version>
      </dependency> 
 
     <!-- H2 is memory database -->
@@ -57,7 +66,8 @@
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>1.4.193</version>
-    </dependency>   
+    </dependency>
+	
   </dependencies>
 
 </project>

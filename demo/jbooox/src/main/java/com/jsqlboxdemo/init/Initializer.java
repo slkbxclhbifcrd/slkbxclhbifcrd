@@ -1,10 +1,11 @@
 package com.jsqlboxdemo.init;
 
+import static com.github.drinkjava2.jbeanbox.JBEANBOX.inject;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.sql.Connection;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
@@ -13,7 +14,8 @@ import javax.sql.DataSource;
 import org.junit.Assert;
 
 import com.github.drinkjava2.jbeanbox.BeanBox;
-import com.github.drinkjava2.jbeanbox.TX;
+import com.github.drinkjava2.jbeanbox.JBEANBOX;
+import com.github.drinkjava2.jbeanbox.annotation.AOP;
 import com.github.drinkjava2.jdbpro.IocTool;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
@@ -41,36 +43,32 @@ public class Initializer implements ServletContextListener {
 			ds.addDataSourceProperty("useServerPrepStmts", true);
 			ds.setMaximumPoolSize(10);
 			ds.setConnectionTimeout(5000);
-			this.setPreDestory("close");// jBeanBox will close pool
+			this.setPreDestroy("close");// jBeanBox will close pool
 			return ds;
-		}
-	}
-
-	public static class TxBox extends BeanBox {
-		{
-			this.setConstructor(TinyTx.class, BeanBox.getBean(DataSourceBox.class),
-					Connection.TRANSACTION_READ_COMMITTED);
 		}
 	}
 
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target({ ElementType.METHOD })
-	public static @interface Transaction {
-		public Class<?> value() default Object.class;
+	@AOP
+	public static @interface TX {
+		public Class<?> value() default TxBox.class;
+	}
 
+	public static class TxBox extends BeanBox {
+		{
+			this.injectConstruct(TinyTx.class, DataSource.class, inject(DataSourceBox.class));
+		}
 	}
 
 	@Override
-	public void contextInitialized(ServletContextEvent context) {
-		// Initialize BeanBox
-		// TX is defined in jBeanBox project
-		BeanBox.regAopAroundAnnotation(TX.class, TxBox.class);
-		// "Transaction" is a customized AOP annotation
-		BeanBox.regAopAroundAnnotation(Transaction.class, TxBox.class);
-
-		// Initialize Global SqlBoxContext
+	public void contextInitialized(ServletContextEvent context) { 
 		SqlBoxContextConfig config = new SqlBoxContextConfig();
+
+		// Set transaction manager
 		config.setConnectionManager(TinyTxConnectionManager.instance());
+
+		// 这个仅当用到@Ioc注解时才需要配，通常可以不配
 		config.setIocTool(new IocTool() {
 			@Override
 			public <T> T getBean(Class<?> configClass) {
@@ -78,12 +76,13 @@ public class Initializer implements ServletContextListener {
 			}
 		});
 		SqlBoxContext ctx = new SqlBoxContext((DataSource) BeanBox.getBean(DataSourceBox.class), config);
-		SqlBoxContext.setGlobalSqlBoxContext(ctx);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx); // 全局上下文
 
 		// Initialize database
 		String[] ddls = ctx.toDropAndCreateDDL(Team.class);
 		for (String ddl : ddls)
 			ctx.quiteExecute(ddl);
+
 		for (int i = 0; i < 5; i++)
 			new Team().put("name", "Team" + i, "rating", i * 10).insert();
 		Assert.assertEquals(5, ctx.nQueryForLongValue("select count(*) from teams"));
@@ -93,7 +92,7 @@ public class Initializer implements ServletContextListener {
 	@Override
 	public void contextDestroyed(ServletContextEvent context) {
 		SqlBoxContext.setGlobalSqlBoxContext(null);
-		BeanBox.defaultContext.close();// close the dataSource
+		JBEANBOX.close();// close the dataSource
 		System.out.println("========== com.jsqlboxdemo.init.Initializer destroyed=====");
 
 	}
