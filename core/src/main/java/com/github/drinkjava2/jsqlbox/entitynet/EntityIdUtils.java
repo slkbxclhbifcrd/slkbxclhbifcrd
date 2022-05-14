@@ -12,7 +12,7 @@
 package com.github.drinkjava2.jsqlbox.entitynet;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -21,16 +21,17 @@ import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.TypeUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.ActiveRecordSupport;
+import com.github.drinkjava2.jsqlbox.EntityType;
+import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
 import com.github.drinkjava2.jsqlbox.SqlBoxException;
 
 /**
  * <pre>
  * Entity Id Utils, an Entity ID can be:
  * 
- * 1. MAP (For compound id)
- * 2. Basic Java Objects (For single id)
- * 3. Instance of Entity Class, which implements ActiveRecordSupport interface or have @Entity annotation (for compound or single id)
+ * 1. A POJO Entity
+ * 2. 
+ * 3. Basic Java Objects (String, Integer, Long, Date, Boolean...)
  * 
  * </pre>
  * 
@@ -44,23 +45,22 @@ public abstract class EntityIdUtils {// NOSONAR
 	/**
 	 * Build entityId from titles, oneRow, model, alias
 	 */
-	public static Object buildEntityIdFromOneRow(String[] titles, Object[] oneRow, TableModel model,
-			String alias) {// NOSONAR
+	public static Object buildEntityIdFromOneRow(String[] titles, Object[] oneRow, TableModel model, String alias) {// NOSONAR
 		int pkeyCount = model.getPKeyCount();
 		if (pkeyCount == 0)
 			throw new SqlBoxException(" No Pkey setting for '" + model.getTableName() + "'");
 		ColumnModel firstPkeyCol = model.getFirstPKeyColumn();
 		// DbUtils don't care UP/LOW case
-		
-		Object firstPKeyValue =null; 
-	       String keColName=new StringBuilder(alias).append("_").append(firstPkeyCol.getColumnName()).toString();
-	       for (int i = 0; i < titles.length; i++) {
-			if(titles[i].equalsIgnoreCase(keColName))
-				firstPKeyValue=oneRow[i];
-		} 
+
+		Object firstPKeyValue = null;
+		String keColName = new StringBuilder(alias).append("_").append(firstPkeyCol.getColumnName()).toString();
+		for (int i = 0; i < titles.length; i++) {
+			if (titles[i].equalsIgnoreCase(keColName))
+				firstPKeyValue = oneRow[i];
+		}
 		if (firstPKeyValue == null)
-			return null;// 
-		
+			return null;//
+
 		if (pkeyCount == 1)
 			return firstPKeyValue;
 		List<ColumnModel> l = model.getPKeyColsSortByColumnName();
@@ -68,15 +68,15 @@ public abstract class EntityIdUtils {// NOSONAR
 		for (ColumnModel col : l) {
 			if (sb.length() > 0)
 				sb.append(COMPOUND_ID_SEPARATOR);
-			
-			Object value =null; 
-		         keColName=new StringBuilder(alias).append("_").append(col.getColumnName()).toString();
-		       for (int i = 0; i < titles.length; i++) {
-				if(titles[i].equalsIgnoreCase(keColName))
-					value=oneRow[i];
-			} 
+
+			Object value = null;
+			keColName = new StringBuilder(alias).append("_").append(col.getColumnName()).toString();
+			for (int i = 0; i < titles.length; i++) {
+				if (titles[i].equalsIgnoreCase(keColName))
+					value = oneRow[i];
+			}
 			if (value == null)
-				return null;// 
+				return null;//
 			sb.append(value);
 		}
 		return sb.toString();
@@ -88,7 +88,7 @@ public abstract class EntityIdUtils {// NOSONAR
 			throw new SqlBoxException("No Pkey setting for '" + model.getTableName() + "'");
 		ColumnModel firstPkeyCol = model.getFirstPKeyColumn();
 		// DbUtils don't care UP/LOW case
-		Object firstPKeyValue = ClassCacheUtils.readValueFromBeanField(entity, firstPkeyCol.getEntityField());
+		Object firstPKeyValue = SqlBoxContextUtils.readValueFromBeanFieldOrTail(entity, firstPkeyCol);
 		if (firstPKeyValue == null)
 			return null;// Single or Compound Pkey not found in entity
 		if (pkeyCount == 1)
@@ -98,7 +98,7 @@ public abstract class EntityIdUtils {// NOSONAR
 		for (ColumnModel col : l) {
 			if (sb.length() > 0)
 				sb.append(COMPOUND_ID_SEPARATOR);
-			Object value = ClassCacheUtils.readValueFromBeanField(entity, col.getEntityField());
+			Object value = SqlBoxContextUtils.readValueFromBeanFieldOrTail(entity, col);
 			if (value == null)
 				return null;
 			sb.append(value);
@@ -141,12 +141,12 @@ public abstract class EntityIdUtils {// NOSONAR
 			if (TypeUtils.canMapToSqlType(entityId.getClass()))
 				return entityId;
 
-			if (entityId instanceof ActiveRecordSupport)// ActiveRecord or ActiveEntity
+			if (entityId instanceof EntityType)// ActiveRecord or ActiveEntity
 				return buildEntityIdFromEntity(entityId, model);
 
 			Annotation[] anno = entityId.getClass().getAnnotations();
 			for (Annotation annotation : anno)
-				if (annotation.annotationType().getName().endsWith(".Entity"))// TODO:unit test
+				if (annotation.annotationType().getName().endsWith(".Entity"))
 					return buildEntityIdFromEntity(entityId, model);
 			throw new SqlBoxException(
 					"Can not determine entityId type, if it's a entity, put @Entity annotation on it");
@@ -157,43 +157,31 @@ public abstract class EntityIdUtils {// NOSONAR
 	 * Put one id value into a entity bean, or put values according a
 	 * map<String,Object>
 	 */
-	@SuppressWarnings("unchecked")
-	public static <T> T setEntityIdValues(T bean, Object entityId, TableModel model) {
+	public static <T> T setEntityIdValues(T bean, Object entityId, Collection<ColumnModel> cols) {
 		SqlBoxException.assureNotNull(entityId, "entityId can not be null.");
 		if (entityId instanceof Map) {
+			@SuppressWarnings("unchecked")
 			Map<String, Object> idMap = (Map<String, Object>) entityId;
 			for (Entry<String, Object> item : idMap.entrySet())
 				ClassCacheUtils.writeValueToBeanField(bean, item.getKey(), item.getValue());
-		} else {
-			if (TypeUtils.canMapToSqlType(entityId.getClass())) {
-				if (model.getPKeyCount() == 0)
-					throw new SqlBoxException("No PKey column found for '" + bean.getClass() + "'");
-				if (model.getPKeyCount() != 1)
-					throw new SqlBoxException("Not give enough PKey column value for '" + bean.getClass() + "'");
-				ColumnModel col = model.getFirstPKeyColumn();
-				ClassCacheUtils.writeValueToBeanField(bean, col.getEntityField(), entityId);
-				return bean;
-			}
+			return bean;
+		}
 
-			boolean isEntity = false;
-			if (entityId instanceof ActiveRecordSupport)
-				isEntity = true;
-			else {
-				Annotation[] anno = entityId.getClass().getAnnotations();
-				for (Annotation annotation : anno)
-					if (annotation.annotationType().getName().endsWith(".Entity")) {
-						isEntity = true;
-						break;
-					}
-			}
-			if (!isEntity)
-				throw new SqlBoxException(
-						"Can not determine entityId type, if it's a entity, put @Entity annotation on it");
-			List<ColumnModel> cols = model.getPKeyColsSortByColumnName();
+		if (TypeUtils.canMapToSqlType(entityId.getClass())) {
 			for (ColumnModel col : cols) {
-				Object value = ClassCacheUtils.readValueFromBeanField(entityId, col.getEntityField());
-				ClassCacheUtils.writeValueToBeanField(bean, col.getEntityField(), value);
+				if (!col.getTransientable() && col.getPkey()) {
+					SqlBoxContextUtils.writeValueToBeanFieldOrTail(bean, col, entityId);
+					return bean;
+				}
 			}
+			throw new SqlBoxException("No primary key configuration found");
+		}
+		// now entityId is a entity
+		for (ColumnModel col : cols) {
+			if (!col.getPkey())
+				continue;
+			Object value = SqlBoxContextUtils.readValueFromBeanFieldOrTail(entityId, col);
+			SqlBoxContextUtils.writeValueToBeanFieldOrTail(bean, col, value);
 		}
 		return bean;
 	}
@@ -206,45 +194,21 @@ public abstract class EntityIdUtils {// NOSONAR
 	 * field value from it.
 	 * 
 	 */
-	public static Object readFeidlValueFromEntityId(Object entityId, TableModel model, String entityFieldName) {
+	public static Object readFeidlValueFromEntityId(Object entityId, ColumnModel col) {
 		SqlBoxException.assureNotNull(entityId, "entityId can not be null.");
 		if (entityId instanceof Map) {
 			@SuppressWarnings("unchecked")
 			Map<String, Object> idMap = (Map<String, Object>) entityId;
-			return idMap.get(entityFieldName);
-		} else {
-			if (TypeUtils.canMapToSqlType(entityId.getClass()))
-				return entityId;
-
-			boolean isEntity = false;
-			if (entityId instanceof ActiveRecordSupport)
-				isEntity = true;
-			else {
-				Annotation[] anno = entityId.getClass().getAnnotations();
-				for (Annotation annotation : anno)
-					if (annotation.annotationType().getName().endsWith(".Entity")) {
-						isEntity = true;
-						break;
-					}
-			}
-			if (!isEntity)
-				throw new SqlBoxException(
-						"Can not determine entityId type, if it's a entity, put @Entity annotation on it");
-			return ClassCacheUtils.readValueFromBeanField(entityId, entityFieldName);
+			if (idMap.containsKey(col.getEntityField()))
+				return idMap.get(col.getEntityField());
+			else
+				return idMap.get(col.getColumnName());
 		}
-	}
 
-	/**
-	 * Get the real id list only for one java field, because Iterable ids may be
-	 * compound id
-	 */
-	public static List<Object> getOnlyOneFieldFromIds(Iterable<?> ids, TableModel model, String entityFieldName) {
-		List<Object> result = new ArrayList<Object>();
-		for (Object entityId : ids) {
-			Object realEntityId = EntityIdUtils.readFeidlValueFromEntityId(entityId, model, entityFieldName);
-			result.add(realEntityId);
-		}
-		return result;
+		if (TypeUtils.canMapToSqlType(entityId.getClass()))
+			return entityId;
+		else
+			return SqlBoxContextUtils.readValueFromBeanFieldOrTail(entityId, col);
 	}
 
 }

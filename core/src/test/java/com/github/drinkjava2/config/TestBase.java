@@ -21,7 +21,10 @@ import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.TableModelUtils;
+import com.github.drinkjava2.jdialects.annotation.jdia.UUID25;
+import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -37,6 +40,38 @@ public class TestBase {
 	protected SqlBoxContext ctx;
 	protected TableModel[] tablesForTest;
 
+	public static class Demo extends ActiveRecord<Demo> {
+		@Id
+		@UUID25
+		private String id;
+		private String name;
+		private Integer age;
+
+		public String getId() {
+			return id;
+		}
+
+		public void setId(String id) {
+			this.id = id;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		public Integer getAge() {
+			return age;
+		}
+
+		public void setAge(Integer age) {
+			this.age = age;
+		}
+	}
+
 	@Before
 	public void init() {
 		SqlBoxContext.resetGlobalVariants();
@@ -45,10 +80,11 @@ public class TestBase {
 		Dialect.setGlobalAllowReservedWords(true);
 
 		//SqlBoxContext.setGlobalNextAllowShowSql(true);
-		ctx = new SqlBoxContext(dataSource); 
+		ctx = new SqlBoxContext(dataSource);
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);
 		if (tablesForTest != null)
 			createAndRegTables(tablesForTest);
+
 	}
 
 	@After

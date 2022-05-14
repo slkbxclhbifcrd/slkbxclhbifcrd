@@ -125,10 +125,18 @@ public abstract class JDBPRO {
 	/**
 	 * Cache parameters and return a "?" String
 	 */
+	public static SqlItem ques(Object... parameters) {//NOSONAR
+		return new SqlItem(SqlOption.QUESTION_PARAM, parameters);
+	}
+	
+
+	/**
+	 * Cache parameters and return a "?" String
+	 */
 	public static SqlItem question(Object... parameters) {
 		return new SqlItem(SqlOption.QUESTION_PARAM, parameters);
 	}
-
+	  
 	/**
 	 * If last param is not null, then add all items in SQL
 	 * 
@@ -163,14 +171,6 @@ public abstract class JDBPRO {
 	 */
 	public static SqlItem bind(Object... parameters) {
 		return new SqlItem(SqlOption.BIND, parameters);
-	}
-
-	/**
-	 * Create a SqlOption.IOC_OBJECT type SqlItem instance, args will create
-	 * instance by IocTool
-	 */
-	public static SqlItem ioc(Class<?>... args) {
-		return new SqlItem(SqlOption.IOC, (Object[]) args);
 	}
 
 	/**

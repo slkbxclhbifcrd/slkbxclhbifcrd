@@ -11,6 +11,8 @@
  */
 package com.github.drinkjava2.jsqlbox;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +30,7 @@ import com.github.drinkjava2.jdbpro.SqlOption;
 import com.github.drinkjava2.jdbpro.template.BasicSqlTemplate;
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.TableModelUtils;
+import com.github.drinkjava2.jdialects.TableModelUtilsOfDb;
 import com.github.drinkjava2.jdialects.id.SnowflakeCreator;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
@@ -49,53 +52,32 @@ import com.github.drinkjava2.jsqlbox.sharding.ShardingTool;
  */
 @SuppressWarnings("unchecked")
 public class SqlBoxContext extends DbPro {// NOSONAR
+
+	protected static Dialect globalNextDialect = null;
+	protected static ShardingTool[] globalNextShardingTools = new ShardingTool[] { new ShardingModTool(),
+			new ShardingRangeTool() };
+	protected static SnowflakeCreator globalNextSnowflakeCreator = null;
+	protected static Object[] globalNextSsModels = null;
+
 	public static final String NO_GLOBAL_SQLBOXCONTEXT_FOUND = "No default global SqlBoxContext found, need use method SqlBoxContext.setGlobalSqlBoxContext() to set a global default SqlBoxContext instance at the beginning of appication.";
 
 	protected static SqlBoxContext globalSqlBoxContext = null;
 
 	/** Dialect of current SqlBoxContext, optional */
-	protected Dialect dialect = SqlBoxContextConfig.globalNextDialect;
+	protected Dialect dialect = globalNextDialect;
 
-	/** In SqlMapper style, A guesser needed to guess and execute SQL methods */
-	protected SqlMapperGuesser sqlMapperGuesser = SqlBoxContextConfig.globalNextSqlMapperGuesser;
-	protected ShardingTool[] shardingTools = SqlBoxContextConfig.globalNextShardingTools;
-	protected SnowflakeCreator snowflakeCreator = SqlBoxContextConfig.globalNextSnowflakeCreator;
+	protected ShardingTool[] shardingTools = globalNextShardingTools;
+	protected SnowflakeCreator snowflakeCreator = globalNextSnowflakeCreator;
+	protected TableModel[] tailModels; // TableModels loaded from DB, only used for tail mode
 
 	public SqlBoxContext() {
 		super();
-		this.dialect = SqlBoxContextConfig.globalNextDialect;
-		copyConfigs(null);
+		this.dialect = globalNextDialect;
 	}
 
 	public SqlBoxContext(DataSource ds) {
 		super(ds);
 		dialect = Dialect.guessDialect(ds);
-		copyConfigs(null);
-	}
-
-	public SqlBoxContext(SqlBoxContextConfig config) {
-		super(config);
-		copyConfigs(config);
-	}
-
-	public SqlBoxContext(DataSource ds, SqlBoxContextConfig config) {
-		super(ds, config);
-		copyConfigs(config);
-		if (dialect == null)
-			dialect = Dialect.guessDialect(ds);
-	}
-
-	private void copyConfigs(SqlBoxContextConfig config) {
-		if (config == null) {
-			this.sqlMapperGuesser = SqlBoxContextConfig.globalNextSqlMapperGuesser;
-			this.shardingTools = SqlBoxContextConfig.globalNextShardingTools;
-			this.snowflakeCreator = SqlBoxContextConfig.globalNextSnowflakeCreator;
-		} else {
-			this.dialect = config.getDialect();
-			this.sqlMapperGuesser = config.getSqlMapperGuesser();
-			this.shardingTools = config.getShardingTools();
-			this.snowflakeCreator = config.getSnowflakeCreator();
-		}
 	}
 
 	protected void miscMethods______________________________() {// NOSONAR
@@ -103,19 +85,15 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 
 	/** Reset all global SqlBox variants to default values */
 	public static void resetGlobalVariants() {
-		SqlBoxContextConfig.setGlobalNextAllowShowSql(false);
-		SqlBoxContextConfig.setGlobalNextMasterSlaveOption(SqlOption.USE_AUTO);
-		SqlBoxContextConfig.setGlobalNextConnectionManager(null);
-		SqlBoxContextConfig.setGlobalNextSqlHandlers((SqlHandler[]) null);
-		SqlBoxContextConfig.setGlobalNextLogger(DefaultDbProLogger.getLog(ImprovedQueryRunner.class));
-		SqlBoxContextConfig.setGlobalNextBatchSize(300);
-		SqlBoxContextConfig.setGlobalNextTemplateEngine(BasicSqlTemplate.instance());
-		SqlBoxContextConfig.setGlobalNextDialect(null);
-		SqlBoxContextConfig.setGlobalNextSqlMapperGuesser(SqlMapperDefaultGuesser.instance);
-		SqlBoxContextConfig
-				.setGlobalNextShardingTools(new ShardingTool[] { new ShardingModTool(), new ShardingRangeTool() });
-		SqlBoxContextConfig.setGlobalNextIocTool(null);
-		SqlBoxContextConfig.setGlobalNextSsModels(null);
+		setGlobalNextAllowShowSql(false);
+		setGlobalNextMasterSlaveOption(SqlOption.USE_AUTO);
+		setGlobalNextConnectionManager(null);
+		setGlobalNextSqlHandlers((SqlHandler[]) null);
+		setGlobalNextLogger(DefaultDbProLogger.getLog(ImprovedQueryRunner.class));
+		setGlobalNextBatchSize(300);
+		setGlobalNextTemplateEngine(BasicSqlTemplate.instance());
+		setGlobalNextDialect(null);
+		setGlobalNextShardingTools(new ShardingTool[] { new ShardingModTool(), new ShardingRangeTool() });
 		globalSqlBoxContext = null;
 	}
 
@@ -130,7 +108,7 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	}
 
 	/**
-	 * Override DbPro's dealItem method to deal SqlBoxContext's SqlItem
+	 * Override DbPro's dealOneSqlItem method to deal SqlBoxContext's SqlItem
 	 */
 	@Override
 	protected boolean dealOneSqlItem(boolean iXxxStyle, PreparedSQL ps, Object item) {// NOSONAR
@@ -144,13 +122,12 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 			else
 				return false;
 		} else if (item instanceof TableModel) {
-			TableModel t = (TableModel) item;
-			SqlBoxException.assureNotNull(t.getEntityClass());
 			ps.addModel(item);
 			SqlBoxContextUtils.createLastAutoAliasName(ps);
 		} else if (item instanceof Class) {
 			ps.addModel(TableModelUtils.entity2ReadOnlyModel((Class<?>) item));
 			SqlBoxContextUtils.createLastAutoAliasName(ps);
+			return true;
 		} else if (item instanceof SqlItem) {
 			SqlItem sqItem = (SqlItem) item;
 			SqlOption sqlItemType = sqItem.getType();
@@ -172,6 +149,8 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 				if (sqItem.getParameters().length == 0)
 					throw new SqlBoxException("alias method need parameter");
 				ps.setLastAliases((String[]) sqItem.getParameters());// NOSONAR
+			} else if (SqlOption.TAIL.equals(sqlItemType)) {
+				return true; // do nothing
 			} else
 				return false;
 		} else if (item instanceof EntityNet) {
@@ -180,19 +159,6 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		} else
 			return false;
 		return true;
-	}
-
-	/**
-	 * Create a subClass instance of a abstract ActiveRecordSupport class based on
-	 * default global SqlBoxContext
-	 */
-	public static <T> T createMapper(Class<?> abstractClass) {
-		Class<?> childClass = SqlMapperUtils.createChildClass(abstractClass);
-		try {
-			return (T) childClass.newInstance();
-		} catch (Exception e) {
-			throw new SqlBoxException(e);
-		}
 	}
 
 	/** Get the sharded table name by given shard values */
@@ -272,135 +238,173 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		return this.tQuery(new EntityListHandler(), optionItems);
 	}
 
+	/** Build a entityNet, only give both between start class and end classes */
+	public EntityNet autoNet(Class<?>... entityClass) {
+		return SqlBoxContextUtils.entityAutoNet(this, entityClass);
+	}
+
+	/** If dbModels not loaded, loaded from database */
+	public void ensureTailModelLoaded() {
+		if (tailModels != null)
+			return;
+		reloadTailModels();
+	}
+
+	/**
+	 * Manually call this method to reload tail TableModels when database structure
+	 * be changed by DDL command
+	 */
+	public synchronized void reloadTailModels() {
+		DataSource ds = getDataSource();
+		SqlBoxException.assureNotNull(ds, "Can not load tail TableModels when datasource is null");
+		Connection conn = null;
+		try {
+			conn = getDataSource().getConnection();
+			tailModels = TableModelUtilsOfDb.db2Models(conn, dialect);
+		} catch (SQLException e) {
+			throw new SqlBoxException(e);
+		} finally {
+			if (conn != null)
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					SqlBoxException.eatException(e);
+				}
+		}
+	}
+
 	protected void entityCrudMethods______________________________() {// NOSONAR
 	}
 
 	/** Insert entity to database, if not 1 row updated, throw SqlBoxException */
-	public <T> T entityInsert(T entity, Object... optionItems) {
+	public <T> T eInsert(T entity, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityInsertTry(this, entity, optionItems);
 		checkOnlyOneRowAffected(result, "insert");
 		return entity;
 	}
 
 	/** Update entity in database, if not 1 row updated, throw SqlBoxException */
-	public <T> T entityUpdate(Object entity, Object... optionItems) {
+	public <T> T eUpdate(Object entity, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityUpdateTry(this, entity, optionItems);
 		checkOnlyOneRowAffected(result, "update");
 		return (T) entity;
 	}
 
 	/** Update entity in database, return how many rows affected */
-	public int entityUpdateTry(Object entity, Object... optionItems) {
+	public int eUpdateTry(Object entity, Object... optionItems) {
 		return SqlBoxContextUtils.entityUpdateTry(this, entity, optionItems);
 	}
 
 	/** Delete entity in database, if not 1 row deleted, throw SqlBoxException */
-	public void entityDelete(Object entity, Object... optionItems) {
+	public void eDelete(Object entity, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityDeleteTry(this, entity, optionItems);
 		checkOnlyOneRowAffected(result, "delete");
 	}
 
 	/** Delete entity in database, return how many rows affected */
-	public int entityDeleteTry(Object entity, Object... optionItems) {
+	public int eDeleteTry(Object entity, Object... optionItems) {
 		return SqlBoxContextUtils.entityDeleteTry(this, entity, optionItems);
 	}
 
 	/** Delete entity by given id, if not 1 row deleted, throw SqlBoxException */
-	public void entityDeleteById(Class<?> entityClass, Object id, Object... optionItems) {
+	public void eDeleteById(Class<?> entityClass, Object id, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityDeleteByIdTry(this, entityClass, id, optionItems);
 		checkOnlyOneRowAffected(result, "deleteById");
 	}
 
 	/** Delete entity by given id, return how many rows deleted */
-	public int entityDeleteByIdTry(Class<?> entityClass, Object id, Object... optionItems) {
+	public int eDeleteByIdTry(Class<?> entityClass, Object id, Object... optionItems) {
 		return SqlBoxContextUtils.entityDeleteByIdTry(this, entityClass, id, optionItems);
 	}
 
 	/** Check if entity exist by its id */
-	public boolean entityExist(Object entity, Object... optionItems) {
+	public boolean eExist(Object entity, Object... optionItems) {
 		return SqlBoxContextUtils.entityExist(this, entity, optionItems);
 	}
 
 	/** Check if entity exist by given id */
-	public boolean entityExistById(Class<?> entityClass, Object id, Object... optionItems) {
+	public boolean eExistById(Class<?> entityClass, Object id, Object... optionItems) {
 		return SqlBoxContextUtils.entityExistById(this, entityClass, id, optionItems);
 	}
 
 	/** Return how many records for current entity class */
-	public int entityCountAll(Class<?> entityClass, Object... optionItems) {
+	public int eCountAll(Class<?> entityClass, Object... optionItems) {
 		return SqlBoxContextUtils.entityCountAll(this, entityClass, optionItems);
 	}
 
 	/** Load entity according its id, if not 1 row round, throw SqlBoxException */
-	public <T> T entityLoad(T entity, Object... optionItems) {
+	public <T> T eLoad(T entity, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityLoadTry(this, entity, optionItems);
 		checkOnlyOneRowAffected(result, "insert");
 		return entity;
 	}
 
 	/** Load entity according its id, return how many rows found */
-	public int entityLoadTry(Object entity, Object... optionItems) {
+	public int eLoadTry(Object entity, Object... optionItems) {
 		return SqlBoxContextUtils.entityLoadTry(this, entity, optionItems);
 	}
 
 	/** Load entity by given id, if not 1 row found, throw SqlBoxException */
-	public <T> T entityLoadById(Class<T> entityClass, Object entityId, Object... optionItems) {
+	public <T> T eLoadById(Class<T> entityClass, Object entityId, Object... optionItems) {
 		T entity = SqlBoxContextUtils.entityLoadByIdTry(this, entityClass, entityId, optionItems);
 		if (entity == null)
 			throw new SqlBoxException("No record found in database when do 'LoadById' operation.");
 		return entity;
 	}
 
+	/** Load one entity according SQL, if not found, return null */
+	public <T> T eLoadBySQL(Object... optionItems) {
+		List<T> entities = iQueryForEntityList(optionItems);
+		if (entities == null || entities.isEmpty())
+			throw new SqlBoxException("No record found in database when try to load entity.");
+		if (entities.size() > 1)
+			throw new SqlBoxException("More than 1 record found when try to load 1 entity.");
+		return entities.get(0);
+	}
+
 	/** Load entity by given id, if not found, return null */
-	public <T> T entityLoadByIdTry(Class<T> entityClass, Object entityId, Object... optionItems) {
+	public <T> T eLoadByIdTry(Class<T> entityClass, Object entityId, Object... optionItems) {
 		return SqlBoxContextUtils.entityLoadByIdTry(this, entityClass, entityId, optionItems);
 	}
 
-	/** Find all entity of given entity class, if not found, return empty list */
-	public <T> List<T> entityFindAll(Class<T> entityClass, Object... optionItems) {
+	/**
+	 * Find all entity of given entity class as List, if not found, return empty
+	 * list
+	 */
+	public <T> List<T> eFindAll(Class<T> entityClass, Object... optionItems) {
 		return SqlBoxContextUtils.entityFindAll(this, entityClass, optionItems);
 	}
-
-	/** Find all entity according its id, if not found, return empty list */
-	public <T> List<T> entityFindByIds(Class<T> entityClass, Iterable<?> ids, Object... optionItems) {
-		return SqlBoxContextUtils.entityFindByIds(this, entityClass, ids, optionItems);
-	}
-
+ 
 	/** Find entity according SQL, if not found, return empty list */
-	public <T> List<T> entityFindBySQL(Object... optionItems) {
-		return this.iQueryForEntityList(optionItems);
+	public <T> List<T> eFindBySQL(Object... optionItems) {
+		return iQueryForEntityList(optionItems);
 	}
 
 	/**
 	 * Find entity according a sample bean, ignore null fields, if not found, return
 	 * empty list
 	 */
-	public <T> List<T> entityFindBySample(Object sampleBean, Object... optionItems) {
+	public <T> List<T> eFindBySample(Object sampleBean, Object... optionItems) {
 		return SqlBoxContextUtils.entityFindBySample(this, sampleBean, optionItems);
 	}
 
-	/** Build a entityNet, only give both between start class and end classes */
-	public EntityNet entityAutoNet(Class<?>... entityClass) {
-		return SqlBoxContextUtils.entityAutoNet(this, entityClass);
-	}
-
 	/** Find one related entity by given entity */
-	public <E> E entityFindRelatedOne(Object entity, Object... sqlItems) {
+	public <E> E eFindRelatedOne(Object entity, Object... sqlItems) {
 		return SqlBoxContextUtils.entityFindRelatedOne(this, entity, sqlItems);
 	}
 
 	/** Find related entity list by given entity or Iterable */
-	public <E> List<E> entityFindRelatedList(Object entityOrIterable, Object... sqlItems) {
+	public <E> List<E> eFindRelatedList(Object entityOrIterable, Object... sqlItems) {
 		return SqlBoxContextUtils.entityFindRelatedList(this, entityOrIterable, sqlItems);
 	}
 
 	/** Find related entity set by given entity or Iterable */
-	public <E> Set<E> entityFindRelatedSet(Object entity, Object... sqlItems) {
+	public <E> Set<E> eFindRelatedSet(Object entity, Object... sqlItems) {
 		return SqlBoxContextUtils.entityFindRelatedSet(this, entity, sqlItems);
 	}
 
 	/** Find related entity map(key is entityID) by given entity or Iterable */
-	public <E> Map<Object, E> entityFindRelatedMap(Object entity, Object... sqlItems) {
+	public <E> Map<Object, E> eFindRelatedMap(Object entity, Object... sqlItems) {
 		return SqlBoxContextUtils.entityFindRelatedMap(this, entity, sqlItems);
 	}
 
@@ -469,6 +473,34 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	protected void getteSetters__________________________() {// NOSONAR
 	}
 
+	// static global variants setting
+	protected void staticGlobalNextMethods______________________() {// NOSONAR
+	}
+
+	public static Dialect getGlobalNextDialect() {
+		return globalNextDialect;
+	}
+
+	public static void setGlobalNextDialect(Dialect dialect) {
+		globalNextDialect = dialect;
+	}
+
+	public static ShardingTool[] getGlobalNextShardingTools() {
+		return globalNextShardingTools;
+	}
+
+	public static void setGlobalNextShardingTools(ShardingTool[] shardingTools) {
+		globalNextShardingTools = shardingTools;
+	}
+
+	public static SnowflakeCreator getGlobalNextSnowflakeCreator() {
+		return globalNextSnowflakeCreator;
+	}
+
+	public static void setGlobalNextSnowflakeCreator(SnowflakeCreator snowflakeCreator) {
+		globalNextSnowflakeCreator = snowflakeCreator;
+	}
+
 	// =========getter & setter =======
 
 	public Dialect getDialect() {
@@ -476,19 +508,8 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	}
 
 	/** This method is not thread safe, suggest only use at program starting */
-	@Deprecated
 	public void setDialect(Dialect dialect) {// NOSONAR
 		this.dialect = dialect;
-	}
-
-	public SqlMapperGuesser getSqlMapperGuesser() {
-		return sqlMapperGuesser;
-	}
-
-	/** This method is not thread safe, suggest only use at program starting */
-	@Deprecated
-	public void setSqlMapperGuesser(SqlMapperGuesser sqlMapperGuesser) {// NOSONAR
-		this.sqlMapperGuesser = sqlMapperGuesser;
 	}
 
 	public ShardingTool[] getShardingTools() {
@@ -496,7 +517,6 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	}
 
 	/** This method is not thread safe, suggest only use at program starting */
-	@Deprecated
 	public void setShardingTools(ShardingTool[] shardingTools) {// NOSONAR
 		this.shardingTools = shardingTools;
 	}
@@ -506,13 +526,20 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	}
 
 	/** This method is not thread safe, suggest only use at program starting */
-	@Deprecated
 	public void setSnowflakeCreator(SnowflakeCreator snowflakeCreator) {// NOSONAR
 		this.snowflakeCreator = snowflakeCreator;
 	}
 
 	public static void setGlobalSqlBoxContext(SqlBoxContext globalSqlBoxContext) {
 		SqlBoxContext.globalSqlBoxContext = globalSqlBoxContext;
+	}
+
+	public TableModel[] getTailModels() {
+		return tailModels;
+	}
+
+	public void setTailModels(TableModel[] tailModels) {
+		this.tailModels = tailModels;
 	}
 
 }

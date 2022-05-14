@@ -33,11 +33,11 @@ import com.github.drinkjava2.jsqlbox.SqlBoxException;
  * Assert.assertEquals(1, ctx.entityFindBySample(u1).size());
  * Assert.assertEquals(1, ctx.entityFindAll(CrudUser.class, new SampleItem(u2).sql(" where  ").notNullFields()).size());
  * CrudUser sample = new CrudUser("Nam", "addr");
- * Assert.assertEquals(4, ctx.entityFindAll(CrudUser.class,
- * 		new SampleItem(sample).sql(" where (").allFields().sql(") or name like ?").param(":name%").sql(" order by name"))
- * 		.size());
- * Assert.assertEquals(4, ctx.entityFindBySQL(CrudUser.class, new SampleItem(sample).sql("select * from CrudUser where (")
- * 		.nullFields().sql(") or name like ?").param(":name%").sql(" order by name")).size());
+ * Assert.assertEquals(4, ctx.entityFindAll(CrudUser.class, new SampleItem(sample).sql(" where (").allFields()
+ * 		.sql(") or name like ?").param(":name%").sql(" order by name")).size());
+ * Assert.assertEquals(4,
+ * 		ctx.entityFindBySQL(CrudUser.class, new SampleItem(sample).sql("select * from CrudUser where (").nullFields()
+ * 				.sql(") or name like ?").param(":name%").sql(" order by name")).size());
  * 
  * </pre>
  * 
@@ -101,10 +101,10 @@ public class SampleItem implements CustomizedSqlItem {
 		boolean isfirst = true;
 		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityBean.getClass());
 		for (String fieldName : writeMethods.keySet()) {
-			ColumnModel col = SqlBoxContextUtils.findMatchColumnForJavaField(fieldName, model);
+			ColumnModel col = model.getColumn(fieldName);
 			if (col.getTransientable())
 				continue;
-			Object fieldValue = ClassCacheUtils.readValueFromBeanField(entityBean, fieldName);
+			Object fieldValue = SqlBoxContextUtils.readValueFromBeanFieldOrTail(entityBean, col);
 			if (fieldValue != null && (nullFieldsOnly == null || !nullFieldsOnly)) {
 				if (!isfirst)
 					ps.addSql(" and ");

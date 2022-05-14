@@ -1,12 +1,8 @@
 package com.demo.blog;
 
-import java.util.List;
-import java.util.Random;
-
 import com.demo.common.Blog;
 import com.jfinal.aop.Before;
 import com.jfinal.core.Controller;
-import com.jfinal.plugin.activerecord.Page;
 
 /**
  * 本 demo 仅表达最为粗浅的 jfinal 用法，更为有价值的实用的企业级用法 详见 JFinal 俱乐部:
@@ -35,7 +31,7 @@ public class BlogController extends Controller {
 	 */
 	@Before(BlogValidator.class)
 	public void save() {
-		getBean(Blog.class).put("id", nextId++).insert();
+		getBean(Blog.class).putField("id", nextId++).insert();
 		redirect("/blog");
 	}
 

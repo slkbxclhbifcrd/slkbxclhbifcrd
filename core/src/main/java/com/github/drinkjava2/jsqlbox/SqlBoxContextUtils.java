@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,6 +34,7 @@ import com.github.drinkjava2.jdbpro.SqlItem;
 import com.github.drinkjava2.jdbpro.SqlOption;
 import com.github.drinkjava2.jdialects.ClassCacheUtils;
 import com.github.drinkjava2.jdialects.Dialect;
+import com.github.drinkjava2.jdialects.DialectException;
 import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.Type;
@@ -55,6 +57,10 @@ import com.github.drinkjava2.jsqlbox.sqlitem.SampleItem;
  * 
  * @author Yong Zhu
  * @since 1.0.0
+ */
+/**
+ * @author Yong Zhu
+ * @since 1.7.0
  */
 public abstract class SqlBoxContextUtils {// NOSONAR
 	/**
@@ -79,14 +85,6 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			}
 		}
 		throw new SqlBoxException(sqlException);
-	}
-
-	public static ColumnModel findMatchColumnForJavaField(String entityField, TableModel tableModel) {
-		SqlBoxException.assureNotNull(tableModel, "Can not find column for '" + entityField + "' in null table ");
-		ColumnModel col = tableModel.getColumnByFieldName(entityField);
-		SqlBoxException.assureNotNull(col,
-				"Can not find column for '" + entityField + "' in table '" + tableModel.getTableName() + "'");
-		return col;
 	}
 
 	/**
@@ -142,6 +140,10 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		return masterCtx;
 	}
 
+	/**
+	 * if optionItems has a TabelModel, use it, otherwise find tablemodel from
+	 * entityOrClass
+	 */
 	public static TableModel findTableModel(Object entityOrClass, Object... optionItems) {
 		TableModel model = findFirstModel(optionItems);
 		if (model != null)
@@ -168,6 +170,31 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 				return TableModelUtils.entity2ReadOnlyModel((Class<?>) item);
 		}
 		return null;
+	}
+
+	/**
+	 * Return first tail TableModel, if not found return null
+	 */
+	public static TableModel findTailModel(SqlBoxContext ctx, TableModel entityModel, Object... optionItems) {// NOSONAR
+		String tailTable = null;
+		for (Object item : optionItems)
+			if (item instanceof SqlItem && (SqlOption.TAIL.equals(((SqlItem) item).getType()))) {
+				if (((SqlItem) item).getParameters().length == 0)
+					tailTable = "";
+				else
+					tailTable = (String) ((SqlItem) item).getParameters()[0];
+				break;
+			}
+		if (tailTable == null)
+			return null;
+		if ("".equals(tailTable))//
+			tailTable = entityModel.getTableName();
+		ctx.ensureTailModelLoaded();
+		for (TableModel model : ctx.getTailModels()) {
+			if (tailTable.equalsIgnoreCase(model.getTableName()))
+				return model;
+		}
+		throw new SqlBoxException("Not found table '" + tailTable + "' in database");
 	}
 
 	/**
@@ -244,18 +271,32 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	 * PreparedSQL, if alias already exists, put a number at end, for example: <br/>
 	 * User ->u <br/>
 	 * User, UserRole, UserOther, Order, Order_a -> u, u1, u2, o, o1
+	 * 
+	 * if no EntityClass, alais will be created by table name, for example: <br/>
+	 * user ->u <br/>
+	 * user_role -> UR
 	 */
 	public static void createLastAutoAliasName(PreparedSQL ps) {
 		if (ps.getModels() == null || ps.getModels().length == 0)
 			throw new SqlBoxException("No tableModel found");
 		TableModel model = (TableModel) ps.getModels()[ps.getModels().length - 1];
-		String[] aliases = ps.getAliases();
+		String alias;
 		StringBuilder sb = new StringBuilder();
-		char[] chars = model.getEntityClass().getSimpleName().toCharArray();
-		for (char c : chars)
-			if (c >= 'A' && c <= 'Z')
+		char[] chars;
+		if (model.getEntityClass() != null)
+			chars = model.getEntityClass().getSimpleName().toCharArray();
+		else
+			chars = model.getTableName().toCharArray();
+		for (int i = 0; i < chars.length; i++) {
+			char c = chars[i];
+			if (i == 0 //
+					|| (c >= 'A' && c <= 'Z') //
+					|| ((i > 0) && (chars[i - 1]) == '_') //
+			)
 				sb.append(c);
-		String alias = sb.toString().toLowerCase();
+		}
+		alias = sb.toString().toLowerCase();
+		String[] aliases = ps.getAliases();
 		int count = 1;
 		String newAlias = alias;
 		boolean found = false;
@@ -272,24 +313,21 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	}
 
 	/** Convert one row data into EntityBean */
-	public static <T> T mapToEntityBean(TableModel model, Map<String, Object> oneRow) {
+	public static <T> T mapToEntityBean(TableModel model, Map<String, Object> oneRow) {// NOSONAR
 		if (oneRow == null || oneRow.isEmpty())
 			throw new SqlBoxException("Can not use null or empty row to convert to EntityBean");
 		SqlBoxException.assureNotNull(model.getEntityClass(), "Can not find entityClass setting in model.");
 		@SuppressWarnings("unchecked")
 		T bean = (T) ClassCacheUtils.createNewEntity(model.getEntityClass());
-		for (ColumnModel col : model.getColumns()) {
-			boolean foundValue = false;
-			for (Entry<String, Object> row : oneRow.entrySet()) {
-				if (row.getKey().equalsIgnoreCase(col.getColumnName())) {
-					foundValue = true;
-					SqlBoxException.assureNotEmpty(col.getEntityField(),
-							"EntityField not found for column '" + col.getColumnName() + "'");
-					ClassCacheUtils.writeValueToBeanField(bean, col.getEntityField(), row.getValue());
-				}
-			}
-			if (col.getPkey() && !foundValue)
-				throw new SqlBoxException("One prime-key not set value: '" + col.getColumnName() + "'");
+		for (Entry<String, Object> entry : oneRow.entrySet()) {
+			String key = entry.getKey();
+			Object value = entry.getValue();
+			ColumnModel col = model.getColumnByColName(key);
+			if (col == null) {
+				if (bean instanceof TailType)
+					((TailType) bean).tails().put(key, value);
+			} else
+				writeValueToBeanFieldOrTail(bean, col, value);
 		}
 		return bean;
 	}
@@ -319,7 +357,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			return (T) entityOrClass;
 	}
 
-	public static void notAllowSharding(ColumnModel col) {
+	private static void notAllowSharding(ColumnModel col) {
 		if (col.getShardTable() != null || col.getShardDatabase() != null)
 			throw new SqlBoxException(
 					"Fail to execute entity CRUD operation because found sharding column is not included in prime Key columns");
@@ -335,14 +373,15 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	 * left join xxx c on b.cid=c.id ...
 	 * </pre>
 	 */
-	public static void appendLeftJoinSQL(PreparedSQL ps) {
+	@SuppressWarnings("all")
+	protected static void appendLeftJoinSQL(PreparedSQL ps) {
 		Object[] m = ps.getModels();
 		String[] a = ps.getAliases();
-		SqlBoxException.assureTrue(m != null && m != null & m.length == a.length);
+		SqlBoxException.assureTrue(m != null && a != null && m.length == a.length);
 
 		StringBuilder sb = new StringBuilder(" select ");
 		boolean ifFirst = true;
-		for (int i = 0; i < m.length; i++) {
+		for (int i = 0; i < m.length; i++) {// NOSONAR
 
 			TableModel md = (TableModel) m[i];
 			for (ColumnModel col : md.getColumns()) {
@@ -376,7 +415,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		for (FKeyModel fkey : fkeys) {
 			String refTable = fkey.getRefTableAndColumns()[0];
 			if (refTable.equalsIgnoreCase(m2.getTableName())) {// m2 is parent
-				realDoAppendKeyEquelsSqlPiece(sb, a1, m1, a2, m2, fkey);
+				realDoAppendKeyEquelsSqlPiece(sb, a1, a2, fkey);
 				return;
 			}
 		}
@@ -384,7 +423,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		for (FKeyModel fkey : fkeys) {
 			String refTable = fkey.getRefTableAndColumns()[0];
 			if (refTable.equalsIgnoreCase(m1.getTableName())) {// m1 is parent
-				realDoAppendKeyEquelsSqlPiece(sb, a2, m2, a1, m1, fkey);
+				realDoAppendKeyEquelsSqlPiece(sb, a2, a1, fkey);
 				return;
 			}
 		}
@@ -393,8 +432,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	}
 
 	/** Build a.bid1=b.id1 and a.bid2=b.id2 SQL piece */
-	private static void realDoAppendKeyEquelsSqlPiece(StringBuilder sb, String a, TableModel ma, String b,
-			TableModel mb, FKeyModel fkey) {
+	private static void realDoAppendKeyEquelsSqlPiece(StringBuilder sb, String a, String b, FKeyModel fkey) {
 		int i = 0;
 		for (String col : fkey.getColumnNames()) {
 			if (i > 0)
@@ -403,6 +441,48 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 					.append(fkey.getRefTableAndColumns()[i + 1]).append(" ");
 			i++;
 		}
+	}
+
+	/** Read value from entityBean field or tail */
+	public static Object readValueFromBeanFieldOrTail(Object entityBean, ColumnModel columnModel) {
+		SqlBoxException.assureNotNull(columnModel, "columnModel can not be null");
+		if (columnModel.getTransientable())
+			return null;
+		String fieldName = columnModel.getEntityField();
+		if (fieldName == null) {
+			if (entityBean instanceof TailType) {
+				return ((TailType) entityBean).tails().get(columnModel.getColumnName());
+			} else
+				throw new DialectException("Can not read tail value from instance which is not TailSupport");
+		} else {
+			Method readMethod = ClassCacheUtils.getClassFieldReadMethod(entityBean.getClass(), fieldName);
+			SqlBoxException.assureNotNull(readMethod, "No read method for '" + fieldName + "'");
+			try {
+				return readMethod.invoke(entityBean);
+			} catch (Exception e) {
+				throw new DialectException(e);
+			}
+		}
+	}
+
+	/** write value to entityBean field or tail */
+	public static void writeValueToBeanFieldOrTail(Object entityBean, ColumnModel columnModel, Object value) {
+		SqlBoxException.assureNotNull(columnModel, "columnModel can not be null");
+		if (columnModel.getTransientable())
+			return;
+		String fieldName = columnModel.getEntityField();
+		if (fieldName == null) {
+			if (entityBean instanceof TailType) {
+				((TailType) entityBean).tails().put(columnModel.getColumnName(), value);
+			} else
+				throw new DialectException("Can not write tail value for entity which is not TailSupport");
+		} else
+			try {
+				Method writeMethod = ClassCacheUtils.getClassFieldWriteMethod(entityBean.getClass(), fieldName);
+				writeMethod.invoke(entityBean, value);
+			} catch (Exception e) {
+				throw new DialectException("FieldName '" + fieldName + "' can not write with value '" + value + "'", e);
+			}
 	}
 
 	@SuppressWarnings("unused")
@@ -418,33 +498,44 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		if (entityBean instanceof TailType) {
+			tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+			if (tailModel != null)
+				for (String colName : ((TailType) entityBean).tails().keySet()) {
+					ColumnModel col = tailModel.getColumnByColName(colName);
+					if (col != null)
+						cols.put(col.getColumnName().toLowerCase(), col);
+				}
+		}
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-
-		String identityFieldName = null;
+		ColumnModel identityCol = null;
 		Type identityType = null;
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityBean.getClass());
 		Boolean ignoreNull = null;
-
 		jSQL.append(" (");
 		boolean foundColumnToInsert = false;
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-			if (col.getTransientable() || !col.getInsertable())
+		for (ColumnModel col : cols.values()) {
+			if (col == null || col.getTransientable() || !col.getInsertable())
 				continue;
 			if (col.getIdGenerationType() != null || !StrUtils.isEmpty(col.getIdGeneratorName())) {
 				if (col.getIdGenerator() == null)
 					throw new SqlBoxException("No IdGenerator found for column '" + col.getColumnName() + "'");
 				IdGenerator idGen = col.getIdGenerator();
 				if (GenerationType.IDENTITY.equals(idGen.getGenerationType())) {// Identity
-					if (identityFieldName != null)
+					if (identityCol != null)
 						throw new SqlBoxException(
 								"More than 1 identity field found for table '" + model.getTableName() + "'");
 					identityType = col.getColumnType();
-					identityFieldName = fieldName;
+					identityCol = col;
 				} else if (GenerationType.SNOWFLAKE.equals(idGen.getGenerationType())) {// Snow
 					jSQL.append(col.getColumnName());
 					SnowflakeCreator snow = ctx.getSnowflakeCreator();
@@ -455,17 +546,17 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 					jSQL.append(param(id));
 					jSQL.append(", ");
 					foundColumnToInsert = true;
-					ClassCacheUtils.writeValueToBeanField(entityBean, fieldName, id);
+					writeValueToBeanFieldOrTail(entityBean, col, id);
 				} else {// Normal Id Generator
 					jSQL.append(col.getColumnName());
 					Object id = idGen.getNextID(ctx, ctx.getDialect(), col.getColumnType());
 					jSQL.append(param(id));
 					jSQL.append(", ");
 					foundColumnToInsert = true;
-					ClassCacheUtils.writeValueToBeanField(entityBean, fieldName, id);
+					writeValueToBeanFieldOrTail(entityBean, col, id);
 				}
 			} else {
-				Object value = ClassCacheUtils.readValueFromBeanField(entityBean, fieldName);
+				Object value = readValueFromBeanFieldOrTail(entityBean, col);
 				if (value == null && ignoreNull == null) {
 					for (Object itemObject : optionItems)
 						if (SqlOption.IGNORE_NULL.equals(itemObject)) {
@@ -482,23 +573,23 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 					foundColumnToInsert = true;
 				}
 			}
-
 			if (col.getPkey()) {
 				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardTableItem = shardTB(readValueFromBeanFieldOrTail(entityBean, col));
 
 				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardDbItem = shardDB(readValueFromBeanFieldOrTail(entityBean, col));
 			} else
 				notAllowSharding(col);
 		}
+
 		if (foundColumnToInsert)
 			jSQL.remove(jSQL.size() - 1);// delete the last ", "
 
 		if (shardTableItem != null)
 			jSQL.frontAdd(shardTableItem);
 		else
-			jSQL.frontAdd(model.getTableName());
+			jSQL.frontAdd(tableName);
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 
@@ -510,15 +601,15 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			for (Object item : optionItems)
 				jSQL.append(item);
 
-		if (optionModel == null)
+		if (optionModel == null)// No optional model, force use entity's
 			jSQL.frontAdd(model);
 
 		int result = ctx.iUpdate(jSQL.toArray());
 		if (ctx.isBatchEnabled())
 			return 1; // in batch mode, direct return 1
-		if (identityFieldName != null) {// write identity id to Bean field
+		if (identityCol != null) {// write identity id to Bean field
 			Object identityId = IdentityIdGenerator.INSTANCE.getNextID(ctx, ctx.getDialect(), identityType);
-			ClassCacheUtils.writeValueToBeanField(entityBean, identityFieldName, identityId);
+			writeValueToBeanFieldOrTail(entityBean, identityCol, identityId);
 		}
 		return result;
 	}
@@ -529,7 +620,22 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		if (entityBean instanceof TailType) {
+			tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+			if (tailModel != null)
+				for (String colName : ((TailType) entityBean).tails().keySet()) {
+					ColumnModel col = tailModel.getColumnByColName(colName);
+					if (col != null)
+						cols.put(col.getColumnName().toLowerCase(), col);
+				}
+		}
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
@@ -537,21 +643,25 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		SqlItem shardDbItem = null;
 		Boolean ignoreNull = null;
 
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityBean.getClass());
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
+		for (ColumnModel col : cols.values()) {
 			if (col.getTransientable() || !col.getUpdatable())
 				continue;
-			Object value = ClassCacheUtils.readValueFromBeanField(entityBean, fieldName);
+			String fieldName = col.getEntityField();
+			if (StrUtils.isEmpty(fieldName))
+				fieldName = col.getColumnName();
+			SqlBoxException.assureNotEmpty(fieldName,
+					"Found a column not mapped to entity field or DB column in model '" + model + "'");
+			Object value = readValueFromBeanFieldOrTail(entityBean, col);
 			if (col.getPkey()) {
 				if (!where.isEmpty())
 					where.append(" and ");// NOSONAR
 				where.append(col.getColumnName()).append("=?");
 				where.append(param(value));
 				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardTableItem = shardTB(readValueFromBeanFieldOrTail(entityBean, col));
 				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardDbItem = shardDB(readValueFromBeanFieldOrTail(entityBean, col));
+
 			} else {
 				notAllowSharding(col);
 				if (value == null && ignoreNull == null) {
@@ -576,7 +686,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardTableItem != null)
 			jSQL.frontAdd(shardTableItem);
 		else
-			jSQL.frontAdd(model.getTableName());
+			jSQL.frontAdd(tableName);
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 		jSQL.frontAdd("update ");
@@ -600,61 +710,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	 * affected
 	 */
 	public static int entityDeleteTry(SqlBoxContext ctx, Object entityBean, Object... optionItems) {// NOSONAR
-		TableModel optionModel = SqlBoxContextUtils.findFirstModel(optionItems);
-		TableModel model = optionModel;
-		if (model == null)
-			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
-		SqlBoxException.assureNotNull(model.getEntityClass());
-
-		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
-		SqlItem shardTableItem = null;
-		SqlItem shardDbItem = null;
-
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityBean.getClass());
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-
-			if (col.getTransientable())
-				continue;
-			if (col.getPkey()) {
-				Object value = ClassCacheUtils.readValueFromBeanField(entityBean, fieldName);
-				if (!where.isEmpty())
-					where.append(" and ");
-				where.append(param(value));
-				where.append(col.getColumnName()).append("=? ");
-
-				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
-
-				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
-			}
-		}
-		if (where.isEmpty())
-			throw new SqlBoxException("No primary key found for entityBean");
-
-		jSQL.append("delete from ");
-		if (shardTableItem != null)
-			jSQL.append(shardTableItem);
-		else
-			jSQL.append(model.getTableName());
-		if (shardDbItem != null)
-			jSQL.append(shardDbItem);
-		jSQL.append(" where ").addAll(where);
-
-		if (optionItems != null)
-			for (Object item : optionItems)
-				jSQL.append(item);
-
-		if (optionModel == null)
-			jSQL.frontAdd(model);
-
-		jSQL.append(SingleTonHandlers.arrayHandler);
-		int rowAffected = ctx.iUpdate(jSQL.toObjectArray());
-		if (ctx.isBatchEnabled())
-			return 1; // in batch mode, direct return 1
-		return rowAffected;
+		return entityDeleteByIdTry(ctx, entityBean.getClass(), entityBean, optionItems);
 	}
 
 	/**
@@ -665,29 +721,42 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		if (id instanceof TailType) {
+			tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+			if (tailModel != null)
+				for (String colName : ((TailType) id).tails().keySet()) {
+					ColumnModel col = tailModel.getColumnByColName(colName);
+					if (col != null)
+						cols.put(col.getColumnName().toLowerCase(), col);
+				}
+		}
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
 
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityClass);
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-			if (col.getTransientable())
+		for (ColumnModel col : cols.values()) {
+			if (col == null || col.getTransientable())
 				continue;
 			if (col.getPkey()) {
-				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName);
+				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, col);
 				if (!where.isEmpty())
 					where.append(" and ");
 				where.append(param(value));
 				where.append(col.getColumnName()).append("=? ");
 				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
+					shardTableItem = shardTB(EntityIdUtils.readFeidlValueFromEntityId(id, col));
 
 				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
+					shardDbItem = shardDB(EntityIdUtils.readFeidlValueFromEntityId(id, col));
 			} else
 				notAllowSharding(col);
 		}
@@ -698,7 +767,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardTableItem != null)
 			jSQL.append(shardTableItem);
 		else
-			jSQL.append(model.getTableName());
+			jSQL.append(tableName);
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 		jSQL.append(" where ").addAll(where);
@@ -723,31 +792,44 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		if (entityBean instanceof TailType) {
+			tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+			if (tailModel != null)
+				for (String colName : ((TailType) entityBean).tails().keySet()) {
+					ColumnModel col = tailModel.getColumnByColName(colName);
+					if (col != null)
+						cols.put(col.getColumnName().toLowerCase(), col);
+				}
+		}
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
-		List<String> allFieldNames = new ArrayList<String>();
+		List<ColumnModel> effectColumns = new ArrayList<ColumnModel>();
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
 
-		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityBean.getClass());
-		for (String fieldName : writeMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
+		for (ColumnModel col : cols.values()) {
 			if (col.getTransientable())
 				continue;
 			if (col.getPkey()) {
 				where.append(col.getColumnName()).append("=?")
-						.append(param(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName))).append(" and ");
+						.append(param(readValueFromBeanFieldOrTail(entityBean, col))).append(" and ");
 				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardTableItem = shardTB(readValueFromBeanFieldOrTail(entityBean, col));
 
 				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
+					shardDbItem = shardDB(readValueFromBeanFieldOrTail(entityBean, col));
 			} else
 				notAllowSharding(col);
 			jSQL.append(col.getColumnName()).append(", ");
-			allFieldNames.add(col.getEntityField());
+			effectColumns.add(col);
 		}
 		jSQL.remove(jSQL.size() - 1);// delete the last ", "
 		if (where.isEmpty())
@@ -758,7 +840,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardTableItem != null)
 			jSQL.append(shardTableItem);
 		else
-			jSQL.append(model.getTableName());
+			jSQL.append(tableName);
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 
@@ -776,16 +858,8 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (valuesList == null || valuesList.isEmpty())
 			return 0;
 		Object[] values = valuesList.get(0);
-		try {
-			for (int i = 0; i < values.length; i++) {
-				Method writeMethod = writeMethods.get(allFieldNames.get(i));
-				SqlBoxException.assureNotNull(writeMethod,
-						"Not found write method of field '" + allFieldNames.get(i) + "' in " + entityBean.getClass());
-				writeMethod.invoke(entityBean, values[i]);
-			}
-		} catch (Exception e) {
-			throw new SqlBoxException(e);
-		}
+		for (int i = 0; i < values.length; i++)
+			SqlBoxContextUtils.writeValueToBeanFieldOrTail(entityBean, effectColumns.get(i), values[i]);
 		return valuesList.size();
 	}
 
@@ -793,16 +867,22 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	 * Create a new Entity, load from DB according given ID, return null if entity
 	 * does not exist in DB
 	 */
-	public static <T> T entityLoadByIdTry(SqlBoxContext ctx, Class<T> entityClass, Object idOrIdMap,
-			Object... optionItems) {// NOSONAR
+	public static <T> T entityLoadByIdTry(SqlBoxContext ctx, Class<T> entityClass, Object id, Object... optionItems) {// NOSONAR
 		TableModel optionModel = SqlBoxContextUtils.findFirstModel(optionItems);
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+		if (tailModel != null)
+			for (ColumnModel col : tailModel.getColumns())
+				if (col != null)
+					cols.put(col.getColumnName().toLowerCase(), col);
 
 		T bean = SqlBoxContextUtils.entityOrClassToBean(entityClass);
-		bean = EntityIdUtils.setEntityIdValues(bean, idOrIdMap, model);
+		bean = EntityIdUtils.setEntityIdValues(bean, id, cols.values());
 		int result = entityLoadTry(ctx, bean, optionItems);
 		if (result != 1)
 			return null;
@@ -813,63 +893,8 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 	/**
 	 * Check if entityBean exist in database by its id
 	 */
-	public static boolean entityExist(SqlBoxContext ctx, Object entityBean, Object... optionItems) {// NOSONAR
-		TableModel optionModel = SqlBoxContextUtils.findFirstModel(optionItems);
-		TableModel model = optionModel;
-		if (model == null)
-			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityBean);
-		SqlBoxException.assureNotNull(model.getEntityClass());
-
-		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
-		SqlItem shardTableItem = null;
-		SqlItem shardDbItem = null;
-
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityBean.getClass());
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-			if (col.getTransientable())
-				continue;
-			if (col.getPkey()) {
-				Object value = ClassCacheUtils.readValueFromBeanField(entityBean, fieldName);
-				if (!where.isEmpty())
-					where.append(" and ");
-				where.append(param(value));
-				where.append(col.getColumnName()).append("=? ");
-				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
-
-				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(ClassCacheUtils.readValueFromBeanField(entityBean, fieldName));
-			} else
-				notAllowSharding(col);
-		}
-		if (where.isEmpty())
-			throw new SqlBoxException("No primary key found for entityBean");
-
-		jSQL.append("select count(1) from ");
-		if (shardTableItem != null)
-			jSQL.append(shardTableItem);
-		else
-			jSQL.append(model.getTableName());
-		if (shardDbItem != null)
-			jSQL.append(shardDbItem);
-		jSQL.append(" where ").addAll(where);
-
-		if (optionItems != null)
-			for (Object item : optionItems)
-				jSQL.append(item);
-
-		if (optionModel == null)
-			jSQL.frontAdd(model);
-
-		long result = ctx.iQueryForLongValue(jSQL.toObjectArray());
-		if (result == 1)
-			return true;
-		else if (result == 0)
-			return false;
-		else
-			throw new SqlBoxException("Fail to check entity exist because found " + result + " records exist");
+	public static boolean entityExist(SqlBoxContext ctx, Object entityBean, Object... optionItems) {
+		return entityExistById(ctx, entityBean.getClass(), entityBean, optionItems);
 	}
 
 	/**
@@ -880,29 +905,41 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		if (id instanceof TailType) {
+			tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+			if (tailModel != null)
+				for (String colName : ((TailType) id).tails().keySet()) {
+					ColumnModel col = tailModel.getColumnByColName(colName);
+					if (col != null)
+						cols.put(col.getColumnName().toLowerCase(), col);
+				}
+		}
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
 		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
 		SqlItem shardTableItem = null;
 		SqlItem shardDbItem = null;
-
-		Map<String, Method> readMethods = ClassCacheUtils.getClassReadMethods(entityClass);
-		for (String fieldName : readMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
+		for (ColumnModel col : cols.values()) {
 			if (col.getTransientable())
 				continue;
 			if (col.getPkey()) {
-				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName);
+				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, col);
 				if (!where.isEmpty())
 					where.append(" and ");
 				where.append(param(value));
 				where.append(col.getColumnName()).append("=? ");
 				if (col.getShardTable() != null) // Sharding Table?
-					shardTableItem = shardTB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
+					shardTableItem = shardTB(EntityIdUtils.readFeidlValueFromEntityId(id, col));
 
 				if (col.getShardDatabase() != null) // Sharding DB?
-					shardDbItem = shardDB(EntityIdUtils.readFeidlValueFromEntityId(id, model, fieldName));
+					shardDbItem = shardDB(EntityIdUtils.readFeidlValueFromEntityId(id, col));
 			} else
 				notAllowSharding(col);
 		}
@@ -913,7 +950,7 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		if (shardTableItem != null)
 			jSQL.append(shardTableItem);
 		else
-			jSQL.append(model.getTableName());
+			jSQL.append(tableName);
 		if (shardDbItem != null)
 			jSQL.append(shardDbItem);
 		jSQL.append(" where ").addAll(where);
@@ -941,17 +978,26 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+		if (tailModel != null)
+			for (ColumnModel col : tailModel.getColumns())
+				cols.put(col.getColumnName().toLowerCase(), col);
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
-		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityClass);
-		for (String fieldName : writeMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-			if (!col.getTransientable() && (col.getShardTable() != null || col.getShardDatabase() != null))
-				throw new SqlBoxException("Fail to count entity quantity because sharding columns exist.");
+		for (ColumnModel col : cols.values()) {
+			if (col.getTransientable())
+				continue;
+			if ((col.getShardTable() != null || col.getShardDatabase() != null))
+				throw new SqlBoxException("Fail to count all entity because sharding columns exist.");
 		}
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-		jSQL.append("select count(1) from ").append(model.getTableName());
+		jSQL.append("select count(1) from ").append(tableName);
 		if (optionItems != null)
 			for (Object item : optionItems)
 				jSQL.append(item);
@@ -965,24 +1011,32 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 		TableModel model = optionModel;
 		if (model == null)
 			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
+		Map<String, ColumnModel> cols = new HashMap<String, ColumnModel>();
+		for (ColumnModel col : model.getColumns())
+			cols.put(col.getColumnName().toLowerCase(), col);
+		TableModel tailModel = null;
+		tailModel = SqlBoxContextUtils.findTailModel(ctx, model, optionItems);
+		if (tailModel != null)
+			for (ColumnModel col : tailModel.getColumns())
+				cols.put(col.getColumnName().toLowerCase(), col);
+		String tableName = model.getTableName();
+		if (tailModel != null)
+			tableName = tailModel.getTableName();
 
 		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-		List<String> allFieldNames = new ArrayList<String>();
+		List<ColumnModel> effectColumns = new ArrayList<ColumnModel>();
 
-		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityClass);
-		for (String fieldName : writeMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
+		for (ColumnModel col : cols.values()) {
 			if (col.getTransientable())
 				continue;
 			if ((col.getShardTable() != null || col.getShardDatabase() != null))
 				throw new SqlBoxException("Fail to load all entity because sharding columns exist.");
 			jSQL.append(col.getColumnName()).append(", ");
-			allFieldNames.add(col.getEntityField());
+			effectColumns.add(col);
 		}
 		jSQL.remove(jSQL.size() - 1);// delete the last ", "
 		jSQL.frontAdd("select ").append(" from ");
-		jSQL.append(model.getTableName());
+		jSQL.append(tableName);
 		if (optionItems != null)
 			for (Object item : optionItems)
 				jSQL.append(item);
@@ -997,100 +1051,8 @@ public abstract class SqlBoxContextUtils {// NOSONAR
 			return result;
 		for (Object[] values : valuesList) {
 			T bean = SqlBoxContextUtils.entityOrClassToBean(entityClass);
-			try {
-				for (int i = 0; i < values.length; i++) {
-					Method writeMethod = writeMethods.get(allFieldNames.get(i));
-					SqlBoxException.assureNotNull(writeMethod,
-							"Not found write method of field '" + allFieldNames.get(i) + "' in " + bean.getClass());
-					writeMethod.invoke(bean, values[i]);
-				}
-			} catch (Exception e) {
-				throw new SqlBoxException(
-						"Write bean error, it may be caused by bean field type different with Db column type.", e);
-			}
-			result.add(bean);
-		}
-		return result;
-	}
-
-	public static <T> List<T> entityFindByIds(SqlBoxContext ctx, Class<T> entityClass, Iterable<?> ids, // NOSONAR
-			Object... optionItems) {
-		TableModel optionModel = SqlBoxContextUtils.findFirstModel(optionItems);
-		TableModel model = optionModel;
-		if (model == null)
-			model = SqlBoxContextUtils.findEntityOrClassTableModel(entityClass);
-		SqlBoxException.assureNotNull(model.getEntityClass());
-
-		LinkStyleArrayList<Object> jSQL = new LinkStyleArrayList<Object>();
-		LinkStyleArrayList<Object> where = new LinkStyleArrayList<Object>();
-		List<String> allFieldNames = new ArrayList<String>();
-		SqlItem shardTableItem = null;
-		SqlItem shardDbItem = null;
-
-		Map<String, Method> writeMethods = ClassCacheUtils.getClassWriteMethods(entityClass);
-		for (String fieldName : writeMethods.keySet()) {
-			ColumnModel col = findMatchColumnForJavaField(fieldName, model);
-			if (!col.getTransientable()) {
-				if (col.getPkey()) {
-					List<Object> oneFieldValues = EntityIdUtils.getOnlyOneFieldFromIds(ids, model, fieldName);
-					where.append(col.getColumnName()).append(" in (");
-					for (int i = 0; i < oneFieldValues.size(); i++) {
-						if (i != 0)
-							where.append(",");
-						where.append("?");
-						where.append(param(oneFieldValues.get(i)));
-					}
-					where.append(")");
-					if (col.getShardTable() != null) // Sharding Table?
-						shardTableItem = shardTB(oneFieldValues);
-					if (col.getShardDatabase() != null) // Sharding DB?
-						shardDbItem = shardDB(oneFieldValues);
-					where.append(" and ");
-				} else
-					notAllowSharding(col);
-				jSQL.append(col.getColumnName()).append(", ");
-				allFieldNames.add(col.getEntityField());
-			}
-		}
-		jSQL.remove(jSQL.size() - 1);// delete the last ", "
-		if (where.isEmpty())
-			throw new SqlBoxException("No PKey column found from tableModel '" + model.getTableName() + "'");
-		where.remove(where.size() - 1);// delete the last " and"
-
-		jSQL.frontAdd("select ").append(" from ");
-		if (shardTableItem != null)
-			jSQL.append(shardTableItem);
-		else
-			jSQL.append(model.getTableName());
-		if (shardDbItem != null)
-			jSQL.append(shardDbItem);
-
-		jSQL.append(" where ").addAll(where);
-
-		if (optionItems != null)
-			for (Object item : optionItems)
-				jSQL.append(item);
-		if (optionModel == null)
-			jSQL.frontAdd(model);
-
-		jSQL.append(SingleTonHandlers.arrayListHandler);
-		List<Object[]> valuesList = ctx.iQuery(jSQL.toObjectArray());
-
-		List<T> result = new ArrayList<T>();
-		if (valuesList == null || valuesList.isEmpty())
-			return result;
-		for (Object[] values : valuesList) {
-			T bean = SqlBoxContextUtils.entityOrClassToBean(entityClass);
-			try {
-				for (int i = 0; i < values.length; i++) {
-					Method writeMethod = writeMethods.get(allFieldNames.get(i));
-					SqlBoxException.assureNotNull(writeMethod,
-							"Not found write method of field '" + allFieldNames.get(i) + "' in " + bean.getClass());
-					writeMethod.invoke(bean, values[i]);
-				}
-			} catch (Exception e) {
-				throw new SqlBoxException(e);
-			}
+			for (int i = 0; i < effectColumns.size(); i++)
+				SqlBoxContextUtils.writeValueToBeanFieldOrTail(bean, effectColumns.get(i), values[i]);
 			result.add(bean);
 		}
 		return result;

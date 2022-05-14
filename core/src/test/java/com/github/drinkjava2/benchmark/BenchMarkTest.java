@@ -26,11 +26,11 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	@Before
 	public void init() {
 		super.init();
-		new DemoCustomer().putFields("id", "code", "name");
+		new DemoCustomer().forFields("id", "code", "name");
 		new DemoCustomer().putValues(1, "a", "Customer1").insert();
 		new DemoCustomer().putValues(2, "b", "Customer2").insert();
 		new DemoCustomer().putValues(3, "c", "Customer3").insert();
-		new DemoOrder().putFields("id", "name", "custId");
+		new DemoOrder().forFields("id", "name", "custId");
 		new DemoOrder().putValues(1, "a", 1).insert();
 		new DemoOrder().putValues(2, "b", 1).insert();
 		new DemoOrder().putValues(3, "c", 2).insert();
@@ -70,7 +70,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 		gctx().iQuery(net, DemoCustomer.class, AUTO_SQL);
 		List<DemoOrder> list = net.pickEntityList(DemoOrder.class);
 		for (DemoOrder order : list) {
-			DemoCustomer customer = order.findOneRelated(net, DemoCustomer.class);
+			DemoCustomer customer = order.findRelatedOne(net, DemoCustomer.class);
 			if (customer == null)
 				throw new RuntimeException("orm error");
 		}
@@ -83,7 +83,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 
 	@Override
 	public void testUnique() {
-		DemoUser d = new DemoUser().put("id", 1).load();// included unique check
+		DemoUser d = new DemoUser().putField("id", 1).load();// included unique check
 		if (d.getCode() == null)
 			throw new RuntimeException("testUnique error");
 		// or gctx().entityExistById(DemoUser.class, 1);
@@ -91,7 +91,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 
 	@Override
 	public void testUpdateById() {
-		new DemoUser().put("id", 1, "code", "abc").update();
+		new DemoUser().putField("id", 1, "code", "abc").update();
 	}
 
 	@Override
@@ -101,7 +101,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 
 	@Override
 	public void testExampleQuery() {
-		List<DemoUser> result = gctx().entityFindBySample(new DemoUser().put("id", 1, "code", "abc"), " or code=?",
+		List<DemoUser> result = gctx().eFindBySample(new DemoUser().putField("id", 1, "code", "abc"), " or code=?",
 				param("efg"));
 		if (result.get(0) == null)
 			throw new RuntimeException("Example query error");
@@ -109,7 +109,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 
 	@Override
 	public void testOrmQUery() {
-		List<DemoOrder> list = gctx().entityAutoNet(DemoOrder.class, DemoCustomer.class)
+		List<DemoOrder> list = gctx().autoNet(DemoOrder.class, DemoCustomer.class)
 				.pickEntityList(DemoOrder.class);
 		for (DemoOrder order : list) {
 			DemoCustomer customer = order.getDemoCustomer();
@@ -131,9 +131,9 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	}
 
 	public void testSqlRelated() {
-		List<DemoOrder> list = gctx().entityFindAll(DemoOrder.class);
+		List<DemoOrder> list = gctx().eFindAll(DemoOrder.class);
 		for (DemoOrder order : list) {
-			DemoCustomer customer = order.findOneRelated(DemoCustomer.class);
+			DemoCustomer customer = order.findRelatedOne(DemoCustomer.class);
 			if (customer == null)
 				throw new RuntimeException("orm error");
 		}
@@ -144,7 +144,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 		gctx().iQuery(net, DemoCustomer.class, AUTO_SQL);
 		List<DemoOrder> list = net.pickEntityList(DemoOrder.class);
 		for (DemoOrder order : list) {
-			DemoCustomer customer = order.findOneRelated(net, DemoCustomer.class);
+			DemoCustomer customer = order.findRelatedOne(net, DemoCustomer.class);
 			if (customer == null)
 				throw new RuntimeException("orm error");
 		}

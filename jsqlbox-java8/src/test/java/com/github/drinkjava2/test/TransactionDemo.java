@@ -69,12 +69,11 @@ public class TransactionDemo {
 
 	@TX
 	public void save() {
-		new User().put("name", "Tom").insert();
+		new User().putField("name", "Tom").insert();
 		System.out.println(SqlBoxContext.gctx().iQueryForString("select name from usertb"));
 		System.out.println(1 / 0); // force roll back
 	}
 
-	@SuppressWarnings("deprecation")
 	public static void main(String[] args) {
 		SqlBoxContext ctx = new SqlBoxContext((DataSource) BeanBox.getBean(DataSourceCfg.class));
 		ctx.setConnectionManager(TinyTxConnectionManager.instance());

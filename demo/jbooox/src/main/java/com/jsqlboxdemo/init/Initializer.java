@@ -1,7 +1,5 @@
 package com.jsqlboxdemo.init;
 
-import static com.github.drinkjava2.jbeanbox.JBEANBOX.inject;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -16,9 +14,7 @@ import org.junit.Assert;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jbeanbox.annotation.AOP;
-import com.github.drinkjava2.jdbpro.IocTool;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTx;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
@@ -57,25 +53,14 @@ public class Initializer implements ServletContextListener {
 
 	public static class TxBox extends BeanBox {
 		{
-			this.injectConstruct(TinyTx.class, DataSource.class, inject(DataSourceBox.class));
+			this.injectConstruct(TinyTx.class, DataSource.class, DataSourceBox.class);
 		}
 	}
 
 	@Override
-	public void contextInitialized(ServletContextEvent context) { 
-		SqlBoxContextConfig config = new SqlBoxContextConfig();
-
-		// Set transaction manager
-		config.setConnectionManager(TinyTxConnectionManager.instance());
-
-		// 这个仅当用到@Ioc注解时才需要配，通常可以不配
-		config.setIocTool(new IocTool() {
-			@Override
-			public <T> T getBean(Class<?> configClass) {
-				return BeanBox.getBean(configClass);
-			}
-		});
-		SqlBoxContext ctx = new SqlBoxContext((DataSource) BeanBox.getBean(DataSourceBox.class), config);
+	public void contextInitialized(ServletContextEvent context) {
+		SqlBoxContext ctx = new SqlBoxContext(BeanBox.getBean(DataSourceBox.class));
+		ctx.setConnectionManager(TinyTxConnectionManager.instance());
 		SqlBoxContext.setGlobalSqlBoxContext(ctx); // 全局上下文
 
 		// Initialize database
@@ -84,7 +69,7 @@ public class Initializer implements ServletContextListener {
 			ctx.quiteExecute(ddl);
 
 		for (int i = 0; i < 5; i++)
-			new Team().put("name", "Team" + i, "rating", i * 10).insert();
+			new Team().putField("name", "Team" + i, "rating", i * 10).insert();
 		Assert.assertEquals(5, ctx.nQueryForLongValue("select count(*) from teams"));
 		System.out.println("========== com.jsqlboxdemo.init.Initializer initialized=====");
 	}

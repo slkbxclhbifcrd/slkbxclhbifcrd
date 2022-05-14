@@ -38,7 +38,6 @@ import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.JSQLBOX;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxContextConfig;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTx;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
@@ -88,7 +87,6 @@ public class MasterSlaveTest {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@Before
 	public void init() {
 		SqlBoxContext[] slaves = new SqlBoxContext[SLAVE_DATABASE_QTY];
@@ -101,10 +99,10 @@ public class MasterSlaveTest {
 			master.iExecute(ddl, USE_BOTH);
 
 		for (long j = 0; j < SLAVE_RECORD_ROWS; j++)// insert 5 row in slaves
-			new TheUser().useContext(master).put("id", j, "name", "Slave_Row" + j).insert(USE_SLAVE);
+			new TheUser().useContext(master).putField("id", j, "name", "Slave_Row" + j).insert(USE_SLAVE);
 
 		for (long j = 0; j < MASTER_RECORD_ROWS; j++)// insert 10 row in masters
-			new TheUser().useContext(master).put("id", j, "name", "Master_Row" + j).insert(USE_MASTER);
+			new TheUser().useContext(master).putField("id", j, "name", "Master_Row" + j).insert(USE_MASTER);
 	}
 
 	@After
@@ -131,9 +129,9 @@ public class MasterSlaveTest {
 		// AutoChoose, not in Transaction, should use Master
 		master.pUpdate("update TheUser set name=? where id=3", "NewValue");
 		// TheUser u1 = master.loadById(TheUser.class, 3L, USE_MASTER);
-		TheUser u1 = new TheUser().useContext(master).put("id", 3L).load(USE_MASTER);
+		TheUser u1 = new TheUser().useContext(master).putField("id", 3L).load(USE_MASTER);
 		Assert.assertEquals("NewValue", u1.getName());
-		TheUser u2 = master.entityLoadById(TheUser.class, 3L, USE_SLAVE);
+		TheUser u2 = master.eLoadById(TheUser.class, 3L, USE_SLAVE);
 		Assert.assertEquals("Slave_Row3", u2.getName());
 	}
 
@@ -142,36 +140,35 @@ public class MasterSlaveTest {
 		System.out.println("============Test testMasterSlaveNoTransaction==================");
 		// AutoChoose, not in Transaction, should use slave
 		Assert.assertEquals(SLAVE_RECORD_ROWS, master.iQueryForLongValue("select count(*) from TheUser"));
-		TheUser u1 = master.entityLoadById(TheUser.class, 1L);
+		TheUser u1 = master.eLoadById(TheUser.class, 1L);
 		Assert.assertEquals("Slave_Row1", u1.getName());
 
 		// Force use master
 		Assert.assertEquals(MASTER_RECORD_ROWS, master.iQueryForLongValue(USE_MASTER, "select count(*) from TheUser"));
-		TheUser u2 = master.entityLoadById(TheUser.class, 1L, USE_MASTER);
+		TheUser u2 = master.eLoadById(TheUser.class, 1L, USE_MASTER);
 		Assert.assertEquals("Master_Row1", u2.getName());
 
 		// Force use slave
 		Assert.assertEquals(SLAVE_RECORD_ROWS,
 				master.iQueryForLongValue("select count(*)", USE_SLAVE, " from TheUser"));
-		TheUser u3 = master.entityLoadById(TheUser.class, 1L, USE_SLAVE);
+		TheUser u3 = master.eLoadById(TheUser.class, 1L, USE_SLAVE);
 		Assert.assertEquals("Slave_Row1", u3.getName());
 	}
 
 	private static HikariDataSource txDataSource;
 
-	@SuppressWarnings("deprecation")
 	@Test
 	public void testMasterSlaveQueryInTransaction() {
 		System.out.println("============Test testMasterSlaveInTransaction==============");
 		SqlBoxContext.resetGlobalVariants();
-		SqlBoxContextConfig config = new SqlBoxContextConfig();
-		config.setConnectionManager(TinyTxConnectionManager.instance());
 		txDataSource = TestBase.createH2_HikariDataSource("MasterDb");
 		// Build another master but run in Transaction mode
-		SqlBoxContext MasterWithTx = new SqlBoxContext(txDataSource, config);
-		MasterWithTx.setSlaves(master.getSlaves());
+		SqlBoxContext masterWithTx = new SqlBoxContext(txDataSource);
+		masterWithTx.setConnectionManager(TinyTxConnectionManager.instance());
+
+		masterWithTx.setSlaves(master.getSlaves());
 		MasterSlaveTest tester = BeanBox.getBean(MasterSlaveTest.class); // Proxy
-		tester.queryInTransaction(MasterWithTx);
+		tester.queryInTransaction(masterWithTx);
 		txDataSource.close();// don't forget close DataSource pool
 	}
 
@@ -179,17 +176,17 @@ public class MasterSlaveTest {
 	public void queryInTransaction(SqlBoxContext ctx) {
 		// AutoChoose, in Transaction, should use master
 		Assert.assertEquals(MASTER_RECORD_ROWS, ctx.iQueryForLongValue("select count(*) from TheUser"));
-		TheUser u1 = ctx.entityLoadById(TheUser.class, 1L);
+		TheUser u1 = ctx.eLoadById(TheUser.class, 1L);
 		Assert.assertEquals("Master_Row1", u1.getName());
 
 		// Force use master
 		Assert.assertEquals(MASTER_RECORD_ROWS, ctx.iQueryForLongValue(USE_MASTER, "select count(*) from TheUser"));
-		TheUser u2 = ctx.entityLoadById(TheUser.class, 1L, USE_MASTER);
+		TheUser u2 = ctx.eLoadById(TheUser.class, 1L, USE_MASTER);
 		Assert.assertEquals("Master_Row1", u2.getName());
 
 		// Force use slave
 		Assert.assertEquals(SLAVE_RECORD_ROWS, ctx.iQueryForLongValue(USE_SLAVE, "select count(*) from TheUser"));
-		TheUser u3 = new TheUser().useContext(ctx).put("id", 1L).load(USE_SLAVE);
+		TheUser u3 = new TheUser().useContext(ctx).putField("id", 1L).load(USE_SLAVE);
 		Assert.assertEquals("Slave_Row1", u3.getName());
 	}
 
