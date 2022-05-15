@@ -43,6 +43,8 @@ public interface ActiveEntity<T> extends EntityType {
 		for (Object item : optionItems)
 			if (item != null && item instanceof SqlBoxContext)
 				return (SqlBoxContext) item;
+		SqlBoxException.assureNotNull(SqlBoxContext.getGlobalSqlBoxContext(),
+				SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
 		return SqlBoxContext.getGlobalSqlBoxContext();
 	}
 
@@ -94,7 +96,7 @@ public interface ActiveEntity<T> extends EntityType {
 		ColumnModel col = model.getShardTableColumn();
 		if (col == null || col.getShardTable() == null || col.getShardTable().length == 0)
 			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
-		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(this, col);
+		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(col, this);
 		return SqlBoxContextUtils.getShardedTB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
@@ -103,7 +105,7 @@ public interface ActiveEntity<T> extends EntityType {
 		ColumnModel col = model.getShardDatabaseColumn();
 		if (col == null || col.getShardDatabase() == null || col.getShardDatabase().length == 0)
 			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
-		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(this, col);
+		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(col, this);
 		return SqlBoxContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
