@@ -16,37 +16,50 @@
  */
 package com.github.drinkjava2.jtransactions.grouptx;
 
+import java.sql.Connection;
+
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 
 import com.github.drinkjava2.jtransactions.TransactionsException;
 
 /**
- * A transaction MethodInterceptor
+ * A Group Transaction AOP MethodInterceptor
  * 
  * @author Yong Zhu
- * @since 1.0.0
+ * @since 2.0.7
+ * @deprecated use GroupTxAOP replace
  */
+@Deprecated
 public class GroupTx implements MethodInterceptor {
+	private GroupTxConnectionManager cm = GroupTxConnectionManager.instance();
 
-	private GroupTxConnectionManager cm;
+	private int transactionIsolation = Connection.TRANSACTION_READ_COMMITTED;
 
-	public GroupTx(GroupTxConnectionManager cm) {
+	public GroupTx() {
+	}
+
+	public GroupTx(Integer transactionIsolation) {
+		this.transactionIsolation = transactionIsolation;
+	}
+
+	public GroupTx(GroupTxConnectionManager cm, Integer transactionIsolation) {
 		this.cm = cm;
+		this.transactionIsolation = transactionIsolation;
 	}
 
 	@Override
 	public Object invoke(MethodInvocation caller) throws Throwable {// NOSONAR
-		if (cm.isInGroupTransaction()) {
+		if (cm.isInTransaction()) {
 			return caller.proceed();
 		} else {
 			Object invokeResult = null;
 			try {
-				cm.startGroupTransaction();
+				cm.startTransaction(transactionIsolation);
 				invokeResult = caller.proceed();
-				cm.commitGroupTx();
+				cm.commitTransaction();
 			} catch (Throwable t) {
-				cm.rollbackGroupTx();
+				cm.rollbackTransaction();
 				throw new TransactionsException("GroupTx found a runtime Exception, transaction rollbacked.", t);
 			}
 			return invokeResult;

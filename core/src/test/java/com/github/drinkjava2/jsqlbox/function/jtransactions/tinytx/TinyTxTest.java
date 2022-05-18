@@ -10,9 +10,6 @@ import org.junit.Test;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
-import com.github.drinkjava2.jtransactions.tinytx.TinyTx;
-import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
-import com.mysql.jdbc.Connection;
 import com.zaxxer.hikari.HikariDataSource;
 
 public class TinyTxTest {
@@ -30,7 +27,6 @@ public class TinyTxTest {
 		dataSource.setPassword("");
 
 		ctx = new SqlBoxContext(dataSource);
-		ctx.setConnectionManager(TinyTxConnectionManager.instance());
 		String[] ddlArray = ctx.toDropAndCreateDDL(Usr.class);
 		for (String ddl : ddlArray)
 			ctx.quiteExecute(ddl);
@@ -44,32 +40,31 @@ public class TinyTxTest {
 	}
 
 	@Test
-	public void DemoTest() { 
-		TinyTx tx = new TinyTx(dataSource, Connection.TRANSACTION_READ_COMMITTED);
+	public void DemoTest() {
 		for (int i = 0; i < 1000; i++) {
-			tx.beginTransaction();
+			ctx.startTrans();
 			try {
 				Assert.assertEquals(100, ctx.eCountAll(Usr.class));
 				new Usr().putField("firstName", "Foo").insert(ctx);
 				Assert.assertEquals(101, ctx.eCountAll(Tail.class, tail("users")));
 				System.out.println(1 / 0);
 				new Usr().putField("firstName", "Bar").insert(ctx);
-				tx.commit();
+				ctx.commitTrans();
 			} catch (Exception e) {
-				tx.rollback();
+				ctx.rollbackTrans();
 			}
 			Assert.assertEquals(100, ctx.eCountAll(Tail.class, tail("users")));
 		}
 
-		tx.beginTransaction();
+		ctx.startTrans();
 		try {
 			Assert.assertEquals(100, ctx.eCountAll(Usr.class));
 			new Usr().putField("firstName", "Foo").insert(ctx);
 			Assert.assertEquals(101, ctx.eCountAll(Tail.class, tail("users")));
 			new Usr().putField("firstName", "Bar").insert(ctx);
-			tx.commit();
+			ctx.commitTrans();
 		} catch (Exception e) {
-			tx.rollback();
+			ctx.rollbackTrans();
 		}
 		Assert.assertEquals(102, ctx.eCountAll(Tail.class, tail("users")));
 

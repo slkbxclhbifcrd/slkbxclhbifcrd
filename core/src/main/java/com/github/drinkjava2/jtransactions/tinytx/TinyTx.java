@@ -17,7 +17,6 @@
 package com.github.drinkjava2.jtransactions.tinytx;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
@@ -27,50 +26,50 @@ import org.aopalliance.intercept.MethodInvocation;
 import com.github.drinkjava2.jtransactions.TransactionsException;
 
 /**
- * A transaction MethodInterceptor
+ * The TinyTx AOP MethodInterceptor
  * 
  * @author Yong Zhu
  * @since 1.0.0
+ * @deprecated use TinyTxAOP class replace
  */
-public class TinyTx implements MethodInterceptor {
-	private static final TinyTxConnectionManager cm = TinyTxConnectionManager.instance();
+@Deprecated
+public class TinyTx implements MethodInterceptor {// NOSONAR
+	private TinyTxConnectionManager cm = TinyTxConnectionManager.instance();
 
 	private int transactionIsolation = Connection.TRANSACTION_READ_COMMITTED;
-	private DataSource ds;
 
-	public TinyTx(DataSource ds) {
-		this.ds = ds;
+	public TinyTx() {
 	}
 
-	public TinyTx(DataSource ds, Integer transactionIsolation) {
-		this.ds = ds;
+	public TinyTx(Integer transactionIsolation) {
 		this.transactionIsolation = transactionIsolation;
 	}
 
-	public Connection beginTransaction() {
-		return cm.startTransaction(ds, transactionIsolation);
+	public TinyTx(TinyTxConnectionManager cm, Integer transactionIsolation) {
+		this.cm = cm;
+		this.transactionIsolation = transactionIsolation;
+	}
+	
+	public TinyTx(DataSource ds) { 
 	}
 
-	public void commit() throws SQLException {
-		cm.commit(ds);
+	public TinyTx(DataSource ds, Integer transactionIsolation) { 
+		this.transactionIsolation = transactionIsolation;
 	}
 
-	public void rollback() {
-		cm.rollback(ds);
-	}
 
 	@Override
 	public Object invoke(MethodInvocation caller) throws Throwable {// NOSONAR
-		if (cm.isInTransaction(ds)) {
+		if (cm.isInTransaction()) {
 			return caller.proceed();
 		} else {
 			Object invokeResult = null;
 			try {
-				cm.startTransaction(ds, transactionIsolation);
+				cm.startTransaction(transactionIsolation);
 				invokeResult = caller.proceed();
-				cm.commit(ds);
+				cm.commitTransaction();
 			} catch (Throwable t) {
-				cm.rollback(ds);
+				cm.rollbackTransaction();
 				throw new TransactionsException("TinyTx found a runtime Exception, transaction rollbacked.", t);
 			}
 			return invokeResult;

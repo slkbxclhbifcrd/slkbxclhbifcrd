@@ -62,8 +62,8 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
  *    
  *    or 
  *    
- *    SqlBoxContext ctx1=new SqlBoxContext(dataSource);
- *    ctx2.insert(entity, ctx1);
+ *    SqlBoxContext ctx0=new SqlBoxContext(dataSource);
+ *    ctx1.insert(entity, ctx0);
  * 
  * </pre>
  * 
@@ -205,14 +205,15 @@ public class ActiveRecord<T> implements TailType, EntityType {
 	public int deleteTry(Object... items) {return ctx().eDeleteTry(this, items);}
 	public void deleteById(Object id, Object... items) {ctx().eDeleteById(this.getClass(), id, items);}
 	public int deleteByIdTry(Object id, Object... items) {return ctx().eDeleteByIdTry(this.getClass(), id, items);}
-	public boolean exist(Object... items) {return ctx().eExist(this, items);}
+	public boolean existStrict(Object... items) {return ctx().eExistStrict(this, items);}
+	public boolean existId(Object... items) {return ctx().eExist(this, items);}
 	public boolean existById(Object id, Object... items) {return ctx().eExistById(this.getClass(), id, items);}
 	public int countAll(Object... items) {return ctx().eCountAll(this.getClass(), items);} 
 	public T load(Object... items) {return (T) ctx().eLoad(this, items);}
 	public int loadTry(Object... items) {return ctx().eLoadTry(this, items);}
 	public T loadById(Object id, Object... items) {return (T) ctx().eLoadById(this.getClass(), id, items);}
 	public T loadByIdTry(Object id, Object... items) {return (T) ctx().eLoadByIdTry(this.getClass(), id, items);}
-	public T loadBySQL(Object... items) {return (T) ctx().eLoadBySQL(items);}
+	public T loadBySQL(Object... items) {return  ctx().eLoadBySQL(items);}
 	
 	
 	public List<T> findAll(Object... items) {return (List<T>) ctx().eFindAll(this.getClass(), items);}

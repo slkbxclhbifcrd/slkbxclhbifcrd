@@ -32,11 +32,15 @@ import com.github.drinkjava2.jdialects.TableModelUtilsOfDb;
 import com.github.drinkjava2.jdialects.id.SnowflakeCreator;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
+import com.github.drinkjava2.jsqlbox.gtx.GtxConnectionManager;
+import com.github.drinkjava2.jsqlbox.gtx.GtxInfo;
+import com.github.drinkjava2.jsqlbox.gtx.GtxUtils;
 import com.github.drinkjava2.jsqlbox.handler.EntityListHandler;
 import com.github.drinkjava2.jsqlbox.handler.EntityNetHandler;
 import com.github.drinkjava2.jsqlbox.sharding.ShardingModTool;
 import com.github.drinkjava2.jsqlbox.sharding.ShardingRangeTool;
 import com.github.drinkjava2.jsqlbox.sharding.ShardingTool;
+import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 
 /**
  * SqlBoxContext is extended from DbPro, DbPro is extended from QueryRunner, by
@@ -59,7 +63,7 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 
 	public static final String NO_GLOBAL_SQLBOXCONTEXT_FOUND = "No default global SqlBoxContext found, need use method SqlBoxContext.setGlobalSqlBoxContext() to set a global default SqlBoxContext instance at the beginning of appication.";
 
-	protected static SqlBoxContext globalSqlBoxContext = new SqlBoxContext(); //this is a empty ctx
+	protected static SqlBoxContext globalSqlBoxContext = new SqlBoxContext(); // this is a empty ctx
 
 	/** Dialect of current SqlBoxContext, optional */
 	protected Dialect dialect = globalNextDialect;
@@ -86,6 +90,25 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		this.dialect = dialect;
 	}
 
+	// ==========================Global Transaction about================
+	/** If current GlobalTxCM opened global Transaction */
+	public boolean isGtxOpen() {
+		return connectionManager != null && connectionManager instanceof GtxConnectionManager
+				&& getGtxManager().isInTransaction();
+	}
+
+	/** Get current GtxLockId, should be called inside of a global transaction */
+	public GtxInfo getGtxInfo() {
+		return (GtxInfo) getGtxManager().getThreadTxInfo();
+	}
+
+	/** Get current ConnectionManager and assume it's a GlobalTxCM */
+	public GtxConnectionManager getGtxManager() {
+		return (GtxConnectionManager) connectionManager;
+	}
+
+	// ==========================end=============
+
 	protected void miscMethods______________________________() {// NOSONAR
 	}
 
@@ -93,7 +116,7 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	public static void resetGlobalVariants() {
 		setGlobalNextAllowShowSql(false);
 		setGlobalNextMasterSlaveOption(SqlOption.USE_AUTO);
-		setGlobalNextConnectionManager(null);
+		setGlobalNextConnectionManager(TinyTxConnectionManager.instance());
 		setGlobalNextSqlHandlers((SqlHandler[]) null);
 		setGlobalNextBatchSize(300);
 		setGlobalNextTemplateEngine(BasicSqlTemplate.instance());
@@ -205,7 +228,7 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		Object[] params = item.getParameters();
 		SqlBoxContext ctx = null;
 		if (predSQL.getModels() == null || predSQL.getModels().length == 0)
-			throw new SqlBoxException("ShardTable not found model setting");
+			return this;
 		TableModel model = (TableModel) predSQL.getModels()[0];
 		if (params.length == 1)
 			ctx = SqlBoxContextUtils.getShardedDB(this, model, params[0]);
@@ -253,6 +276,14 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		if (tailModels != null)
 			return;
 		reloadTailModels();
+	}
+
+	/** Start a transaction on a given locker server */
+	public void startTransOnLockDb(int lockDb) {
+		this.getConnectionManager().startTransaction();
+		GtxConnectionManager gcm = (GtxConnectionManager) this.getConnectionManager();
+		GtxInfo gtxInfo = (GtxInfo) gcm.getThreadTxInfo();
+		gtxInfo.setLockDb(lockDb);
 	}
 
 	/**
@@ -323,6 +354,11 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	}
 
 	/** Check if entity exist by its id */
+	public boolean eExistStrict(Object entity, Object... optionItems) {
+		return SqlBoxContextUtils.entityExistStrict(this, entity, optionItems);
+	}
+
+	/** Check if entity exist by its id */
 	public boolean eExist(Object entity, Object... optionItems) {
 		return SqlBoxContextUtils.entityExist(this, entity, optionItems);
 	}
@@ -340,7 +376,7 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	/** Load entity according its id, if not 1 row round, throw SqlBoxException */
 	public <T> T eLoad(T entity, Object... optionItems) {
 		int result = SqlBoxContextUtils.entityLoadTry(this, entity, optionItems);
-		checkOnlyOneRowAffected(result, "insert");
+		checkOnlyOneRowAffected(result, "load");
 		return entity;
 	}
 
@@ -380,7 +416,10 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		return SqlBoxContextUtils.entityFindAll(this, entityClass, optionItems);
 	}
 
-	/** Find entity according SQL, if not found, return empty list */
+	/**
+	 * Find entity according SQL, entityClass usually is first param, if not found,
+	 * return empty list
+	 */
 	public <T> List<T> eFindBySQL(Object... optionItems) {
 		return iQueryForEntityList(optionItems);
 	}
@@ -458,6 +497,15 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 		return dialect.toCreateDDL(tables);
 	}
 
+	/** Shortcut call to dialect.toCreateDDL method */
+	public String[] toCreateGtxLogDDL(Class<?>... entityClasses) {
+		assertDialectNotNull();
+		TableModel[] mds = new TableModel[entityClasses.length];
+		for (int i = 0; i < entityClasses.length; i++)
+			mds[i] = GtxUtils.entity2GtxLogModel(entityClasses[i]);
+		return dialect.toCreateDDL(mds);
+	}
+
 	/** Shortcut call to dialect.toDropDDL method */
 	public String[] toDropDDL(TableModel... tables) {
 		assertDialectNotNull();
@@ -468,6 +516,12 @@ public class SqlBoxContext extends DbPro {// NOSONAR
 	public String[] toDropAndCreateDDL(TableModel... tables) {
 		assertDialectNotNull();
 		return dialect.toDropAndCreateDDL(tables);
+	}
+
+	/** Execute DDL stored in a String array */
+	public void executeDDL(String[] sqls) {
+		for (String sql : sqls)
+			nExecute(sql);
 	}
 
 	private void assertDialectNotNull() {

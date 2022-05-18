@@ -21,10 +21,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.github.drinkjava2.jdialects.annotation.jpa.EnumType;
-import com.github.drinkjava2.jdialects.annotation.jpa.Version;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jdialects.springsrc.utils.ReflectionUtils;
@@ -39,6 +38,26 @@ import com.github.drinkjava2.jdialects.springsrc.utils.ReflectionUtils;
 public abstract class TableModelUtilsOfEntity {// NOSONAR
 
 	public static Map<Class<?>, TableModel> globalTableModelCache = new ConcurrentHashMap<Class<?>, TableModel>();
+
+	public static Map<String, Class<?>> globalTableToEntityCache = new ConcurrentHashMap<String, Class<?>>();
+
+	/**
+	 * Convert tableName to entity class, note: before use this method
+	 * entity2Models() method should be called first to cache talbeModels in memory
+	 */
+	public static Class<?> tableNameToEntityClass(String tableName) {
+		String lowCase = tableName.toLowerCase();
+		Class<?> result = globalTableToEntityCache.get(lowCase);
+		if (result != null)
+			return result;
+		for (Entry<Class<?>, TableModel> entry : globalTableModelCache.entrySet()) {
+			if (lowCase.equalsIgnoreCase(entry.getValue().getTableName())) {
+				globalTableToEntityCache.put(lowCase, entry.getKey());
+				return entry.getKey();
+			}
+		}
+		return null;
+	}
 
 	private static boolean matchNameCheck(String annotationName, String cName) {
 		if (("javax.persistence." + annotationName).equals(cName))
@@ -273,7 +292,6 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 					|| (convertClassOrName == null && !TypeUtils.canMapToSqlType(propertyClass))) {
 				ColumnModel col = new ColumnModel(entityfieldName);
 				col.setColumnType(TypeUtils.toType(propertyClass));
-				col.setLengths(new Integer[] { 255, 0, 0 });
 				col.setTransientable(true);
 				col.setEntityField(entityfieldName);
 				col.setTableModel(model);
@@ -317,7 +335,6 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 					col.setLength((Integer) colMap.get("length"));
 					col.setPrecision((Integer) colMap.get("precision"));
 					col.setScale((Integer) colMap.get("scale"));
-					col.setLengths(new Integer[] { col.getLength(), col.getPrecision(), col.getScale() });
 					if (!StrUtils.isEmpty(colMap.get("columnDefinition")))
 						col.setColumnType(TypeUtils.toType((String) colMap.get("columnDefinition")));
 					else
@@ -325,8 +342,7 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 					col.setInsertable((Boolean) colMap.get("insertable"));
 					col.setUpdatable((Boolean) colMap.get("updatable"));
 				} else {
-					col.setColumnType(TypeUtils.toType(propertyClass));
-					col.setLengths(new Integer[] { 255, 0, 0 });
+					col.setColumnType(TypeUtils.toType(propertyClass));// TODO check
 				}
 				if ("EnumType.ORDINAL".equals(col.getConverterClassOrName()))
 					col.setColumnType(Type.INTEGER);
@@ -444,6 +460,7 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 			}
 		if (model == null)
 			throw new DialectException("Can not create TableModel for entityClass " + entityClass);
+		TableModel.sortColumns(model.getColumns());
 		return model;
 	}
 

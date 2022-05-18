@@ -20,8 +20,7 @@ import com.github.drinkjava2.jdialects.annotation.jdia.ShardDatabase;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jtransactions.ConnectionManager;
-import com.github.drinkjava2.jtransactions.grouptx.GroupTx;
+import com.github.drinkjava2.jtransactions.grouptx.GroupTxAOP;
 import com.github.drinkjava2.jtransactions.grouptx.GroupTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -112,7 +111,7 @@ public class GroupShardTxTest {
 		Assert.assertEquals(51, ctx1.eCountAll(ShardUser.class));
 		new ShardUser().setId(401).setName("Bar").insert();
 		Assert.assertEquals(51, ctx2.eCountAll(ShardUser.class));
-		((HikariDataSource) ctx2.getDataSource()).close();// DS2 is closed, this will cause ctx2 fail
+		((HikariDataSource) ctx2.getDataSource()).close();// DS2 is closed, this will cause ctx1 fail
 	}
 
 	@Test
@@ -131,7 +130,7 @@ public class GroupShardTxTest {
 
 	public static class Ds1 extends HikariCPBox {
 		{
-			injectValue("jdbcUrl", "jdbc:h2:mem:Ds1;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
+			injectValue("jdbcUrl", "jdbc:h2:mem:GpShardDs1;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 			injectValue("driverClassName", "org.h2.Driver");
 			injectValue("username", "sa");
 			injectValue("password", "");
@@ -140,21 +139,14 @@ public class GroupShardTxTest {
 
 	public static class Ds2 extends Ds1 {
 		{
-			injectValue("jdbcUrl", "jdbc:h2:mem:Ds2;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
-		}
-	}
-
-	public static class GroupConnMgr extends BeanBox {
-		public Object create() {
-			return new GroupTxConnectionManager((DataSource) JBEANBOX.getBean(Ds1.class),
-					(DataSource) JBEANBOX.getBean(Ds2.class));
+			injectValue("jdbcUrl", "jdbc:h2:mem:GpShardDs2;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 		}
 	}
 
 	public static class SqlBoxContextBox1 extends BeanBox {
 		public Object create() {
 			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds1.class));
-			ctx.setConnectionManager((ConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
+			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}
 	}
@@ -162,7 +154,7 @@ public class GroupShardTxTest {
 	public static class SqlBoxContextBox2 extends BeanBox {
 		public Object create() {
 			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds2.class));
-			ctx.setConnectionManager((ConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
+			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}
 	}
@@ -172,13 +164,7 @@ public class GroupShardTxTest {
 	@Target({ ElementType.METHOD })
 	@AOP
 	public static @interface GrpTX {
-		public Class<?> value() default GpTXBox.class;
-	}
-
-	public static class GpTXBox extends BeanBox {
-		public Object create() {
-			return new GroupTx((GroupTxConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
-		}
+		public Class<?> value() default GroupTxAOP.class;
 	}
 
 	public static void a(String f, Object... ss) {

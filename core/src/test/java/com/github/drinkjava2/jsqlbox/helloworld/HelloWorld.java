@@ -11,11 +11,14 @@
  */
 package com.github.drinkjava2.jsqlbox.helloworld;
 
+import java.sql.SQLException;
+
 import javax.sql.DataSource;
 
 import org.h2.jdbcx.JdbcConnectionPool;
 
-import com.github.drinkjava2.common.Systemout;
+import com.github.drinkjava2.jdialects.annotation.jpa.Column;
+import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.JSQLBOX;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
@@ -28,25 +31,29 @@ import com.github.drinkjava2.jsqlbox.SqlBoxContext;
  */
 
 public class HelloWorld extends ActiveRecord<HelloWorld> {
+	@Id
+	@Column(length = 20)
 	private String name;
 
 	public String getName() {
 		return name;
 	}
 
-	public void setName(String name) {
+	public HelloWorld setName(String name) {
 		this.name = name;
+		return this;
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws SQLException {
 		DataSource ds = JdbcConnectionPool
 				.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
+
 		SqlBoxContext ctx = new SqlBoxContext(ds);
 		SqlBoxContext.setGlobalSqlBoxContext(ctx);
-		for (String ddl : ctx.toCreateDDL(HelloWorld.class))
+		for (String ddl : ctx.toDropAndCreateDDL(HelloWorld.class))
 			ctx.nExecute(ddl);
 
-		new HelloWorld().putField("name", "Hello jSqlBox").insert();
-		Systemout.println(JSQLBOX.iQueryForString("select name from HelloWorld"));
+		new HelloWorld().setName("Hellow jSqlBox").insert();
+		System.out.println(JSQLBOX.iQueryForString("select name from HelloWorld"));
 	}
 }

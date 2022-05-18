@@ -168,7 +168,12 @@ public class CrudTest extends TestBase {
 
 		// =======exist
 		Assert.assertEquals(true, ctx.eExist(u1));
-		Assert.assertEquals(true, u2.exist());
+		Assert.assertEquals(true, u2.existId());
+
+		// =======existStrict
+		Assert.assertTrue(u1.existStrict());
+		u1.setAge(1000);
+		Assert.assertFalse(u1.existStrict());
 
 		// =======existById (id is basic value)
 		Assert.assertEquals(true, ctx.eExistById(CrudUser.class, "Name1"));

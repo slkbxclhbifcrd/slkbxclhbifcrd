@@ -1,4 +1,5 @@
 /*
+
  * Copyright 2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -35,6 +36,9 @@ import com.github.drinkjava2.jdbpro.log.DbProLogFactory;
 import com.github.drinkjava2.jdbpro.template.BasicSqlTemplate;
 import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
 import com.github.drinkjava2.jtransactions.ConnectionManager;
+import com.github.drinkjava2.jtransactions.DataSourceHolder;
+import com.github.drinkjava2.jtransactions.TxResult;
+import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 
 /**
  * ImprovedQueryRunner made below improvements compare DbUtils's QueryRunner:
@@ -52,12 +56,12 @@ import com.github.drinkjava2.jtransactions.ConnectionManager;
  * @since 1.7.0
  */
 @SuppressWarnings({ "all" })
-public class ImprovedQueryRunner extends QueryRunner {
+public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder {
 	protected static final DbProLog logger = DbProLogFactory.getLog(ImprovedQueryRunner.class);
 
 	protected static Boolean globalNextAllowShowSql = false;
 	protected static SqlOption globalNextMasterSlaveOption = SqlOption.USE_AUTO;
-	protected static ConnectionManager globalNextConnectionManager = null;
+	protected static ConnectionManager globalNextConnectionManager = TinyTxConnectionManager.instance();
 
 	protected static Integer globalNextBatchSize = 300;
 	protected static SqlTemplateEngine globalNextTemplateEngine = BasicSqlTemplate.instance();
@@ -72,10 +76,19 @@ public class ImprovedQueryRunner extends QueryRunner {
 
 	protected DbPro[] slaves;
 	protected DbPro[] masters;
-	protected String name;
+	protected String name; // A name for current runner
+	protected Integer dbCode = 0; // A unique code used to identify database
 
 	/** A ThreadLocal SqlHandler instance */
 	private static ThreadLocal<SqlHandler[]> threadLocalSqlHandlers = new ThreadLocal<SqlHandler[]>();
+
+	/** A ThreadLocal instance, if >0, will cause commit fail, for unit test only */
+	protected ThreadLocal<Integer> threadLocalForceCommitFail = new ThreadLocal<Integer>() {
+		@Override
+		protected Integer initialValue() {
+			return 0;
+		}
+	};
 
 	/**
 	 * A ThreadLocal type tag to indicate current all SQL operations should be
@@ -107,6 +120,11 @@ public class ImprovedQueryRunner extends QueryRunner {
 	}
 
 	@Override
+	public Object getHolder() {// This is to implement DataSourceHolder interface
+		return this;
+	}
+
+	@Override
 	public void close(Connection conn) throws SQLException {
 		if (connectionManager == null)
 			super.close(conn);
@@ -119,13 +137,13 @@ public class ImprovedQueryRunner extends QueryRunner {
 		if (connectionManager == null)
 			return super.prepareConnection();
 		else
-			return connectionManager.getConnection(this.getDataSource());
+			return connectionManager.getConnection(this);
 	}
 
 	@Override
 	protected CallableStatement prepareCall(Connection conn, String sql) throws SQLException {
 		if (this.getAllowShowSQL() && !batchEnabled.get())
-			logger.info("SQL: " + sql);
+			logger.info(formatSqlForLoggerOutput(sql));
 		return super.prepareCall(conn, sql);
 	}
 
@@ -149,7 +167,8 @@ public class ImprovedQueryRunner extends QueryRunner {
 	 * SQL format
 	 */
 	protected String formatSqlForLoggerOutput(String sql) {
-		return "SQL: " + sql;
+		return new StringBuilder(name == null ? "" : name).append(dbCode == null ? "" : dbCode).append(" SQL: ")
+				.append(sql).toString();
 	}
 
 	/**
@@ -157,7 +176,8 @@ public class ImprovedQueryRunner extends QueryRunner {
 	 * customise parameters format
 	 */
 	protected String formatParametersForLoggerOutput(Object... params) {
-		return "PAR: " + Arrays.deepToString(params);
+		return new StringBuilder(name == null ? "" : name).append(dbCode == null ? "" : dbCode).append(" PAR: ")
+				.append(Arrays.deepToString(params)).toString();
 	}
 
 	// ===override execute/insert/update methods to support batch and explainSql
@@ -523,8 +543,8 @@ public class ImprovedQueryRunner extends QueryRunner {
 	}
 
 	private DbPro autoChooseMasterOrSlaveQuery(PreparedSQL ps) {
-		if (this.getSlaves() == null || this.getSlaves().length == 0 || (this.getConnectionManager() != null
-				&& this.getConnectionManager().isInTransaction(this.getDataSource())))
+		if (this.getSlaves() == null || this.getSlaves().length == 0
+				|| (this.getConnectionManager() != null && this.getConnectionManager().isInTransaction()))
 			return (DbPro) this;
 		DbPro slave = chooseOneSlave();
 		if (slave == null)
@@ -781,6 +801,68 @@ public class ImprovedQueryRunner extends QueryRunner {
 		threadLocalSqlHandlers.set(handlers);
 	}
 
+	public Integer getForceCommitFail() {
+		return threadLocalForceCommitFail.get();
+	}
+
+	/** Force current runner commit fail forever */
+	public void setForceCommitFail() {
+		threadLocalForceCommitFail.set(-1);
+	}
+
+	/** Force current runner commit fail failCount times */
+	public void setForceCommitFail(Integer failCount) {
+		threadLocalForceCommitFail.set(failCount);
+	}
+
+	protected void connectionManagerWrapMethods_____________________() {// NOSONAR
+	}
+
+	/**
+	 * Check if a connection already be get from given dataSource and be cached as
+	 * it started a Transaction
+	 */
+	public boolean isIntrans() {
+		return this.getConnectionManager().isInTransaction();
+	}
+
+	/** Start a transaction */
+	public void startTrans() {
+		this.getConnectionManager().startTransaction();
+	}
+
+	/** Start a transaction with given connection isolation level */
+	public void startTrans(int txIsolationLevel) {
+		this.getConnectionManager().startTransaction(txIsolationLevel);
+	}
+
+	/**
+	 * A ConnectionManager implementation determine how to get connection from
+	 * DataSource or ThreadLocal or from Spring or JTA or some container...
+	 */
+	public Connection getConnection() throws SQLException {
+		return this.getConnectionManager().getConnection(this);
+	}
+
+	/**
+	 * A ConnectionManager implementation determine how to close connection or
+	 * return connection to ThreadLocal or return to Spring or JTA or some
+	 * container...
+	 */
+	public void releaseConnection(Connection conn) throws SQLException {
+		this.getConnectionManager().releaseConnection(conn, this);
+	}
+
+	/** Commit the transaction */
+	public TxResult commitTrans() throws Exception {
+		return this.getConnectionManager().commitTransaction();
+	}
+
+	/** Roll back the transaction */
+	public TxResult rollbackTrans() {
+		return this.getConnectionManager().rollbackTransaction();
+	}
+
 	protected void staticGlobalNextMethods_____________________() {// NOSONAR
 	}
 
@@ -887,6 +969,9 @@ public class ImprovedQueryRunner extends QueryRunner {
 	/** This method is not thread safe, suggest only use at program starting */
 	public void setSlaves(DbPro[] slaves) {// NOSONAR
 		this.slaves = slaves;
+		for (DbPro dbPro : slaves)
+			if (dbPro != null)
+				dbPro.setConnectionManager(null); // Slave should not open transaction
 	}
 
 	public DbPro[] getMasters() {
@@ -922,6 +1007,14 @@ public class ImprovedQueryRunner extends QueryRunner {
 
 	public ThreadLocal<ArrayList<PreparedSQL>> getSqlBatchCache() {
 		return sqlBatchCache;
+	}
+
+	public Integer getDbCode() {
+		return dbCode;
+	}
+
+	public void setDbCode(Integer dbCode) {
+		this.dbCode = dbCode;
 	}
 
 }

@@ -18,172 +18,118 @@ package com.github.drinkjava2.jtransactions.grouptx;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Collection;
 
 import javax.sql.DataSource;
 
-import com.github.drinkjava2.jtransactions.ConnectionManager;
+import com.github.drinkjava2.jtransactions.DataSourceHolder;
+import com.github.drinkjava2.jtransactions.ThreadConnectionManager;
 import com.github.drinkjava2.jtransactions.TransactionsException;
+import com.github.drinkjava2.jtransactions.TxInfo;
+import com.github.drinkjava2.jtransactions.TxResult;
 
 /**
- * DataSourceManager determine how to get or release connection from DataSource,
- * it can be different transaction strategies like JDBC/SpringManaged/JTA..
+ * GroupTxConnectionManager determine how to get or release connection from a
+ * group of DataSource, but transaction only available for 1 dataSource, usually
+ * used for sharding databases.
  * 
  * @author Yong Zhu
  * @since 1.0.0
  */
-public class GroupTxConnectionManager implements ConnectionManager {
-	private int transactionIsolation = Connection.TRANSACTION_READ_COMMITTED;
-	DataSource[] dataSources;
+public class GroupTxConnectionManager extends ThreadConnectionManager {
 
-	public GroupTxConnectionManager(DataSource... dataSources) {
-		this.dataSources = dataSources;
+	private static class InnerGroupTxMgr {// NOSONAR
+		private static final GroupTxConnectionManager INSTANCE = new GroupTxConnectionManager();
 	}
 
-	public GroupTxConnectionManager(Integer transactionIsolation, DataSource... dataSources) {
-		this.transactionIsolation = transactionIsolation;
-		this.dataSources = dataSources;
+	/**
+	 * @return A singleton instance of GroupTxConnectionManager
+	 */
+	public static final GroupTxConnectionManager instance() {
+		return InnerGroupTxMgr.INSTANCE;
 	}
 
-	private ThreadLocal<Boolean> inTransation = new ThreadLocal<Boolean>() {
-		@Override
-		protected Boolean initialValue() {
-			return false;
-		}
-	};
-
-	private ThreadLocal<Map<DataSource, Connection>> threadLocalConnections = new ThreadLocal<Map<DataSource, Connection>>() {
-		@Override
-		protected Map<DataSource, Connection> initialValue() {
-			return new HashMap<DataSource, Connection>();
-		}
-	};
-
-	public boolean isInGroupTransaction() {
-		return inTransation.get();
+	@Override
+	public Connection getConnection(Object dsOrHolder) throws SQLException {
+		DataSource ds;
+		if (dsOrHolder instanceof DataSource)
+			ds = (DataSource) dsOrHolder;
+		else
+			ds = ((DataSourceHolder) dsOrHolder).getDataSource();
+		TransactionsException.assureNotNull(ds, "DataSource can not be null");
+		if (isInTransaction()) {
+			TxInfo tx = getThreadTxInfo();
+			Connection conn = tx.getConnectionCache().get(ds);
+			if (conn == null) {
+				conn = ds.getConnection(); // NOSONAR
+				conn.setAutoCommit(false);
+				conn.setTransactionIsolation(tx.getTxIsolationLevel());
+				tx.getConnectionCache().put(ds, conn);
+			}
+			return conn;
+		} else
+			return ds.getConnection(); // AutoCommit mode
 	}
 
-	public void startGroupTransaction() {
-		inTransation.set(true);
+	@Override
+	public TxResult commitTransaction() throws Exception {
+		if (!isInTransaction())
+			throw new TransactionsException("Transaction not opened, can not commit");
+		Collection<Connection> conns = getThreadTxInfo().getConnectionCache().values();
+		for (Connection con : conns)
+			con.commit();
+		endTransaction(null);
+		return TxResult.TX_SUCESS;
 	}
 
-	public void endGroupTransaction() {
-		inTransation.set(false);
-		Map<DataSource, Connection> map = threadLocalConnections.get();
-		if (map == null)
-			return;
+	@Override
+	public TxResult rollbackTransaction() {
+		if (!isInTransaction())
+			throw new TransactionsException("Transaction not opened, can not rollback");
 		SQLException lastExp = null;
-
-		for (Entry<DataSource, Connection> entry : map.entrySet())
+		Collection<Connection> conns = getThreadTxInfo().getConnectionCache().values();
+		for (Connection con : conns) {
 			try {
-				entry.getValue().setAutoCommit(true); // restore auto commit
+				con.rollback();
 			} catch (SQLException e) {
 				if (lastExp != null)
 					e.setNextException(lastExp);
 				lastExp = e;
 			}
+		}
+		endTransaction(lastExp);
+		return TxResult.TX_FAIL;
+	}
 
-		for (Entry<DataSource, Connection> entry : map.entrySet())
+	private void endTransaction(SQLException lastExp) {// NOSONAR
+		if (!isInTransaction())
+			return;
+		Collection<Connection> conns = getThreadTxInfo().getConnectionCache().values();
+		setThreadTxInfo(null);
+		if (conns.isEmpty())
+			return; // no actual transaction open
+		for (Connection con : conns) {
+			if (con == null)
+				continue;
 			try {
-				entry.getValue().close(); // Close
+				if (!con.getAutoCommit())
+					con.setAutoCommit(true);
 			} catch (SQLException e) {
 				if (lastExp != null)
 					e.setNextException(lastExp);
 				lastExp = e;
 			}
-
-		map.clear();
+			try {
+				con.close();
+			} catch (SQLException e) {
+				if (lastExp != null)
+					e.setNextException(lastExp);
+				lastExp = e;
+			}
+		}
+		conns.clear();
 		if (lastExp != null)
 			throw new TransactionsException(lastExp);
-	}
-
-	public void commitGroupTx() {
-		if (!isInGroupTransaction())
-			return;
-		try {
-			Map<DataSource, Connection> map = threadLocalConnections.get();
-			if (map == null)
-				return;
-			SQLException lastExp = null;
-			for (Entry<DataSource, Connection> entry : map.entrySet()) {
-				Connection conn = entry.getValue();
-				try {
-					conn.commit();
-					if (lastExp != null)
-						conn.rollback();
-				} catch (SQLException e) {
-					if (lastExp != null)
-						e.setNextException(lastExp);
-					lastExp = e;
-				}
-			}
-			if (lastExp != null)
-				throw new TransactionsException(lastExp);
-		} finally {
-			endGroupTransaction();
-		}
-	}
-
-	public void rollbackGroupTx() {
-		if (!isInGroupTransaction())
-			return;
-		try {
-			Map<DataSource, Connection> map = threadLocalConnections.get();
-			if (map == null)
-				return;
-			SQLException lastExp = null;
-			for (Entry<DataSource, Connection> entry : map.entrySet()) {
-				Connection conn = entry.getValue();
-				try {
-					conn.rollback();
-				} catch (SQLException e) {
-					if (lastExp != null)
-						e.setNextException(lastExp);
-					lastExp = e;
-				}
-			}
-			if (lastExp != null)
-				throw new TransactionsException(lastExp);
-		} finally {
-			endGroupTransaction();
-		}
-	}
-
-	@Override
-	public boolean isInTransaction(DataSource ds) {
-		return isInGroupTransaction();
-	}
-
-	@Override
-	public Connection getConnection(DataSource ds) throws SQLException {
-		TransactionsException.assureNotNull(ds, "DataSource can not be null");
-		Connection conn = null;
-		if (isInGroupTransaction()) {
-			conn = threadLocalConnections.get().get(ds);
-			if (conn == null) {
-				conn = ds.getConnection(); // NOSONAR Have to get a new connection
-				TransactionsException.assureNotNull(conn, "Can not obtain a connection from DataSource");
-				conn.setTransactionIsolation(transactionIsolation);
-				conn.setAutoCommit(false); // start real transaction
-				threadLocalConnections.get().put(ds, conn);
-			}
-		} else {
-			conn = ds.getConnection(); // Have to get a new connection
-		}
-		TransactionsException.assureNotNull(conn, "Fail to get a connection from DataSource");
-		return conn;
-	}
-
-	@Override
-	public void releaseConnection(Connection conn, DataSource ds) throws SQLException {
-		if (isInGroupTransaction()) {
-			// Do nothing, because this connection is used in a current thread's transaction
-		} else {
-			if (conn != null)
-				conn.close();
-		}
 	}
 
 }

@@ -18,8 +18,7 @@ import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jbeanbox.annotation.AOP;
 import com.github.drinkjava2.jsqlbox.SqlBoxContext;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
-import com.github.drinkjava2.jtransactions.ConnectionManager;
-import com.github.drinkjava2.jtransactions.grouptx.GroupTx;
+import com.github.drinkjava2.jtransactions.grouptx.GroupTxAOP;
 import com.github.drinkjava2.jtransactions.grouptx.GroupTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -35,11 +34,8 @@ public class AnnotationGroupTxTest {
 
 	@Before
 	public void init() {
-		String[] ddlArray = ctx1.toCreateDDL(Usr.class);
-		for (String ddl : ddlArray) {
-			ctx1.nExecute(ddl);
-			ctx2.nExecute(ddl);
-		}
+		ctx1.executeDDL(ctx1.toCreateDDL(Usr.class));
+		ctx2.executeDDL(ctx2.toCreateDDL(Usr.class));
 		for (int i = 1; i <= 100; i++) {
 			new Usr().setFirstName("Foo" + i).setLastName("Bar" + i).setAge(i).insert(ctx1);
 			new Usr().setFirstName("FOO" + i).setLastName("BAR" + i).setAge(i).insert(ctx2);
@@ -80,7 +76,7 @@ public class AnnotationGroupTxTest {
 		try {
 			t.groupRollback();
 		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			e.printStackTrace();
 		}
 		Assert.assertEquals(100, ctx1.eCountAll(Usr.class));
 		Assert.assertEquals(100, ctx2.eCountAll(Usr.class));
@@ -88,7 +84,7 @@ public class AnnotationGroupTxTest {
 		t.groupCommit();
 		Assert.assertEquals(101, ctx1.eCountAll(Usr.class));
 		Assert.assertEquals(101, ctx2.eCountAll(Usr.class));
-		
+
 		try {
 			t.groupPartialCommit();
 		} catch (Exception e) {
@@ -102,7 +98,7 @@ public class AnnotationGroupTxTest {
 
 	public static class Ds1 extends HikariCPBox {
 		{
-			injectValue("jdbcUrl", "jdbc:h2:mem:Ds1;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
+			injectValue("jdbcUrl", "jdbc:h2:mem:AnnoGroupTxDs1;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 			injectValue("driverClassName", "org.h2.Driver");
 			injectValue("username", "sa");
 			injectValue("password", "");
@@ -111,21 +107,14 @@ public class AnnotationGroupTxTest {
 
 	public static class Ds2 extends Ds1 {
 		{
-			injectValue("jdbcUrl", "jdbc:h2:mem:Ds2;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
-		}
-	}
-
-	public static class GroupConnMgr extends BeanBox {
-		public Object create() {
-			return new GroupTxConnectionManager((DataSource) JBEANBOX.getBean(Ds1.class),
-					(DataSource) JBEANBOX.getBean(Ds2.class));
+			injectValue("jdbcUrl", "jdbc:h2:mem:AnnoGroupTxDs2;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 		}
 	}
 
 	public static class SqlBoxContextBox1 extends BeanBox {
 		public Object create() {
 			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds1.class));
-			ctx.setConnectionManager((ConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
+			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}
 	}
@@ -133,7 +122,7 @@ public class AnnotationGroupTxTest {
 	public static class SqlBoxContextBox2 extends BeanBox {
 		public Object create() {
 			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds2.class));
-			ctx.setConnectionManager((ConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
+			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}
 	}
@@ -143,13 +132,7 @@ public class AnnotationGroupTxTest {
 	@Target({ ElementType.METHOD })
 	@AOP
 	public static @interface GTransaction {
-		public Class<?> value() default GpTXBox.class;
-	}
-
-	public static class GpTXBox extends BeanBox {
-		public Object create() {
-			return new GroupTx((GroupTxConnectionManager) JBEANBOX.getBean(GroupConnMgr.class));
-		}
+		public Class<?> value() default GroupTxAOP.class;
 	}
 
 }
