@@ -29,8 +29,8 @@ import com.github.drinkjava2.jdbpro.log.DbProLogFactory;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
-import com.github.drinkjava2.jsqlbox.SqlBoxContextUtils;
+import com.github.drinkjava2.jsqlbox.DbContext;
+import com.github.drinkjava2.jsqlbox.DbContextUtils;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jtransactions.TransactionsException;
 import com.github.drinkjava2.jtransactions.TxResult;
@@ -44,19 +44,19 @@ import com.github.drinkjava2.jtransactions.manual.ManualTxConnectionManager;
 public abstract class GtxUnlockServ {// NOSONAR
 	protected static final DbProLog logger = DbProLogFactory.getLog(GtxUnlockServ.class);
 	private static final Map<String, String> gtxIdCache = new HashMap<String, String>();
-	private static SqlBoxContext lockCtx;
-	private static SqlBoxContext[] ctxs;
+	private static DbContext lockCtx;
+	private static DbContext[] ctxs;
 
-	private static void initContext(SqlBoxContext userCtx) {
+	private static void initContext(DbContext userCtx) {
 		GtxConnectionManager lockCM = (GtxConnectionManager) userCtx.getConnectionManager();
 		lockCtx = lockCM.getLockCtx();
 
 		System.out.println("lcokCtx.master:" + lockCtx.getMasters());
 
-		ctxs = new SqlBoxContext[userCtx.getMasters().length];
+		ctxs = new DbContext[userCtx.getMasters().length];
 		for (int i = 0; i < userCtx.getMasters().length; i++) {
-			SqlBoxContext userCtxArr = (SqlBoxContext) userCtx.getMasters()[i];
-			ctxs[i] = new SqlBoxContext(userCtxArr.getDataSource());
+			DbContext userCtxArr = (DbContext) userCtx.getMasters()[i];
+			ctxs[i] = new DbContext(userCtxArr.getDataSource());
 			ctxs[i].setName(userCtxArr.getName());
 			ctxs[i].setConnectionManager(new ManualTxConnectionManager());
 			ctxs[i].setDbCode(userCtxArr.getDbCode());
@@ -78,16 +78,16 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 * @param maxLoopTimes
 	 *            max loop times, if is 0 will never stop
 	 */
-	public static void start(SqlBoxContext ctx, long intervalSecond, long maxLoopTimes) {// NOSONAR
+	public static void start(DbContext ctx, long intervalSecond, long maxLoopTimes) {// NOSONAR
 		initContext(ctx);
 		long loop = 0;
 		Integer lockDb = null; // if locker sharded, use lockDb to assing the locker server
 		do {
-			SqlBoxContext locker = lockCtx;
+			DbContext locker = lockCtx;
 			if (lockCtx.getMasters() != null) {
 				if (lockDb == null)
 					lockDb = 0;
-				locker = (SqlBoxContext) lockCtx.getMasters()[lockDb];
+				locker = (DbContext) lockCtx.getMasters()[lockDb];
 				lockDb++;
 				if (lockDb >= lockCtx.getMasters().length)
 					lockDb = 0;
@@ -127,7 +127,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 	}
 
 	/** Equal to forceUnlock(null, ctx, gtxId); */
-	public static boolean forceUnlock(SqlBoxContext ctx, String gtxId) {
+	public static boolean forceUnlock(DbContext ctx, String gtxId) {
 		return forceUnlock(null, ctx, gtxId);
 	}
 
@@ -143,13 +143,13 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 *            the gtxId
 	 * @return true if unlocked
 	 */
-	public static boolean forceUnlock(Integer locker, SqlBoxContext ctx, String gtxId) {
+	public static boolean forceUnlock(Integer locker, DbContext ctx, String gtxId) {
 		initContext(ctx);
 		return unlockOne(locker, gtxId);
 	}
 
 	/** Equal to forceUnlock(null, ctx, txResult); */
-	public static boolean forceUnlock(SqlBoxContext ctx, TxResult txResult) {
+	public static boolean forceUnlock(DbContext ctx, TxResult txResult) {
 		return forceUnlock(null, ctx, txResult);
 	}
 
@@ -165,7 +165,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 *            the TxResult
 	 * @return true if unlocked
 	 */
-	public static boolean forceUnlock(Integer locker, SqlBoxContext ctx, TxResult txResult) {
+	public static boolean forceUnlock(Integer locker, DbContext ctx, TxResult txResult) {
 		initContext(ctx);
 		try {
 			return unlockOne(locker, txResult.getGid());
@@ -176,9 +176,9 @@ public abstract class GtxUnlockServ {// NOSONAR
 	}
 
 	private static boolean unlockOne(Integer lockNo, String gid) {
-		SqlBoxContext locker = lockCtx;
+		DbContext locker = lockCtx;
 		if (lockNo != null)
-			locker = (SqlBoxContext) lockCtx.getMasters()[lockNo];
+			locker = (DbContext) lockCtx.getMasters()[lockNo];
 
 		GtxId lockGid = null; // First check and read if gtxId exist on Lock Server
 		lockGid = locker.eLoadByIdTry(GtxId.class, gid);
@@ -200,9 +200,9 @@ public abstract class GtxUnlockServ {// NOSONAR
 	}
 
 	private static void executeUndo(Integer lockNo, Integer db, String gid) {
-		SqlBoxContext locker = lockCtx;
+		DbContext locker = lockCtx;
 		if (lockNo != null)
-			locker = (SqlBoxContext) lockCtx.getMasters()[lockNo];
+			locker = (DbContext) lockCtx.getMasters()[lockNo];
 
 		String _gid = ctxs[db].nQueryForString("select gid from gtxtag where gid=?", gid);
 		if (!gid.equals(_gid))
@@ -255,7 +255,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 		for (ColumnModel col : model.getColumns()) {
 			String fieldName = col.getEntityField();
 			if (tail.tails().containsKey(fieldName))
-				SqlBoxContextUtils.writeValueToBeanFieldOrTail(col, entity, tail.getTail(fieldName));
+				DbContextUtils.writeValueToBeanFieldOrTail(col, entity, tail.getTail(fieldName));
 		}
 		return entity;
 	}

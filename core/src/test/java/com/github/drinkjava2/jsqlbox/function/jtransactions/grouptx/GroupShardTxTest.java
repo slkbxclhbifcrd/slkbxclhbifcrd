@@ -19,7 +19,7 @@ import com.github.drinkjava2.jbeanbox.annotation.AOP;
 import com.github.drinkjava2.jdialects.annotation.jdia.ShardDatabase;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jtransactions.grouptx.GroupTxAOP;
 import com.github.drinkjava2.jtransactions.grouptx.GroupTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
@@ -31,8 +31,8 @@ import com.zaxxer.hikari.HikariDataSource;
  * @since 2.0
  */
 public class GroupShardTxTest {
-	SqlBoxContext ctx1 = JBEANBOX.getBean(SqlBoxContextBox1.class);
-	SqlBoxContext ctx2 = JBEANBOX.getBean(SqlBoxContextBox2.class);
+	DbContext ctx1 = JBEANBOX.getBean(SqlBoxContextBox1.class);
+	DbContext ctx2 = JBEANBOX.getBean(SqlBoxContextBox2.class);
 
 	public static class ShardUser extends ActiveRecord<ShardUser> {
 		@Id
@@ -55,8 +55,8 @@ public class GroupShardTxTest {
 			ctx1.nExecute(ddl);
 			ctx2.nExecute(ddl);
 		}
-		SqlBoxContext[] masters = new SqlBoxContext[] { ctx1, ctx2 };
-		SqlBoxContext.getGlobalSqlBoxContext().setMasters(masters);
+		DbContext[] masters = new DbContext[] { ctx1, ctx2 };
+		DbContext.getGlobalSqlBoxContext().setMasters(masters);
 
 		for (int i = 1; i <= 100; i++)
 			new ShardUser().setId(i).setName("Foo" + i).insert(); // Sharded!
@@ -145,7 +145,7 @@ public class GroupShardTxTest {
 
 	public static class SqlBoxContextBox1 extends BeanBox {
 		public Object create() {
-			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds1.class));
+			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds1.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}
@@ -153,7 +153,7 @@ public class GroupShardTxTest {
 
 	public static class SqlBoxContextBox2 extends BeanBox {
 		public Object create() {
-			SqlBoxContext ctx = new SqlBoxContext((DataSource) JBEANBOX.getBean(Ds2.class));
+			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds2.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());
 			return ctx;
 		}

@@ -14,7 +14,7 @@ import com.github.drinkjava2.jdialects.annotation.jdia.ShardTable;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.gtx.GtxConnectionManager;
 import com.github.drinkjava2.jsqlbox.gtx.GtxId;
 import com.github.drinkjava2.jsqlbox.gtx.GtxLock;
@@ -32,8 +32,8 @@ import com.zaxxer.hikari.HikariDataSource;
 public class GtxShardDbTbLockDbTest {
 	private static final int DB_SHARD_QTY = 5;
 
-	SqlBoxContext[] ctxs = new SqlBoxContext[3];
-	SqlBoxContext[] lockCtxs = new SqlBoxContext[3];
+	DbContext[] ctxs = new DbContext[3];
+	DbContext[] lockCtxs = new DbContext[3];
 
 	private static DataSource newTestDataSource() {
 		HikariDataSource ds = new HikariDataSource();
@@ -47,11 +47,11 @@ public class GtxShardDbTbLockDbTest {
 
 	@Before
 	public void init() {
-		SqlBoxContext.resetGlobalVariants();
-		SqlBoxContext.setGlobalNextAllowShowSql(true);
+		DbContext.resetGlobalVariants();
+		DbContext.setGlobalNextAllowShowSql(true);
 
 		for (int i = 0; i < 3; i++) {
-			lockCtxs[i] = new SqlBoxContext(newTestDataSource());
+			lockCtxs[i] = new DbContext(newTestDataSource());
 			lockCtxs[i].setName("lock");
 			lockCtxs[i].setDbCode(i);
 			lockCtxs[i].executeDDL(lockCtxs[i].toCreateDDL(GtxId.class));
@@ -62,7 +62,7 @@ public class GtxShardDbTbLockDbTest {
 
 		GtxConnectionManager lockCM = new GtxConnectionManager(lockCtxs[0]);// random choose 1
 		for (int i = 0; i < 3; i++) {
-			ctxs[i] = new SqlBoxContext(newTestDataSource());
+			ctxs[i] = new DbContext(newTestDataSource());
 			ctxs[i].setName("db");
 			ctxs[i].setDbCode(i);
 			ctxs[i].setConnectionManager(lockCM);
@@ -74,7 +74,7 @@ public class GtxShardDbTbLockDbTest {
 				ctxs[i].executeDDL(ctxs[i].toCreateDDL(model));
 			}
 		}
-		SqlBoxContext.setGlobalSqlBoxContext(ctxs[0]);// the default ctx
+		DbContext.setGlobalSqlBoxContext(ctxs[0]);// the default ctx
 	}
 
 	@Test

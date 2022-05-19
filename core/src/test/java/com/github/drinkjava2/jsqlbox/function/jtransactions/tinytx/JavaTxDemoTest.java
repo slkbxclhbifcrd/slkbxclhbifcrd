@@ -7,7 +7,7 @@ import org.junit.Test;
 import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTxAOP;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -39,10 +39,10 @@ public class JavaTxDemoTest {
 		}
 	}
 
-	SqlBoxContext ctx;
+	DbContext ctx;
 	{
-		SqlBoxContext.resetGlobalVariants();
-		ctx = new SqlBoxContext((DataSource) BeanBox.getBean(DataSourceCfg.class));
+		DbContext.resetGlobalVariants();
+		ctx = new DbContext((DataSource) BeanBox.getBean(DataSourceCfg.class));
 	}
 
 	public void txInsert() {

@@ -20,8 +20,8 @@ import org.h2.jdbcx.JdbcConnectionPool;
 import com.github.drinkjava2.jdialects.annotation.jpa.Column;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.JSQLBOX;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DB;
+import com.github.drinkjava2.jsqlbox.DbContext;
 
 /**
  * ActiveRecordDemoTest of jSqlBox configurations
@@ -48,12 +48,12 @@ public class HelloWorld extends ActiveRecord<HelloWorld> {
 		DataSource ds = JdbcConnectionPool
 				.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
 
-		SqlBoxContext ctx = new SqlBoxContext(ds);
-		SqlBoxContext.setGlobalSqlBoxContext(ctx);
+		DbContext ctx = new DbContext(ds);
+		DbContext.setGlobalSqlBoxContext(ctx);
 		for (String ddl : ctx.toDropAndCreateDDL(HelloWorld.class))
 			ctx.nExecute(ddl);
 
 		new HelloWorld().setName("Hellow jSqlBox").insert();
-		System.out.println(JSQLBOX.iQueryForString("select name from HelloWorld"));
+		System.out.println(DB.iQueryForString("select name from HelloWorld"));
 	}
 }

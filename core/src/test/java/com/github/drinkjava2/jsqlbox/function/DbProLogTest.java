@@ -21,7 +21,7 @@ import com.github.drinkjava2.jdbpro.log.DbProLogFactory;
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.log.DialectLog;
 import com.github.drinkjava2.jdialects.log.DialectLogFactory;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
@@ -36,12 +36,12 @@ public class DbProLogTest {
 
 	@Before
 	public void init() {
-		SqlBoxContext.resetGlobalVariants();
+		DbContext.resetGlobalVariants();
 	}
 
 	@After
 	public void cleanUp() {
-		SqlBoxContext.resetGlobalVariants();
+		DbContext.resetGlobalVariants();
 	}
 
 	private String name;
@@ -72,8 +72,8 @@ public class DbProLogTest {
 		dataSource.setDriverClassName("org.h2.Driver");
 		dataSource.setUsername("sa");// change to your user & password
 		dataSource.setPassword("");
-		SqlBoxContext.setGlobalNextAllowShowSql(true);
-		SqlBoxContext ctx = new SqlBoxContext(dataSource);
+		DbContext.setGlobalNextAllowShowSql(true);
+		DbContext ctx = new DbContext(dataSource);
 		for (String ddl : ctx.getDialect().toDropAndCreateDDL(DbProLogTest.class))
 			ctx.quiteExecute(ddl);
 		DbProLogTest t = new DbProLogTest();
@@ -82,7 +82,7 @@ public class DbProLogTest {
 		log.info("Logger test message3 output ok");
 		log.info("Logger test message4 output ok");
 		Systemout.println(log);
-		SqlBoxContext.setGlobalNextAllowShowSql(false);
+		DbContext.setGlobalNextAllowShowSql(false);
 	}
 
 }

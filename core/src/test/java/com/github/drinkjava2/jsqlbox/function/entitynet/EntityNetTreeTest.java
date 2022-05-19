@@ -1,7 +1,7 @@
 package com.github.drinkjava2.jsqlbox.function.entitynet;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.alias;
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.give;
+import static com.github.drinkjava2.jsqlbox.DB.alias;
+import static com.github.drinkjava2.jsqlbox.DB.give;
 
 import org.junit.Before;
 import org.junit.Test;

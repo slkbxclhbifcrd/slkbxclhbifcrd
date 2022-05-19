@@ -1,13 +1,13 @@
 package com.github.drinkjava2.jsqlbox.function.jtransactions.grouptx;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.tail;
+import static com.github.drinkjava2.jsqlbox.DB.tail;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
 import com.github.drinkjava2.jtransactions.grouptx.GroupTxConnectionManager;
@@ -16,8 +16,8 @@ import com.zaxxer.hikari.HikariDataSource;
 public class GroupTxTest {
 	HikariDataSource ds1;
 	HikariDataSource ds2;
-	SqlBoxContext ctx1;
-	SqlBoxContext ctx2;
+	DbContext ctx1;
+	DbContext ctx2;
 
 	@Before
 	public void init() {
@@ -39,10 +39,10 @@ public class GroupTxTest {
 		ds2.setUsername("sa");
 		ds2.setPassword("");
 
-		ctx1 = new SqlBoxContext(ds1);
+		ctx1 = new DbContext(ds1);
 		ctx1.setConnectionManager(GroupTxConnectionManager.instance());
 
-		ctx2 = new SqlBoxContext(ds2);
+		ctx2 = new DbContext(ds2);
 		ctx2.setConnectionManager(GroupTxConnectionManager.instance());
 
 		String[] ddlArray = ctx1.toDropAndCreateDDL(Usr.class);

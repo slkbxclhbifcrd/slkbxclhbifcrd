@@ -12,7 +12,7 @@ import com.github.drinkjava2.jdialects.annotation.jdia.UUID25;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jdialects.annotation.jpa.Table;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
@@ -94,8 +94,8 @@ public class ActiveRecordDemoTest {
 		// ds.setUsername("root");
 		// ds.setPassword("root888");
 
-		SqlBoxContext ctx = new SqlBoxContext(ds);
-		SqlBoxContext.setGlobalSqlBoxContext(ctx);
+		DbContext ctx = new DbContext(ds);
+		DbContext.setGlobalSqlBoxContext(ctx);
 
 		String[] ddlArray = ctx.getDialect().toDropAndCreateDDL(UserEntity.class);
 		for (String ddl : ddlArray)

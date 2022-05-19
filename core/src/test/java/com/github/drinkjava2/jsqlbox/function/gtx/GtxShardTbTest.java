@@ -14,7 +14,7 @@ import com.github.drinkjava2.jdialects.annotation.jdia.UUID32;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jdialects.model.TableModel;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.gtx.GtxConnectionManager;
 import com.github.drinkjava2.jsqlbox.gtx.GtxId;
 import com.github.drinkjava2.jsqlbox.gtx.GtxLock;
@@ -31,7 +31,7 @@ import com.zaxxer.hikari.HikariDataSource;
  */
 public class GtxShardTbTest {
 	private static int DB_SHARD_QTY = 5;
-	SqlBoxContext[] ctx = new SqlBoxContext[3];
+	DbContext[] ctx = new DbContext[3];
 
 	private static DataSource newTestDataSource() {
 		HikariDataSource ds = new HikariDataSource();
@@ -45,10 +45,10 @@ public class GtxShardTbTest {
 
 	@Before
 	public void init() {
-		SqlBoxContext.resetGlobalVariants();
-		SqlBoxContext.setGlobalNextAllowShowSql(true);
+		DbContext.resetGlobalVariants();
+		DbContext.setGlobalNextAllowShowSql(true);
 
-		SqlBoxContext lock = new SqlBoxContext(newTestDataSource());
+		DbContext lock = new DbContext(newTestDataSource());
 		lock.setName("lock");
 		lock.executeDDL(lock.toCreateDDL(GtxId.class));
 		lock.executeDDL(lock.toCreateDDL(GtxLock.class));
@@ -56,7 +56,7 @@ public class GtxShardTbTest {
 
 		GtxConnectionManager lockCM = new GtxConnectionManager(lock);
 		for (int i = 0; i < 3; i++) {
-			ctx[i] = new SqlBoxContext(newTestDataSource());
+			ctx[i] = new DbContext(newTestDataSource());
 			ctx[i].setName("db");
 			ctx[i].setDbCode(i);
 			ctx[i].setConnectionManager(lockCM);
@@ -68,7 +68,7 @@ public class GtxShardTbTest {
 				ctx[i].executeDDL(ctx[i].toCreateDDL(model));
 			}
 		}
-		SqlBoxContext.setGlobalSqlBoxContext(ctx[0]);// the default ctx
+		DbContext.setGlobalSqlBoxContext(ctx[0]);// the default ctx
 	}
 
 	@Test

@@ -74,24 +74,24 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 public class ActiveRecord<T> implements TailType, EntityType {
 	static final ThreadLocal<String[]> forFieldsOrTails = new ThreadLocal<String[]>();
 	static final ThreadLocal<Boolean> isForfield = new ThreadLocal<Boolean>();
-	private SqlBoxContext ctx;
+	private DbContext ctx;
 	private Map<String, Object> tailsMap;
 
 	protected void miscMethods__________________() {// NOSONAR
 	}
 
-	public SqlBoxContext ctx() {
+	public DbContext ctx() {
 		if (ctx != null)
 			return ctx;
-		SqlBoxException.assureNotNull(SqlBoxContext.globalSqlBoxContext, SqlBoxContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return SqlBoxContext.globalSqlBoxContext;
+		DbException.assureNotNull(DbContext.globalSqlBoxContext, DbContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		return DbContext.globalSqlBoxContext;
 	}
 
 	public TableModel model() {
-		return SqlBoxContextUtils.findEntityOrClassTableModel(this).newCopy();
+		return DbContextUtils.findEntityOrClassTableModel(this).newCopy();
 	}
 
-	public T useContext(SqlBoxContext ctx) {
+	public T useContext(DbContext ctx) {
 		this.ctx = ctx;
 		return (T) this;
 	}
@@ -113,14 +113,14 @@ public class ActiveRecord<T> implements TailType, EntityType {
 	}
 
 	public T putTail(Object... columAndValues) {
-		SqlBoxException.assureTrue(columAndValues.length % 2 == 0, "Column and values should be paired");
+		DbException.assureTrue(columAndValues.length % 2 == 0, "Column and values should be paired");
 		for (int i = 0; i < columAndValues.length / 2; i++)
 			tails().put((String) columAndValues[i * 2], columAndValues[i * 2 + 1]);
 		return (T) this;
 	}
 
 	public T putField(Object... fieldAndValues) {
-		SqlBoxException.assureTrue(fieldAndValues.length % 2 == 0, "Field and values should be paired");
+		DbException.assureTrue(fieldAndValues.length % 2 == 0, "Field and values should be paired");
 		for (int i = 0; i < fieldAndValues.length / 2; i++)
 			ClassCacheUtils.writeValueToBeanField(this, (String) fieldAndValues[i * 2], fieldAndValues[i * 2 + 1]);
 		return (T) this;
@@ -141,9 +141,9 @@ public class ActiveRecord<T> implements TailType, EntityType {
 	public T putValues(Object... values) {
 		String[] fields = forFieldsOrTails.get();
 		if (values.length == 0 || fields == null || fields.length == 0)
-			throw new SqlBoxException("putValues fields or values can not be empty");
+			throw new DbException("putValues fields or values can not be empty");
 		if (values.length != fields.length)
-			throw new SqlBoxException("putValues quantity does not match forFields or forColumns");
+			throw new DbException("putValues quantity does not match forFields or forColumns");
 		for (int i = 0; i < fields.length; i++)
 			if (isForfield.get())
 				ClassCacheUtils.writeValueToBeanField(this, fields[i], values[i]);
@@ -154,22 +154,22 @@ public class ActiveRecord<T> implements TailType, EntityType {
 
 	/** Return current table based on shard key value */
 	public String shardTB(Object... items) {
-		TableModel model = SqlBoxContextUtils.findTableModel(this.getClass(), items);
+		TableModel model = DbContextUtils.findTableModel(this.getClass(), items);
 		ColumnModel col = model.getShardTableColumn();
 		if (col == null || col.getShardTable() == null || col.getShardTable().length == 0)
-			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
-		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(col, this);
-		return SqlBoxContextUtils.getShardedTB(ctx(), model.getEntityClass(), shardKey1);
+			throw new DbException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
+		Object shardKey1 = DbContextUtils.readValueFromBeanFieldOrTail(col, this);
+		return DbContextUtils.getShardedTB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
 	/** Return current SqlBoxContext based on shard key value */
-	public SqlBoxContext shardDB(Object... items) {
-		TableModel model = SqlBoxContextUtils.findTableModel(this.getClass(), items);
+	public DbContext shardDB(Object... items) {
+		TableModel model = DbContextUtils.findTableModel(this.getClass(), items);
 		ColumnModel col = model.getShardDatabaseColumn();
 		if (col == null || col.getShardDatabase() == null || col.getShardDatabase().length == 0)
-			throw new SqlBoxException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
-		Object shardKey1 = SqlBoxContextUtils.readValueFromBeanFieldOrTail(col, this);
-		return SqlBoxContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
+			throw new DbException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
+		Object shardKey1 = DbContextUtils.readValueFromBeanFieldOrTail(col, this);
+		return DbContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
 	/** Return current table and SqlBoxContext based on shard key value */
@@ -183,9 +183,9 @@ public class ActiveRecord<T> implements TailType, EntityType {
 	 */
 	protected static Object[] insertThisClassIfNotHave(Object entity, Object... items) {
 		Object[] newItems = items;
-		TableModel[] models = SqlBoxContextUtils.findAllModels(items);
+		TableModel[] models = DbContextUtils.findAllModels(items);
 		if (models.length == 0)
-			throw new SqlBoxException("No TableMode found for entity.");
+			throw new DbException("No TableMode found for entity.");
 		TableModel model = models[0];
 		if (!entity.getClass().equals(model.getEntityClass())) {// NOSONAR
 			model = TableModelUtils.entity2ReadOnlyModel(entity.getClass());

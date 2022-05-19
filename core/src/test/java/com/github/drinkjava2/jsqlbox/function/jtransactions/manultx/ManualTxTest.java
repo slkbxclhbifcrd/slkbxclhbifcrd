@@ -1,13 +1,13 @@
 package com.github.drinkjava2.jsqlbox.function.jtransactions.manultx;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.tail;
+import static com.github.drinkjava2.jsqlbox.DB.tail;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.github.drinkjava2.jsqlbox.SqlBoxContext;
+import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
 import com.github.drinkjava2.jtransactions.manual.ManualTxConnectionManager;
@@ -16,7 +16,7 @@ import com.zaxxer.hikari.HikariDataSource;
 public class ManualTxTest {
 
 	HikariDataSource dataSource;
-	SqlBoxContext ctx;
+	DbContext ctx;
 
 	@Before
 	public void init() {
@@ -27,7 +27,7 @@ public class ManualTxTest {
 		dataSource.setUsername("sa");
 		dataSource.setPassword("");
 
-		ctx = new SqlBoxContext(dataSource);
+		ctx = new DbContext(dataSource);
 		String[] ddlArray = ctx.toDropAndCreateDDL(Usr.class);
 		for (String ddl : ddlArray)
 			ctx.quiteExecute(ddl);

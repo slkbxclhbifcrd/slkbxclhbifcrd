@@ -1,6 +1,6 @@
 package com.github.drinkjava2.jsqlbox.issues.IYDU7;
 
-import static com.github.drinkjava2.jsqlbox.JSQLBOX.give;
+import static com.github.drinkjava2.jsqlbox.DB.give;
 
 import java.util.List;
 
