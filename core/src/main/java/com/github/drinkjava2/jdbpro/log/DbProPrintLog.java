@@ -19,7 +19,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 /**
- * DbProPrintLog is the default logger of jDbPro and jSqlBox project
+ * DbProPrintLog is the default logger of jDbPro and DbUtil-Plus project
  * 
  * @author Yong Zhu
  * @since 1.7.0

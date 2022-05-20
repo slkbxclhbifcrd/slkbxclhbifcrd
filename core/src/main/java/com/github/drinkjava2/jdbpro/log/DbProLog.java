@@ -16,7 +16,7 @@
 package com.github.drinkjava2.jdbpro.log;
 
 /**
- * DbProLog used for jDbPro and jSqlBox project, if a "DbProLog.properties" file
+ * DbProLog used for jDbPro and DbUtil-Plus project, if a "DbProLog.properties" file
  * if found on class root folder (main/resources), will try load the designated
  * DbProLog implementation, otherwise use default DbProPrintLog as log output.
  * <br/>

@@ -43,7 +43,7 @@ public class ActiveEntityTest implements ActiveEntity<ActiveEntityTest> {
 	public void init() {
 		DbContext ctx = new DbContext(JdbcConnectionPool
 				.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", ""));
-		DbContext.setGlobalSqlBoxContext(ctx);
+		DbContext.setGlobalDbContext(ctx);
 		for (String ddl : ctx.toCreateDDL(ActiveEntityTest.class))
 			iExecute(ddl);
 		for (int i = 0; i < 100; i++)

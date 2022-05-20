@@ -16,7 +16,7 @@ import com.github.drinkjava2.jsqlbox.DbContext;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * This demo show jSqlBox's ActiveRecord and jDialects' DDL, pagination and
+ * This demo show DbUtil-Plus's ActiveRecord and jDialects' DDL, pagination and
  * translate feature.
  */
 public class ActiveRecordDemoTest {
@@ -95,7 +95,7 @@ public class ActiveRecordDemoTest {
 		// ds.setPassword("root888");
 
 		DbContext ctx = new DbContext(ds);
-		DbContext.setGlobalSqlBoxContext(ctx);
+		DbContext.setGlobalDbContext(ctx);
 
 		String[] ddlArray = ctx.getDialect().toDropAndCreateDDL(UserEntity.class);
 		for (String ddl : ddlArray)

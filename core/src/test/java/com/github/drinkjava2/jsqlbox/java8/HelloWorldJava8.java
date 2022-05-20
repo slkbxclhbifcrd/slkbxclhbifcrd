@@ -19,7 +19,7 @@ import com.github.drinkjava2.jsqlbox.ActiveEntity;
 import com.github.drinkjava2.jsqlbox.DbContext;
 
 /**
- * ActiveRecordDemoTest of jSqlBox configurations
+ * ActiveRecordDemoTest of DbUtil-Plus configurations
  * 
  * @author Yong Zhu
  * @since 1.0.0
@@ -40,12 +40,12 @@ public class HelloWorldJava8 implements ActiveEntity<HelloWorldJava8> {
 		DataSource ds = JdbcConnectionPool
 				.create("jdbc:h2:mem:DBNameJava8;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
 		DbContext ctx = new DbContext(ds);
-		DbContext.setGlobalSqlBoxContext(ctx);
+		DbContext.setGlobalDbContext(ctx);
 		String[] ddls = ctx.toCreateDDL(HelloWorldJava8.class);
 		for (String ddl : ddls)
 			ctx.nExecute(ddl);
 
-		new HelloWorldJava8().putField("name", "Hello jSqlBox").insert();
+		new HelloWorldJava8().putField("name", "Hello DbUtil-Plus").insert();
 		System.out.println(ctx.pQueryForString("select name from HelloWorldJava8"));
 	}
 }

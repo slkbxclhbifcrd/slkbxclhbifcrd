@@ -29,8 +29,8 @@ import com.zaxxer.hikari.HikariDataSource;
  * @since 2.0
  */
 public class AnnotationGroupTxTest {
-	DbContext ctx1 = JBEANBOX.getBean(SqlBoxContextBox1.class);
-	DbContext ctx2 = JBEANBOX.getBean(SqlBoxContextBox2.class);
+	DbContext ctx1 = JBEANBOX.getBean(DbContextBox1.class);
+	DbContext ctx2 = JBEANBOX.getBean(DbContextBox2.class);
 
 	@Before
 	public void init() {
@@ -111,7 +111,7 @@ public class AnnotationGroupTxTest {
 		}
 	}
 
-	public static class SqlBoxContextBox1 extends BeanBox {
+	public static class DbContextBox1 extends BeanBox {
 		public Object create() {
 			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds1.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());
@@ -119,7 +119,7 @@ public class AnnotationGroupTxTest {
 		}
 	}
 
-	public static class SqlBoxContextBox2 extends BeanBox {
+	public static class DbContextBox2 extends BeanBox {
 		public Object create() {
 			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds2.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());

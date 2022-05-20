@@ -123,7 +123,7 @@ public class ShardingShardMethodTest {
 
 	@Test
 	public void testActiveRecord() {// issue XA or TCC transaction needed
-		DbContext.setGlobalSqlBoxContext(masters[4]);// random select one
+		DbContext.setGlobalDbContext(masters[4]);// random select one
 
 		// Don't know saved to where, becuase Snowflake is random number
 		TheUser u1 = new TheUser().putField("name", "Tom").insert(USE_BOTH, new PrintSqlHandler());

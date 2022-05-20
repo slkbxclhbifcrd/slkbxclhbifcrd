@@ -19,9 +19,9 @@ import com.github.drinkjava2.jtransactions.tinytx.TinyTxAOP;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * This is jSqlBox Transaction Demo by using Annotation
+ * This is DbUtil-Plus Transaction Demo by using Annotation
  * 
- * To make jSqlBox core unit test clean, I put Spring TX demos in jSqlBox's demo
+ * To make DbUtil-Plus core unit test clean, I put Spring TX demos in DbUtil-Plus's demo
  * folder.
  * 
  * @author Yong Zhu

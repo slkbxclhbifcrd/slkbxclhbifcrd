@@ -74,7 +74,7 @@ public class GtxShardDbTbLockDbTest {
 				ctxs[i].executeDDL(ctxs[i].toCreateDDL(model));
 			}
 		}
-		DbContext.setGlobalSqlBoxContext(ctxs[0]);// the default ctx
+		DbContext.setGlobalDbContext(ctxs[0]);// the default ctx
 	}
 
 	@Test

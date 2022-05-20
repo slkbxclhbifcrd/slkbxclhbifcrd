@@ -57,7 +57,7 @@ public class UsageAndSpeedTest {
 		dataSource.setDriverClassName("org.h2.Driver");
 		dataSource.setUsername("sa");// change to your user & password
 		dataSource.setPassword("");
-		// SqlBoxContext.setGlobalAllowShowSql(true);
+		// DbContext.setGlobalAllowShowSql(true);
 		DbContext ctx = new DbContext(dataSource);
 		DbContext.resetGlobalVariants();
 		for (String ddl : ctx.getDialect().toDropAndCreateDDL(UserAR.class))
@@ -406,7 +406,7 @@ public class UsageAndSpeedTest {
 	@Test
 	public void activeRecordDefaultContext() {
 		DbContext ctx = new DbContext(dataSource);
-		DbContext.setGlobalSqlBoxContext(ctx);// use global default context
+		DbContext.setGlobalDbContext(ctx);// use global default context
 		UserAR user = new UserAR();
 		for (int i = 0; i < REPEAT_TIMES; i++) {
 			user.setName("Sam");
@@ -472,7 +472,7 @@ public class UsageAndSpeedTest {
 	public void activeRecordLoadByIdMap() {
 		DbContext ctx = new DbContext(dataSource);
 		UserAR user = new UserAR();
-		user.useContext(ctx); // Use ctx as SqlBoxContext
+		user.useContext(ctx); // Use ctx as DbContext
 		user.setName("Sam");
 		user.setAddress("Canada");
 		user.insert();
@@ -488,7 +488,7 @@ public class UsageAndSpeedTest {
 	public void activeRecordLoadByQuery() {
 		DbContext ctx = new DbContext(dataSource);
 		UserAR user = new UserAR();
-		user.useContext(ctx); // Use ctx as SqlBoxContext
+		user.useContext(ctx); // Use ctx as DbContext
 		user.setName("Sam");
 		user.setAddress("Canada");
 		user.insert();

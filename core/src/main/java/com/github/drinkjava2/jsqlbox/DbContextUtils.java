@@ -56,7 +56,7 @@ import com.github.drinkjava2.jsqlbox.sqlitem.EntityKeyItem;
 import com.github.drinkjava2.jsqlbox.sqlitem.SampleItem;
 
 /**
- * SqlBoxContextUtils is utility class store static methods about SqlBoxContext
+ * DbContextUtils is utility class store static methods about DbContext
  * 
  * @author Yong Zhu
  * @since 1.0.0
@@ -91,8 +91,8 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/**
-	 * Use current SqlBoxContext's shardingTools to calculate the master
-	 * SqlBoxContext
+	 * Use current DbContext's shardingTools to calculate the master
+	 * DbContext
 	 */
 	public static DbContext getShardedDB(DbContext currentCtx, Object entityOrClass, Object... shardKey) {
 		Integer shardDBCode = getShardedDBCode(currentCtx, entityOrClass, shardKey);
@@ -133,7 +133,7 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/**
-	 * Use current SqlBoxContext's shardingTools to calculate the shardedDBCode
+	 * Use current DbContext's shardingTools to calculate the shardedDBCode
 	 */
 	public static Integer getShardedDBCode(DbContext ctx, Object entityOrClass, Object... shardKey) {
 		if (ctx.getMasters() == null || ctx.getMasters().length == 0)
@@ -145,9 +145,9 @@ public abstract class DbContextUtils {// NOSONAR
 			Integer[] result = sh.handleShardDatabase(model, shardKey);
 			if (result != null) {
 				if (result.length > 1)
-					throw new DbException("Found more than 1 SqlBoxContext tables for target '"
+					throw new DbException("Found more than 1 DbContext tables for target '"
 							+ model.getEntityClass()
-							+ "', jSqlBox current version do not support auto-join, to solve this issue you need adjust your ShardDatabase search condition.");
+							+ "', DbUtil-Plus current version do not support auto-join, to solve this issue you need adjust your ShardDatabase search condition.");
 				return result[0];
 			}
 		}
@@ -155,7 +155,7 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/**
-	 * Use current SqlBoxContext's shardingTools to calculate the real shardTable
+	 * Use current DbContext's shardingTools to calculate the real shardTable
 	 * name
 	 */
 	public static String getShardedTB(DbContext ctx, Object entityOrClass, Object... shardKey) {
@@ -168,7 +168,7 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/**
-	 * Use current SqlBoxContext's shardingTools to calculate the shardedTBCode
+	 * Use current DbContext's shardingTools to calculate the shardedTBCode
 	 */
 	public static Integer getShardedTBCode(DbContext ctx, Object entityOrClass, Object... shardKey) {
 		if (ctx.getShardingTools() == null || ctx.getShardingTools().length == 0)
@@ -179,7 +179,7 @@ public abstract class DbContextUtils {// NOSONAR
 			if (result != null) {
 				if (result.length > 1)
 					throw new DbException("Found more than 1 sharding tables for target '" + model.getEntityClass()
-							+ "', jSqlBox current version do not support auto-join, to solve this issue you need adjust your ShardTable search condition");
+							+ "', DbUtil-Plus current version do not support auto-join, to solve this issue you need adjust your ShardTable search condition");
 				return result[0];
 			}
 		}
@@ -313,7 +313,7 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/**
-	 * Extract SqlBoxContext param from sqlitems
+	 * Extract DbContext param from sqlitems
 	 */
 	private static DbContext extractCtx(Object... sqlItems) {
 		for (Object item : sqlItems) {
@@ -328,8 +328,8 @@ public abstract class DbContextUtils {// NOSONAR
 		return null;
 	}
 
-	/** Remove first found SqlBoxContext From sqlItems */
-	private static void removeSqlBoxContextFromParam(List<Object> resultList, boolean founded, Object... sqlItems) {
+	/** Remove first found DbContext From sqlItems */
+	private static void removeDbContextFromParam(List<Object> resultList, boolean founded, Object... sqlItems) {
 		boolean found = founded;
 		for (Object item : sqlItems) {
 			if (item instanceof DbContext) {// NOSONAR
@@ -337,16 +337,16 @@ public abstract class DbContextUtils {// NOSONAR
 					resultList.add(item);
 				found = true;
 			} else if (item != null && item.getClass().isArray()) {
-				removeSqlBoxContextFromParam(resultList, found, (Object[]) item);
+				removeDbContextFromParam(resultList, found, (Object[]) item);
 			} else
 				resultList.add(item);
 		}
 	}
 
-	/** Remove first found SqlBoxContext From sqlItems */
+	/** Remove first found DbContext From sqlItems */
 	private static Object[] cleanUpParam(Object... sqlItems) {
 		List<Object> resultList = new ArrayList<Object>();
-		removeSqlBoxContextFromParam(resultList, false, sqlItems);
+		removeDbContextFromParam(resultList, false, sqlItems);
 		return resultList.toArray(new Object[resultList.size()]);
 	}
 
@@ -683,7 +683,7 @@ public abstract class DbContextUtils {// NOSONAR
 					SnowflakeCreator snow = ctx.getSnowflakeCreator();
 					if (snow == null)
 						throw new DbException(
-								"Current SqlBoxContext no SnowflakeCreator found when try to create a Snowflake value");
+								"Current DbContext no SnowflakeCreator found when try to create a Snowflake value");
 					Object id = snow.nextId();
 					sqlBody.append(param(id));
 					sqlBody.append(", ");

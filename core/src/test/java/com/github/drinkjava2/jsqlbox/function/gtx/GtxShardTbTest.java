@@ -68,7 +68,7 @@ public class GtxShardTbTest {
 				ctx[i].executeDDL(ctx[i].toCreateDDL(model));
 			}
 		}
-		DbContext.setGlobalSqlBoxContext(ctx[0]);// the default ctx
+		DbContext.setGlobalDbContext(ctx[0]);// the default ctx
 	}
 
 	@Test

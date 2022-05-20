@@ -148,7 +148,7 @@ public class DbPro extends ImprovedQueryRunner implements NormalJdbcTool {// NOS
 
 	/**
 	 * Here deal one SqlItem, if can deal it, return true, otherwise return false,
-	 * subclass (like SqlBoxContext) can override this method
+	 * subclass (like DbContext) can override this method
 	 */
 	protected boolean dealOneSqlItem(boolean inlineStyle, PreparedSQL predSQL, Object item) {// NOSONAR
 		if (item instanceof String) {

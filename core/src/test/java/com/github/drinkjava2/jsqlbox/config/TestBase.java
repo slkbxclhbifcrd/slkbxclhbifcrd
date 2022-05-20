@@ -76,14 +76,14 @@ public class TestBase {
 	@Before
 	public void init() {
 		DbContext.resetGlobalVariants();
-		//SqlBoxContext.setGlobalNextAllowShowSql(true);
+		//DbContext.setGlobalNextAllowShowSql(true);
 		dataSource = BeanBox.getBean(DataSourceBox.class);
 		dialect = Dialect.guessDialect(dataSource);
 		Dialect.setGlobalAllowReservedWords(true);
 
 		 
 		ctx = new DbContext(dataSource);
-		DbContext.setGlobalSqlBoxContext(ctx);
+		DbContext.setGlobalDbContext(ctx);
 		if (tablesForTest != null)
 			createAndRegTables(tablesForTest);
 

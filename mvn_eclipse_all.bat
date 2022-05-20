@@ -1,48 +1,58 @@
 cd  core
-call mvn eclipse:eclipse
+call mvn clean
+call mvn eclipse:clean
 cd..
-
-cd jsqlbox-java8
-call mvn eclipse:eclipse 
-cd..
-
+ 
 cd demo
 
 cd jbooox
-call mvn eclipse:eclipse
+call mvn clean
+call mvn eclipse:clean
 cd..
 
-cd jsqlbox-beetl
-call mvn eclipse:eclipse
-cd..
-
-cd jsqlbox-in-actframework
-call mvn eclipse:eclipse
-cd..
-
-cd jsqlbox-in-jfinal
-call mvn eclipse:eclipse
+cd beetl
+call mvn clean
+call mvn eclipse:clean
 cd.. 
 
-cd jsqlbox-in-spring
-call mvn eclipse:eclipse
+cd actframework
+call mvn clean
+call mvn eclipse:clean
+call del .act.*
+call del act.*
 cd..
 
-cd jsqlbox-in-springboot
-call mvn eclipse:eclipse
+cd jfinal
+call mvn clean
+call mvn eclipse:clean
+call del *.log
 cd..
 
-cd jsqlbox-in-springboot-mybatis
-call mvn eclipse:eclipse
+cd spring
+call mvn clean
+call mvn eclipse:clean
 cd..
 
-cd jsqlbox-java8-demo
-call mvn eclipse:eclipse
+cd springboot
+call mvn clean
+call mvn eclipse:clean
 cd..
 
-cd jsqlbox-xa-atomikos
-call mvn eclipse:eclipse
+cd mybatis
+call mvn clean
+call mvn eclipse:clean
+cd..
+
+cd java8
+call mvn clean
+call mvn eclipse:clean
+cd..
+
+cd xa-atomikos
+call mvn clean
+call mvn eclipse:clean
+del tmlog*.log
+del tmlog.lck
+
+cd..
 cd.. 
-
-
-cd..

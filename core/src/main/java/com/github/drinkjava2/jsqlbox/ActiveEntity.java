@@ -43,9 +43,9 @@ public interface ActiveEntity<T> extends EntityType {
 		for (Object item : optionItems)
 			if (item != null && item instanceof DbContext)
 				return (DbContext) item;
-		DbException.assureNotNull(DbContext.getGlobalSqlBoxContext(),
+		DbException.assureNotNull(DbContext.getGlobalDbContext(),
 				DbContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return DbContext.getGlobalSqlBoxContext();
+		return DbContext.getGlobalDbContext();
 	}
 
 	public default T putField(Object... fieldAndValues) {

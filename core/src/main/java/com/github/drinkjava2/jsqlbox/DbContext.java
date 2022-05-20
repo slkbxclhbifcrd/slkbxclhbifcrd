@@ -43,10 +43,10 @@ import com.github.drinkjava2.jsqlbox.sharding.ShardingTool;
 import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 
 /**
- * SqlBoxContext is extended from DbPro, DbPro is extended from QueryRunner, by
- * this way SqlBoxContext have all JDBC methods of QueryRunner and DbPro. <br/>
+ * DbContext is extended from DbPro, DbPro is extended from QueryRunner, by
+ * this way DbContext have all JDBC methods of QueryRunner and DbPro. <br/>
  * 
- * As a ORM tool, SqlBoxContext focus on ORM methods like entity bean's CRUD
+ * As a ORM tool, DbContext focus on ORM methods like entity bean's CRUD
  * methods and EntityNet methods.
  * 
  * @author Yong Zhu
@@ -61,11 +61,11 @@ public class DbContext extends DbPro {// NOSONAR
 	protected static SnowflakeCreator globalNextSnowflakeCreator = null;
 	protected static Object[] globalNextSsModels = null;
 
-	public static final String NO_GLOBAL_SQLBOXCONTEXT_FOUND = "No default global SqlBoxContext found, need use method SqlBoxContext.setGlobalSqlBoxContext() to set a global default SqlBoxContext instance at the beginning of appication.";
+	public static final String NO_GLOBAL_SQLBOXCONTEXT_FOUND = "No default global DbContext found, need use method DbContext.setGlobalDbContext() to set a global default DbContext instance at the beginning of appication.";
 
-	protected static DbContext globalSqlBoxContext = new DbContext(); // this is a empty ctx
+	protected static DbContext globalDbContext = new DbContext(); // this is a empty ctx
 
-	/** Dialect of current SqlBoxContext, optional */
+	/** Dialect of current DbContext, optional */
 	protected Dialect dialect = globalNextDialect;
 
 	protected ShardingTool[] shardingTools = globalNextShardingTools;
@@ -122,21 +122,21 @@ public class DbContext extends DbPro {// NOSONAR
 		setGlobalNextTemplateEngine(BasicSqlTemplate.instance());
 		setGlobalNextDialect(null);
 		setGlobalNextShardingTools(new ShardingTool[] { new ShardingModTool(), new ShardingRangeTool() });
-		globalSqlBoxContext = new DbContext();
+		globalDbContext = new DbContext();
 	}
 
-	/** Shortcut method equal to getGlobalSqlBoxContext() */
+	/** Shortcut method equal to getGlobalDbContext() */
 	public static DbContext gctx() {
-		return DbContext.globalSqlBoxContext;
+		return DbContext.globalDbContext;
 	}
 
-	/** Get the global static SqlBoxContext instance */
-	public static DbContext getGlobalSqlBoxContext() {
-		return DbContext.globalSqlBoxContext;
+	/** Get the global static DbContext instance */
+	public static DbContext getGlobalDbContext() {
+		return DbContext.globalDbContext;
 	}
 
 	/**
-	 * Override DbPro's dealOneSqlItem method to deal SqlBoxContext's SqlItem
+	 * Override DbPro's dealOneSqlItem method to deal DbContext's SqlItem
 	 */
 	@Override
 	protected boolean dealOneSqlItem(boolean iXxxStyle, PreparedSQL ps, Object item) {// NOSONAR
@@ -197,7 +197,7 @@ public class DbContext extends DbPro {// NOSONAR
 		return table;
 	}
 
-	/** Get the sharded DB(=SqlBoxContext) instance by given shard values */
+	/** Get the sharded DB(=DbContext) instance by given shard values */
 	public DbContext getShardedDB(Object entityOrClass, Object... shardvalues) {
 		DbContext ctx = DbContextUtils.getShardedDB(this, entityOrClass, shardvalues);
 		if (ctx == null)
@@ -589,8 +589,8 @@ public class DbContext extends DbPro {// NOSONAR
 		this.snowflakeCreator = snowflakeCreator;
 	}
 
-	public static void setGlobalSqlBoxContext(DbContext globalSqlBoxContext) {
-		DbContext.globalSqlBoxContext = globalSqlBoxContext;
+	public static void setGlobalDbContext(DbContext globalDbContext) {
+		DbContext.globalDbContext = globalDbContext;
 	}
 
 	public TableModel[] getTailModels() {

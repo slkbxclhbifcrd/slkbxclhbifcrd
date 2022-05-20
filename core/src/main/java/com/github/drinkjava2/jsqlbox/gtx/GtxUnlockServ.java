@@ -72,7 +72,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 * Unlock lock servers very intervalSecond
 	 * 
 	 * @param ctx
-	 *            one DB SqlBoxContext
+	 *            one DB DbContext
 	 * @param intervalSecond
 	 *            interval seconds to check and unlock
 	 * @param maxLoopTimes
@@ -138,7 +138,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 * @param locker,
 	 *            the locker , if not sharded, set to null to use default lockCtx
 	 * @param ctx
-	 *            the SqlBoxContext belong to one bussiness Db
+	 *            the DbContext belong to one bussiness Db
 	 * @param gtxId
 	 *            the gtxId
 	 * @return true if unlocked
@@ -160,7 +160,7 @@ public abstract class GtxUnlockServ {// NOSONAR
 	 * @param locker,
 	 *            the locker , if not sharded, set to null to use default lockCtx
 	 * @param ctx
-	 *            the SqlBoxContext belong to one bussiness Db
+	 *            the DbContext belong to one bussiness Db
 	 * @param txResult
 	 *            the TxResult
 	 * @return true if unlocked

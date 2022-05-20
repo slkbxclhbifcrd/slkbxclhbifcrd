@@ -45,9 +45,9 @@ public abstract class Dp extends JDBPRO {// NOSONAR
 	public static final SqlOption AUTO_SQL = SqlOption.AUTO_SQL;
 	public static final SqlItem TAIL = new SqlItem(SqlOption.TAIL);
 
-	/** Shortcut method equal to SqlBoxContext.getGlobalSqlBoxContext() */
+	/** Shortcut method equal to DbContext.getGlobalDbContext() */
 	public static DbContext gctx() {
-		return DbContext.getGlobalSqlBoxContext();
+		return DbContext.getGlobalDbContext();
 	}
 
 	/** Build a TAIL SqlItem, tableName is the only parameter */
@@ -114,7 +114,7 @@ public abstract class Dp extends JDBPRO {// NOSONAR
 
 	//@formatter:off
 	
-	//Entity series methods from SqlBoxContext
+	//Entity series methods from DbContext
 	public static <T> List<T> eFindAll(Class<T> entityClass, Object... items) {return gctx().eFindAll(entityClass, items);}
 	public static <T> List<T> eFindBySample(Object sampleBean, Object... items) {return gctx().eFindBySample(sampleBean, items);}
 	public static <T> List<T> eFindBySQL(Object... items) {return gctx().eFindBySQL(items);}   

@@ -28,41 +28,41 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 
 /**
  * Entity class extended from ActiveRecord will have CRUD methods, see below
- * difference in jSqlBox to save ActiveRecord entity and normal entity(POJO)
+ * difference in DbUtil-Plus to save ActiveRecord entity and normal entity(POJO)
  * into database:
  * 
  * <pre>
  * ActiveRecord style:   
  * 
- *    SqlBoxContext ctx=new SqlBoxContext(dataSource);
- *    SqlBoxContext.setDefaultContext(ctx);           
+ *    DbContext ctx=new DbContext(dataSource);
+ *    DbContext.setDefaultContext(ctx);           
  *    entity.insert(); 
  * 
  *    or 
  *    
- *    SqlBoxContext ctx=new SqlBoxContext(dataSource);
+ *    DbContext ctx=new DbContext(dataSource);
  *    entity.useContext(ctx);
  *    entity.insert();
  *    
  *    or 
- *    SqlBoxContext ctx=new SqlBoxContext(dataSource);
+ *    DbContext ctx=new DbContext(dataSource);
  *    entity.insert(ctx);
  *    
  *    
  * Data Mapper style:  
  * 
- *    SqlBoxContext ctx=new SqlBoxContext(dataSource);
+ *    DbContext ctx=new DbContext(dataSource);
  *    ctx.eInsert(pojo);
  *    
  *    or
  *    
- *    SqlBoxContext ctx=new SqlBoxContext(dataSource);
- *    SqlBoxContext.setDefaultContext(ctx);           
+ *    DbContext ctx=new DbContext(dataSource);
+ *    DbContext.setDefaultContext(ctx);           
  *    eInsert(pojo); //static import JSQLBOX.eInsert
  *    
  *    or 
  *    
- *    SqlBoxContext ctx0=new SqlBoxContext(dataSource);
+ *    DbContext ctx0=new DbContext(dataSource);
  *    ctx1.insert(entity, ctx0);
  * 
  * </pre>
@@ -83,8 +83,8 @@ public class ActiveRecord<T> implements TailType, EntityType {
 	public DbContext ctx() {
 		if (ctx != null)
 			return ctx;
-		DbException.assureNotNull(DbContext.globalSqlBoxContext, DbContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
-		return DbContext.globalSqlBoxContext;
+		DbException.assureNotNull(DbContext.globalDbContext, DbContext.NO_GLOBAL_SQLBOXCONTEXT_FOUND);
+		return DbContext.globalDbContext;
 	}
 
 	public TableModel model() {
@@ -162,7 +162,7 @@ public class ActiveRecord<T> implements TailType, EntityType {
 		return DbContextUtils.getShardedTB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
-	/** Return current SqlBoxContext based on shard key value */
+	/** Return current DbContext based on shard key value */
 	public DbContext shardDB(Object... items) {
 		TableModel model = DbContextUtils.findTableModel(this.getClass(), items);
 		ColumnModel col = model.getShardDatabaseColumn();
@@ -172,7 +172,7 @@ public class ActiveRecord<T> implements TailType, EntityType {
 		return DbContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
 	}
 
-	/** Return current table and SqlBoxContext based on shard key value */
+	/** Return current table and DbContext based on shard key value */
 	public Object[] shard(Object... items) {
 		return new Object[] { shardTB(items), shardDB(items) };
 	}

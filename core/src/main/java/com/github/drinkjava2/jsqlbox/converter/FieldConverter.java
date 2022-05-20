@@ -31,7 +31,7 @@ public interface FieldConverter {
 	 * @param sqlOption
 	 *            can be INSERT/UPDATE/DELETE/LOAD
 	 * @param ctx
-	 *            the SqlBoxContext instance
+	 *            the DbContext instance
 	 * @param col
 	 *            the ColumnModel
 	 * @param sqlBody

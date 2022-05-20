@@ -31,8 +31,8 @@ import com.zaxxer.hikari.HikariDataSource;
  * @since 2.0
  */
 public class GroupShardTxTest {
-	DbContext ctx1 = JBEANBOX.getBean(SqlBoxContextBox1.class);
-	DbContext ctx2 = JBEANBOX.getBean(SqlBoxContextBox2.class);
+	DbContext ctx1 = JBEANBOX.getBean(DbContextBox1.class);
+	DbContext ctx2 = JBEANBOX.getBean(DbContextBox2.class);
 
 	public static class ShardUser extends ActiveRecord<ShardUser> {
 		@Id
@@ -56,7 +56,7 @@ public class GroupShardTxTest {
 			ctx2.nExecute(ddl);
 		}
 		DbContext[] masters = new DbContext[] { ctx1, ctx2 };
-		DbContext.getGlobalSqlBoxContext().setMasters(masters);
+		DbContext.getGlobalDbContext().setMasters(masters);
 
 		for (int i = 1; i <= 100; i++)
 			new ShardUser().setId(i).setName("Foo" + i).insert(); // Sharded!
@@ -143,7 +143,7 @@ public class GroupShardTxTest {
 		}
 	}
 
-	public static class SqlBoxContextBox1 extends BeanBox {
+	public static class DbContextBox1 extends BeanBox {
 		public Object create() {
 			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds1.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());
@@ -151,7 +151,7 @@ public class GroupShardTxTest {
 		}
 	}
 
-	public static class SqlBoxContextBox2 extends BeanBox {
+	public static class DbContextBox2 extends BeanBox {
 		public Object create() {
 			DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(Ds2.class));
 			ctx.setConnectionManager(GroupTxConnectionManager.instance());
