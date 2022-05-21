@@ -84,7 +84,7 @@ public class GtxShardTbTest {
 			Assert.assertEquals(1, ctx[2].iQueryForIntValue("select count(1) from DemoUsr_2"));
 			ctx[0].commitTrans();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			ctx[0].rollbackTrans();
 		}
 		Assert.assertEquals(1, ctx[0].iQueryForIntValue("select count(1) from DemoUsr_0"));

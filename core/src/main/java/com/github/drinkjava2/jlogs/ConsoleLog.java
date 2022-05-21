@@ -13,49 +13,63 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.github.drinkjava2.jdialects.log;
+package com.github.drinkjava2.jlogs;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
- * DbProConsoleLog output log to console
+ * ConsoleLog only output to console
  * 
  * @author Yong Zhu
  * @since 1.7.0
  */
-public class DialectPrintLog implements DialectLog {
-	private static boolean allowPrint = false;
-
+public class ConsoleLog implements Log {
 	Class<?> clazz;
 
-	public static boolean isAllowPrint() {
-		return allowPrint;
-	}
-
-	public static void setAllowPrint(boolean allowPrint) {
-		DialectPrintLog.allowPrint = allowPrint;
-	}
-
-	public DialectPrintLog(Class<?> clazz) {
+	public ConsoleLog(Class<?> clazz) {
 		this.clazz = clazz;
 	}
 
+	@Override
 	public void info(String msg) {
-		if (allowPrint)
-			System.out.println(msg);// NOSONAR
+		System.out.println(msg);
 	}
 
+	@Override
 	public void warn(String msg) {
-		if (allowPrint)
-			System.out.println(msg);// NOSONAR
+		System.out.println(msg);
 	}
 
+	@Override
+	public void warn(String msg, Throwable t) {
+		System.out.println(msg + getStackTrace(t));
+	}
+
+	@Override
 	public void error(String msg) {
-		if (allowPrint)
-			System.out.println(msg);// NOSONAR
+		System.out.println(msg);
 	}
 
+	@Override
+	public void error(String msg, Throwable t) {
+		System.out.println(msg + getStackTrace(t));
+	}
+
+	@Override
 	public void debug(String msg) {
-		if (allowPrint)
-			System.out.println(msg);// NOSONAR
+		System.out.println(msg);
+	}
+
+	public static String getStackTrace(Throwable t) {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		try {
+			t.printStackTrace(pw);
+			return sw.toString();
+		} finally {
+			pw.close();
+		}
 	}
 
 }

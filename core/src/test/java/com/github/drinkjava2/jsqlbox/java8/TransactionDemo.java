@@ -20,6 +20,7 @@ import java.lang.annotation.Target;
 
 import javax.sql.DataSource;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jbeanbox.annotation.AOP;
@@ -70,8 +71,8 @@ public class TransactionDemo {
 	@TX
 	public void save() {
 		new User().putField("name", "Tom").insert();
-		System.out.println(DbContext.gctx().iQueryForString("select name from usertb"));
-		System.out.println(1 / 0); // force roll back
+		Systemout.println(DbContext.gctx().iQueryForString("select name from usertb"));
+		Systemout.println(1 / 0); // force roll back
 	}
 
 	public static void main(String[] args) {

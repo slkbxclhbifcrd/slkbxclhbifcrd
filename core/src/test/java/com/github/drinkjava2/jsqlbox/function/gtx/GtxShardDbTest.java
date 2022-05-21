@@ -76,7 +76,7 @@ public class GtxShardDbTest {
 			Assert.assertEquals(1, ctx[2].eCountAll(DemoUsr.class));
 			ctx[0].commitTrans();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			ctx[0].rollbackTrans();
 		}
 		Assert.assertEquals(1, ctx[0].eCountAll(DemoUsr.class));

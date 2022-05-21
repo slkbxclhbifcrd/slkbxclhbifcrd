@@ -20,10 +20,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.actframework.demo</groupId>
-  <artifactId>jsqlbox-in-actframework</artifactId>
+  <artifactId>dbutil-plus-actframework</artifactId>
   <version>1.0</version>
 
-  <name>jsqlbox-in-actframework Demo</name>
+  <name>dbutil-plus-actframework Demo</name>
   <description>Demonstrates a simple transaction app with jSqlBox in ActFramework</description>
   <url>https://gitee.com/drinkjava2/jSqlBox</url>
 

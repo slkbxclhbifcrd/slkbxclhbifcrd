@@ -7,6 +7,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
@@ -49,7 +50,7 @@ public class ManualTxTest {
 				Assert.assertEquals(100, ctx.eCountAll(Usr.class));
 				new Usr().putField("firstName", "Foo").insert(ctx);
 				Assert.assertEquals(101, ctx.eCountAll(Tail.class, tail("users")));
-				System.out.println(1 / 0);
+				Systemout.println(1 / 0);
 				new Usr().putField("firstName", "Bar").insert(ctx);
 				ctx.commitTrans();
 			} catch (Exception e) {

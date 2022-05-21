@@ -5,8 +5,8 @@ import javax.sql.DataSource;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.github.drinkjava2.common.DataSourceConfig.DataSourceBox;
 import com.github.drinkjava2.common.Systemout;
+import com.github.drinkjava2.common.DataSourceConfig.DataSourceBox;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jsqlbox.DbContext;
@@ -58,7 +58,7 @@ public class JavaTxTest {
 			tester.tx_Insert2();// this one did not insert, roll back
 		} catch (Exception e) {
 			Systemout.println("Exception found: ");
-			e.printStackTrace();
+			//e.printStackTrace();
 			Assert.assertEquals(1L, ctx.nQueryForLongValue("select count(*) from user_tb "));
 			Systemout.println("div/0 exception found, tx_Insert2 should roll back");
 		}

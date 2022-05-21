@@ -12,6 +12,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.common.DataSourceConfig.HikariCPBox;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
@@ -54,7 +55,7 @@ public class AnnotationGroupTxTest {
 	public void groupRollback() { // test group roll back
 		new Usr().setFirstName("Foo").insert(ctx1);
 		new Usr().setFirstName("Bar").insert(ctx2);
-		System.out.println(1 / 0); // div 0!
+		Systemout.println(1 / 0); // div 0!
 	}
 
 	@GTransaction
@@ -76,7 +77,7 @@ public class AnnotationGroupTxTest {
 		try {
 			t.groupRollback();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		Assert.assertEquals(100, ctx1.eCountAll(Usr.class));
 		Assert.assertEquals(100, ctx2.eCountAll(Usr.class));
@@ -88,7 +89,7 @@ public class AnnotationGroupTxTest {
 		try {
 			t.groupPartialCommit();
 		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			Systemout.println(e.getMessage());
 		}
 		Assert.assertEquals(102, ctx1.eCountAll(Usr.class));
 

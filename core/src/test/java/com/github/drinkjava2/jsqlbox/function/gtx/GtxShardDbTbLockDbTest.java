@@ -87,7 +87,7 @@ public class GtxShardDbTbLockDbTest {
 			new DemoUsr().setId(2).setAge(40).insert(); // db2, tb4
 			ctxs[0].commitTrans();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			ctxs[0].rollbackTrans();
 		}
 		Assert.assertEquals(1, ctxs[0].iQueryForIntValue("select count(1) from DemoUsr_0"));
@@ -109,7 +109,7 @@ public class GtxShardDbTbLockDbTest {
 			ctxs[2].setForceCommitFail(); // force db2 commit fail
 			ctxs[0].commitTrans(); // exception will throw
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			TxResult result = ctxs[0].rollbackTrans();
 			GtxUnlockServ.forceUnlock(1, ctxs[0], result);// Force unlock for unit test only
 		}

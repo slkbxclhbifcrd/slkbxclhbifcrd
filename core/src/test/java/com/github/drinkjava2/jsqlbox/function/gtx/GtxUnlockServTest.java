@@ -69,7 +69,7 @@ public class GtxUnlockServTest {
 			ctx[2].setForceCommitFail(); // force ctx[1] commit fail
 			ctx[0].commitTrans(); // exception will throw
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			ctx[0].rollbackTrans();
 		}
 

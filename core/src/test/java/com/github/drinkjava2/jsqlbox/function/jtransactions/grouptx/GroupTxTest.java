@@ -7,6 +7,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
@@ -77,7 +78,7 @@ public class GroupTxTest {
 				Assert.assertEquals(100, ctx2.eCountAll(Usr.class));
 				new Usr().putField("firstName", "Foo").insert(ctx2);
 				Assert.assertEquals(101, ctx2.eCountAll(Tail.class, tail("users")));
-				System.out.println(1 / 0); // Div 0!
+				Systemout.println(1 / 0); // Div 0!
 				ctx1.commitTrans();
 			} catch (Exception e) {
 				ctx1.rollbackTrans();
@@ -121,7 +122,7 @@ public class GroupTxTest {
 			try {
 				ctx1.rollbackTrans();
 			} catch (Exception e1) {
-				e1.printStackTrace();
+				//e1.printStackTrace();
 			}
 		}
 		Assert.assertEquals(101, ctx1.eCountAll(Tail.class, tail("users")));

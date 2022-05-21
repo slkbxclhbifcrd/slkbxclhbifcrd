@@ -24,11 +24,11 @@ import java.util.Map;
 
 import org.apache.commons.dbutils.handlers.ColumnListHandler;
 
-import com.github.drinkjava2.jdbpro.log.DbProLog;
-import com.github.drinkjava2.jdbpro.log.DbProLogFactory;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jlogs.Log;
+import com.github.drinkjava2.jlogs.LogFactory;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.DbContextUtils;
 import com.github.drinkjava2.jsqlbox.Tail;
@@ -42,17 +42,14 @@ import com.github.drinkjava2.jtransactions.manual.ManualTxConnectionManager;
  * @author Yong Zhu
  */
 public abstract class GtxUnlockServ {// NOSONAR
-	protected static final DbProLog logger = DbProLogFactory.getLog(GtxUnlockServ.class);
+	protected static final Log logger = LogFactory.getLog(GtxUnlockServ.class);
 	private static final Map<String, String> gtxIdCache = new HashMap<String, String>();
 	private static DbContext lockCtx;
 	private static DbContext[] ctxs;
 
 	private static void initContext(DbContext userCtx) {
 		GtxConnectionManager lockCM = (GtxConnectionManager) userCtx.getConnectionManager();
-		lockCtx = lockCM.getLockCtx();
-
-		System.out.println("lcokCtx.master:" + lockCtx.getMasters());
-
+		lockCtx = lockCM.getLockCtx(); 
 		ctxs = new DbContext[userCtx.getMasters().length];
 		for (int i = 0; i < userCtx.getMasters().length; i++) {
 			DbContext userCtxArr = (DbContext) userCtx.getMasters()[i];

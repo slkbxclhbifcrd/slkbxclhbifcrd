@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.github.drinkjava2.jdialects.log;
+package com.github.drinkjava2.jlogs;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,38 +21,46 @@ import java.lang.reflect.Constructor;
 import java.util.Properties;
 
 /**
- * For default DbProLog use DbProPrinterLog, unless put a class called
- * "DbProRootLog" in class root folder
+ * This LogFactory is designed for get a jLog implement used inside of
+ * DbUtil-Plus project.
+ * 
+ * Usage: Log log= LogFactory.getLog(Xxx.class);
+ * 
+ * JLog used for inside of DbUtil-Plus project, if a "jlogs.properties" file if
+ * found on class root folder (main/resources), will try load the designated
+ * JLog implementation, otherwise use default EmptyLog<br/>
+ * 
+ * An example of "jlogs.properties": <br/>
+ * log=com.github.drinkjava2.jlogs.ConsoleLog
  * 
  * @author Yong Zhu
  * @since 1.7.0
  */
-public abstract class DialectLogFactory {// NOSONAR
+public abstract class LogFactory {// NOSONAR
 
 	private static Class<?> dbProLogClass = null;
 
 	/**
-	 * Find DbProLog.propertites configuration, if not found or DbProLogClass is
-	 * empty, use default DbProPrinterLog
+	 * Find jlogs.properties configuration, if not found or jlogs.properties is
+	 * empty, use default EmptyLog
 	 */
-	public static DialectLog getLog(Class<?> clazz) {
-		if (dbProLogClass == void.class)// Initialized but not found config file
-			return new DialectPrintLog(clazz);
+	public static Log getLog(Class<?> clazz) {
+		if (dbProLogClass == void.class)
+			return new EmptyLog(clazz);
 
 		if (dbProLogClass != null)
 			try {
 				Constructor<?> constr = dbProLogClass.getConstructor(Class.class);
-				return (DialectLog) constr.newInstance(clazz);
+				return (Log) constr.newInstance(clazz);
 			} catch (Exception e) {
 				dbProLogClass = void.class;
-				return new DialectPrintLog(clazz);
+				return new EmptyLog(clazz);
 			}
 
-		InputStream is = DialectLog.class.getClassLoader()
-				.getResourceAsStream(DialectLog.class.getSimpleName() + ".properties");
+		InputStream is = Log.class.getClassLoader().getResourceAsStream("jlogs.properties");
 		if (is == null) {
 			dbProLogClass = void.class;
-			return new DialectPrintLog(clazz);
+			return new EmptyLog(clazz);
 		}
 
 		Properties prop = new Properties();
@@ -63,7 +71,7 @@ public abstract class DialectLogFactory {// NOSONAR
 			return getLog(clazz);
 		} catch (Exception e) {
 			dbProLogClass = void.class;
-			return new DialectPrintLog(clazz);
+			return new EmptyLog(clazz);
 		} finally {
 			try {
 				is.close();

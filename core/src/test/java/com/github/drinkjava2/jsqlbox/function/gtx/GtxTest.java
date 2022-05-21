@@ -8,6 +8,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jsqlbox.function.jtransactions.Usr;
 import com.github.drinkjava2.jsqlbox.gtx.GtxConnectionManager;
@@ -79,7 +80,7 @@ public class GtxTest {
 			Assert.assertEquals(1, ctx[2].eCountAll(Usr.class));
 			ctx[0].commitTrans();
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			ctx[0].rollbackTrans();
 		}
 		Assert.assertEquals(1, ctx[0].eCountAll(Usr.class));
@@ -95,7 +96,7 @@ public class GtxTest {
 			new Usr().insert(ctx[1]);
 			new Usr().insert(ctx[1]);
 			new Usr().insert(ctx[2]);
-			System.out.println(1 / 0);
+			Systemout.println(1 / 0);
 			ctx[0].commitTrans();
 		} catch (Exception e) {
 			TxResult result=ctx[0].rollbackTrans();

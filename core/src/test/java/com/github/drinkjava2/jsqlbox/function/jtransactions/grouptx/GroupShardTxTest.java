@@ -12,6 +12,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.common.DataSourceConfig.HikariCPBox;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
@@ -90,7 +91,7 @@ public class GroupShardTxTest {
 		new ShardUser().setId(301).setName("Bar").insert();
 		Assert.assertEquals(51, ctx1.eCountAll(ShardUser.class));
 		Assert.assertEquals(51, ctx2.eCountAll(ShardUser.class));
-		System.out.println(1 / 0); // div 0!
+		Systemout.println(1 / 0); // div 0!
 	}
 
 	@Test
@@ -99,7 +100,7 @@ public class GroupShardTxTest {
 		try {
 			t.groupRollbackTest();
 		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			Systemout.println(e.getMessage());
 		}
 		Assert.assertEquals(50, ctx1.eCountAll(ShardUser.class));
 		Assert.assertEquals(50, ctx2.eCountAll(ShardUser.class));
@@ -121,7 +122,7 @@ public class GroupShardTxTest {
 			t.groupPartialCommitTest();
 		} catch (Exception e) {
 			// e.printStackTrace();
-			System.out.println(e.getMessage());
+			Systemout.println(e.getMessage());
 		}
 		Assert.assertEquals(51, ctx1.eCountAll(ShardUser.class));
 	}
@@ -170,7 +171,7 @@ public class GroupShardTxTest {
 	public static void a(String f, Object... ss) {
 
 		for (Object s : ss) {
-			System.out.println(s);
+			Systemout.println(s);
 		}
 	}
 }

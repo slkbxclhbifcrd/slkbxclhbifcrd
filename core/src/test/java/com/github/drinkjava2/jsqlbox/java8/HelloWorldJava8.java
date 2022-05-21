@@ -15,6 +15,7 @@ import javax.sql.DataSource;
 
 import org.h2.jdbcx.JdbcConnectionPool;
 
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jsqlbox.ActiveEntity;
 import com.github.drinkjava2.jsqlbox.DbContext;
 
@@ -46,6 +47,6 @@ public class HelloWorldJava8 implements ActiveEntity<HelloWorldJava8> {
 			ctx.nExecute(ddl);
 
 		new HelloWorldJava8().putField("name", "Hello DbUtil-Plus").insert();
-		System.out.println(ctx.pQueryForString("select name from HelloWorldJava8"));
+		Systemout.println(ctx.pQueryForString("select name from HelloWorldJava8"));
 	}
 }

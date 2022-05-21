@@ -29,8 +29,8 @@ import java.util.Map.Entry;
 
 import javax.sql.DataSource;
 
-import com.github.drinkjava2.jdbpro.log.DbProLog;
-import com.github.drinkjava2.jdbpro.log.DbProLogFactory;
+import com.github.drinkjava2.jlogs.Log;
+import com.github.drinkjava2.jlogs.LogFactory;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.github.drinkjava2.jtransactions.ThreadConnectionManager;
 import com.github.drinkjava2.jtransactions.TransactionsException;
@@ -45,7 +45,7 @@ import com.github.drinkjava2.jtransactions.TxResult;
  * @since 1.0.0
  */
 public class GtxConnectionManager extends ThreadConnectionManager {
-	protected static final DbProLog logger = DbProLogFactory.getLog(GtxConnectionManager.class);
+	protected static final Log logger = LogFactory.getLog(GtxConnectionManager.class);
 
 	private DbContext lockCtx;
 

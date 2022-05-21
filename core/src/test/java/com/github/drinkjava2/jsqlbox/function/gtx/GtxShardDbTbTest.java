@@ -102,7 +102,7 @@ public class GtxShardDbTbTest {
 			ctx[2].setForceCommitFail(); // force db2 commit fail
 			ctx[0].commitTrans(); // exception will throw
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			TxResult result = ctx[0].rollbackTrans();
 			GtxUnlockServ.forceUnlock(ctx[0], result);// Force unlock for unit test only
 		}
