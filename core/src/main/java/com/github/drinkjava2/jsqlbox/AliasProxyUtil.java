@@ -2,15 +2,14 @@ package com.github.drinkjava2.jsqlbox;
 
 import java.lang.reflect.Method;
 
-import com.github.drinkjava2.cglib3_2_0.proxy.Enhancer;
-import com.github.drinkjava2.cglib3_2_0.proxy.MethodInterceptor;
-import com.github.drinkjava2.cglib3_2_0.proxy.MethodProxy;
+import com.github.drinkjava2.cglib.proxy.Enhancer;
+import com.github.drinkjava2.cglib.proxy.MethodInterceptor;
+import com.github.drinkjava2.cglib.proxy.MethodProxy;
 import com.github.drinkjava2.jdbpro.SqlItem;
 import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import com.github.drinkjava2.jsqlbox.DbException;
 
 /**
  * AliasProxyUtils used to create alias proxy
