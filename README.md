@@ -1,42 +1,75 @@
-﻿## 简介 | Intro
-DbUtil-Plus是一个基于DbUtils内核开发的全功能开源Java数据库持久层工具。  
+﻿<p align="left">
+  <a href="README_ENG.md">
+	English instructions please see "README_ENG.md"
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/drinkjava2/jsqlbox">
+   <img alt="jsqlbox-logo" src="jsqlbox-logo.png">
+  </a>
+</p>
+
+<p align="center">
+  基于DbUtils内核的全功能数据库持久层工具
+</p>
+
+<p align="center">
+  <a href="http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.github.drinkjava2%22%20AND%20a%3A%22jsqlbox%22">
+    <img alt="maven" src="https://img.shields.io/maven-central/v/com.github.drinkjava2/jsqlbox.svg?style=flat-square">
+  </a>
+
+  <a href="https://www.apache.org/licenses/LICENSE-2.0">
+    <img alt="code style" src="https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square">
+  </a>
+</p>
+
+## 简介 | Intro
+jSqlBox是一个基于DbUtils内核开发的全功能开源Java数据库持久层工具，在架构、功能、易用性等方面都不输于其它持久层工具。  
 
 ## 与其它持久层工具对比
-请见[与其它DAO工具对比](https://gitee.com/drinkjava2/DbUtil-Plus/wikis/pages?title=%E9%99%84%E5%BD%952%EF%BC%9ADAO%E5%B7%A5%E5%85%B7%E5%AF%B9%E6%AF%94&parent=%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C), 可以对DbUtil-Plus的功能与特点有一个大概的了解。  
+请见[与其它DAO工具对比](https://gitee.com/drinkjava2/jsqlbox/wikis/pages?title=%E9%99%84%E5%BD%952%EF%BC%9ADAO%E5%B7%A5%E5%85%B7%E5%AF%B9%E6%AF%94&parent=%E7%94%A8%E6%88%B7%E6%89%8B%E5%86%8C), 可以对jSqlBox的功能与特点有一个大概的了解。  
 
 ## 架构 | Architecture  
 ![image](arch.png)  
 
 ## 优点 | Advantages
 
-- **架构合理**：模块式架构，各个模块都可以脱离DbUtil-Plus单独存在。  
+- **架构合理**：模块式架构，各个模块都可以脱离jSqlBox单独存在。  
 - **跨数据库**：基于jDialects，支持80多种数据库的分页、DDl脚本生成、实体源码生成、函数变换、主键生成等功能。  
-- **与DbUtils兼容**：内核基于DbUtils, 原有基于DbUtils的旧项目可以无缝升级到DbUtil-Plus。  
+- **与DbUtils兼容**：内核基于DbUtils, 原有基于DbUtils的旧项目可以无缝升级到jSqlBox。  
 - **多种SQL写法**：Inline方法、模板方法、DataMapper、ActiveRecord、链式写法等。  
 - **多项技术创新**：Inline风格、多行文本支持、实体越级关联查询、树结构查询等。  
-- **动态配置**：除了支持实体Bean注解式配置，DbUtil-Plus还支持在运行期动态更改配置。  
+- **动态配置**：除了支持实体Bean注解式配置，jSqlBox还支持在运行期动态更改配置。  
 - **无会话设计**：无会话设计(Sessionless)，是一个真正轻量级的、全功能的持久层工具，也可以作为其它持久层工具的补丁来使用。  
-- **主从、分库分表**：无需引入第三方工具，DbUtil-Plus本身就具备主从、分库分表功能。  
 - **自带声明式事务**：内置微型声明式事务工具jTransactions。也支持配置成Spring事务。  
-- **自带分布式事务**：内置分布式事务功能。
+- **主从、分库分表**：无需引入第三方工具，jSqlBox本身就具备主从、分库分表功能。  
+- **学习曲线平滑**：模块化学习，了解了各个子模块，就掌握了jSqlBox，jSqlBox模块部分只有20多个类。  
 
 ## 文档 | Documentation
 
-[中文](https://gitee.com/drinkjava2/DbUtil-Plus/wikis/pages)  |  [English](https://github.com/drinkjava2/dbutil-plus/wiki) | [JavaDoc](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22dbutil-plus%22)
+[中文](https://gitee.com/drinkjava2/jsqlbox/wikis/pages)  |  [English](https://github.com/drinkjava2/jsqlbox/wiki) | [JavaDoc](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22jsqlbox%22)
 
 ## 配置 | Configuration
 在pom.xml中加入：  
 ```xml
 <dependency>
    <groupId>com.github.drinkjava2</groupId>
-   <artifactId>dbutil-plus</artifactId>  
-   <version>4.0.0</version>  
+   <artifactId>jsqlbox</artifactId> <!--用于Java6、7环境-->
+   <version>3.0.0</version> <!--或最新版-->
 </dependency> 
 ```
-或从Maven库下载单件文件dbutil-plus-4.0.0.jar放在项目的库目录里即可。
+或
+```xml
+<dependency>
+   <groupId>com.github.drinkjava2</groupId>
+   <artifactId>jsqlbox-java8</artifactId> <!--用于Java8及以上环境-->
+   <version>3.0.0/version> <!--或最新版-->
+</dependency> 
+```
 
 ## 入门 | First Example
-以下示例演示了DbUtil-Plus的基本配置和使用:
+以下示例演示了jSqlBox的基本配置和使用:
 ```
 public class HelloWorld extends ActiveRecord<HelloWorld> {
 	@Id
@@ -50,11 +83,11 @@ public class HelloWorld extends ActiveRecord<HelloWorld> {
 	public static void main(String[] args) throws SQLException {
 		DataSource ds = JdbcConnectionPool
 		.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
-		DbContext ctx = new DbContext(ds);
-		DbContext.setGlobalDbContext(ctx);
+		SqlBoxContext ctx = new SqlBoxContext(ds);
+		SqlBoxContext.setGlobalSqlBoxContext(ctx);
 		for (String ddl : ctx.toDropAndCreateDDL(HelloWorld.class))
 			ctx.nExecute(ddl);
-		new HelloWorld().setName("Hellow DbUtil-Plus").insert();
+		new HelloWorld().setName("Hellow jSqlBox").insert();
 		System.out.println(JSQLBOX.iQueryForString("select name from HelloWorld"));
 	}
 }
@@ -62,15 +95,15 @@ public class HelloWorld extends ActiveRecord<HelloWorld> {
 
 ## 范例 | Demo
 
-* [jBooox](https://gitee.com/drinkjava2/jBooox) 这是一个微型MVC Web演示项目，基于三个开源软件jBeanBox、DbUtil-Plus、jWebBox的整合。
-* [actframework](../../tree/master/demo/actframework) 演示DbUtil-Plus与ActFramework框架的整合，分别展示利用jBeanBox和Guice来实现声明式事务。
-* [jfinal](../../tree/master/demo/jfinal) 演示DbUtil-Plus与jFinal的整合，用DbUtil-Plus替换掉jFinal自带的DAO工具。
-* [DbUtil-Plus-in-Spring](../../tree/master/demo/spring) 这是一个MVC Web项目，演示DbUtil-Plus在Spring+Tomcat环境下的配置和使用, IOC、AOP和声明式事务均使用Spring的。
-* [springboot](../../tree/master/demo/springboot) 演示DbUtil-Plus在SpringBoot环境下的配置和使用。  
-* [springboot-mybatis](../../tree/master/demo/springboot-mybatis) 演示在SpringBoot环境下DbUtil-Plus和MyBatis的混合使用。
-* [java8-demo](../../tree/master/demo/java8-demo) 主要演示DbUtil-Plus-Java8版的两个特点：实体类只需要声明接口、利用Lambda来写SQL。
-* [xa-atomikos](../../tree/master/demo/xa-atomikos) 一个DbUtil-Plus利用Atomikos使用XA分布式事务的演示。  
-* [beetl](../../tree/master/demo/beetl) 演示如何在DbUtil-Plus中开发和使用其它模板引擎如BeetlSQL。
+* [jBooox](https://gitee.com/drinkjava2/jBooox) 这是一个微型MVC Web演示项目，基于三个开源软件jBeanBox、jSqlBox、jWebBox的整合。
+* [jsqlbox-in-actframework](../../tree/master/demo/jsqlbox-in-actframework) 演示jSqlBox与ActFramework框架的整合，分别展示利用jBeanBox和Guice来实现声明式事务。
+* [jsqlbox-in-jfinal](../../tree/master/demo/jsqlbox-in-jfinal) 演示jSqlBox与jFinal的整合，用jSqlBox替换掉jFinal自带的DAO工具。
+* [jSqlBox-in-Spring](../../tree/master/demo/jsqlbox-in-spring) 这是一个MVC Web项目，演示jSqlBox在Spring+Tomcat环境下的配置和使用, IOC、AOP和声明式事务均使用Spring的。
+* [jsqlbox-in-springboot](../../tree/master/demo/jsqlbox-in-springboot) 演示jSqlBox在SpringBoot环境下的配置和使用。  
+* [jsqlbox-in-springboot-mybatis](../../tree/master/demo/jsqlbox-in-springboot-mybatis) 演示在SpringBoot环境下jSqlBox和MyBatis的混合使用。
+* [jsqlbox-java8-demo](../../tree/master/demo/jsqlbox-java8-demo) 主要演示jSqlBox-Java8版的两个特点：实体类只需要声明接口、利用Lambda来写SQL。
+* [jsqlbox-xa-atomikos](../../tree/master/demo/jsqlbox-xa-atomikos) 一个jSqlBox利用Atomikos使用XA分布式事务的演示。  
+* [jsqlbox-beetl](../../tree/master/demo/jsqlbox-beetl) 演示如何在jSqlBox中开发和使用其它模板引擎如BeetlSQL。
  
  
 ## 相关开源项目 | Related Projects
@@ -82,7 +115,7 @@ public class HelloWorld extends ActiveRecord<HelloWorld> {
 
 ## 期望 | Futures
 
-欢迎发issue提出更好的意见或提交PR，帮助完善DbUtil-Plus
+欢迎发issue提出更好的意见或提交PR，帮助完善jSqlBox
 
 ## 版权 | License
 
