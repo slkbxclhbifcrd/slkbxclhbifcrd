@@ -15,8 +15,6 @@
  */
 package com.github.drinkjava2.cglib.transform;
 
-import com.github.drinkjava2.asm.*;
-
 public class ClassFilterTransformer extends AbstractClassFilterTransformer {
     private ClassFilter filter;
 

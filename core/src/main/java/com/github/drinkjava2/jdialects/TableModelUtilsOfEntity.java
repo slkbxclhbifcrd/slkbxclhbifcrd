@@ -289,9 +289,9 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 			}
 
 			if (!getFirstEntityAnno(field, "Transient").isEmpty()
-					|| (convertClassOrName == null && !TypeUtils.canMapToSqlType(propertyClass))) {
+					|| (convertClassOrName == null && !TypeUtils.canMapToDialectType(propertyClass))) {
 				ColumnModel col = new ColumnModel(entityfieldName);
-				col.setColumnType(TypeUtils.toType(propertyClass));
+				col.setColumnType(TypeUtils.javaType2DialectType(propertyClass));
 				col.setTransientable(true);
 				col.setEntityField(entityfieldName);
 				col.setTableModel(model);
@@ -335,14 +335,23 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 					col.setLength((Integer) colMap.get("length"));
 					col.setPrecision((Integer) colMap.get("precision"));
 					col.setScale((Integer) colMap.get("scale"));
-					if (!StrUtils.isEmpty(colMap.get("columnDefinition")))
-						col.setColumnType(TypeUtils.toType((String) colMap.get("columnDefinition")));
+					if (!StrUtils.isEmpty(colMap.get("columnDefinition"))) {
+						String colDEF=(String) colMap.get("columnDefinition");
+						colDEF=colDEF.trim();
+						String colTail=null;
+						if(colDEF.contains(" ")) {
+							colTail=" "+StrUtils.substringAfter(colDEF, " ");
+							colDEF=StrUtils.substringBefore(colDEF, " ");
+						}  
+						col.setColumnType(TypeUtils.colDef2DialectType(colDEF ));
+						col.setTail(colTail);
+					}
 					else
-						col.setColumnType(TypeUtils.toType(propertyClass));
+						col.setColumnType(TypeUtils.javaType2DialectType(propertyClass));
 					col.setInsertable((Boolean) colMap.get("insertable"));
 					col.setUpdatable((Boolean) colMap.get("updatable"));
 				} else {
-					col.setColumnType(TypeUtils.toType(propertyClass));// TODO_ check
+					col.setColumnType(TypeUtils.javaType2DialectType(propertyClass));// TODO_ check
 				}
 				if ("EnumType.ORDINAL".equals(col.getConverterClassOrName()))
 					col.setColumnType(Type.INTEGER);
@@ -462,6 +471,5 @@ public abstract class TableModelUtilsOfEntity {// NOSONAR
 			throw new DialectException("Can not create TableModel for entityClass " + entityClass);
 		TableModel.sortColumns(model.getColumns());
 		return model;
-	}
-
+	} 
 }

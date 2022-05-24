@@ -56,8 +56,7 @@ public class UsageAndSpeedTest {
 		dataSource.setJdbcUrl("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
 		dataSource.setDriverClassName("org.h2.Driver");
 		dataSource.setUsername("sa");// change to your user & password
-		dataSource.setPassword("");
-		// DbContext.setGlobalAllowShowSql(true);
+		dataSource.setPassword(""); 
 		DbContext ctx = new DbContext(dataSource);
 		DbContext.resetGlobalVariants();
 		for (String ddl : ctx.getDialect().toDropAndCreateDDL(UserAR.class))

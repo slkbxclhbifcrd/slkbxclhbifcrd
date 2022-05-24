@@ -27,7 +27,7 @@ import com.zaxxer.hikari.HikariDataSource;
  * @author Yong Z.
  * @since 1.0.2
  */
-public class DbProLogTest { 
+public class DbProLogTest {
 	Log log = LogFactory.getLog(DbProLogTest.class);
 
 	@Before
@@ -49,7 +49,7 @@ public class DbProLogTest {
 	public void setName(String name) {
 		this.name = name;
 	}
-  
+
 	@Test
 	public void doSqlBoxLoggerTest() {
 		HikariDataSource dataSource = new HikariDataSource();
@@ -57,17 +57,14 @@ public class DbProLogTest {
 		dataSource.setDriverClassName("org.h2.Driver");
 		dataSource.setUsername("sa");// change to your user & password
 		dataSource.setPassword("");
-		DbContext.setGlobalNextAllowShowSql(true);
 		DbContext ctx = new DbContext(dataSource);
 		for (String ddl : ctx.getDialect().toDropAndCreateDDL(DbProLogTest.class))
 			ctx.quiteExecute(ddl);
 		DbProLogTest t = new DbProLogTest();
 		t.setName("Tom");
 		ctx.eInsert(t);
-		log.info("Logger test message3 output ok");
-		log.info("Logger test message4 output ok");
+		log.info("Logger test ok");
 		Systemout.println(log);
-		DbContext.setGlobalNextAllowShowSql(false);
 	}
 
 }

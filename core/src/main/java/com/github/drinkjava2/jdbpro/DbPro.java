@@ -27,6 +27,8 @@ import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.apache.commons.dbutils.handlers.ScalarHandler;
 
 import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
+import com.github.drinkjava2.jdialects.Dialect;
+import com.github.drinkjava2.jdialects.TypeUtils;
 
 /**
  * DbPro is the enhanced version of Apache Commons DbUtils's QueryRunner, add
@@ -52,16 +54,23 @@ public class DbPro extends ImprovedQueryRunner implements NormalJdbcTool {// NOS
 		super(ds);
 	}
 
+	public DbPro(DataSource ds, Dialect dialect) {
+		super(ds, dialect);
+	}
+
 	/**
 	 * Quite execute a SQL, do not throw any exception, if any exception happen,
 	 * return -1
 	 */
-	public int quiteExecute(String sql, Object... params) {
-		try {
-			return execute(sql, params);
-		} catch (Exception e) {
-			return -1;
-		}
+	public int quiteExecute(String... sqls) {
+		int result = 0;
+		for (String sql : sqls)
+			try {
+				execute(sql);
+			} catch (Exception e) {
+				result = -1;
+			}
+		return result;
 	}
 
 	public void ________prepareMethods________() {// NOSONAR
@@ -111,7 +120,15 @@ public class DbPro extends ImprovedQueryRunner implements NormalJdbcTool {// NOS
 	private PreparedSQL doPrepare(boolean inlineStyle, Object... items) {// NOSONAR
 		PreparedSQL ps = dealSqlItems(null, inlineStyle, items);
 		ps.addGlobalAndThreadedHandlers(this);
+		preparedParamsToJdbc(ps);
 		return ps;
+	}
+
+	/** Convert parameters to JDBC type, like java.util.Date to java.sql.Date */
+	public void preparedParamsToJdbc(PreparedSQL ps) {
+		if (dialect == null || ps == null || ps.getParams() == null || ps.getParams().length == 0)
+			return;
+		TypeUtils.javaParam2JdbcSqlParam(ps.getParams(), null);
 	}
 
 	/**
@@ -312,7 +329,8 @@ public class DbPro extends ImprovedQueryRunner implements NormalJdbcTool {// NOS
 	 * In-line style execute query and force return a String object.
 	 */
 	public String iQueryForString(Object... inlineSQL) {
-		return String.valueOf(iQueryForObject(inlineSQL));
+		Object result = iQueryForObject(inlineSQL);
+		return result == null ? null : result.toString();
 	}
 
 	/**
@@ -788,7 +806,7 @@ public class DbPro extends ImprovedQueryRunner implements NormalJdbcTool {// NOS
 	 * Execute query and force return a String object, no need catch SQLException
 	 */
 	public String nQueryForString(String sql, Object... params) {
-		return String.valueOf((Object)nQueryForObject(sql, params));
+		return String.valueOf((Object) nQueryForObject(sql, params));
 	}
 
 	/**

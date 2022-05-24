@@ -28,7 +28,7 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 
 /**
  * Entity class extended from ActiveRecord will have CRUD methods, see below
- * difference in DbUtil-Plus to save ActiveRecord entity and normal entity(POJO)
+ * difference in jSqlBox to save ActiveRecord entity and normal entity(POJO)
  * into database:
  * 
  * <pre>
@@ -169,6 +169,7 @@ public class ActiveRecord<T> implements TailType, EntityType {
 		if (col == null || col.getShardDatabase() == null || col.getShardDatabase().length == 0)
 			throw new DbException("Not found ShardTable setting for '" + model.getEntityClass() + "'");
 		Object shardKey1 = DbContextUtils.readValueFromBeanFieldOrTail(col, this);
+		
 		return DbContextUtils.getShardedDB(ctx(), model.getEntityClass(), shardKey1);
 	}
 

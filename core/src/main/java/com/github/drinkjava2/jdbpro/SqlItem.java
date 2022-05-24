@@ -32,9 +32,9 @@ public class SqlItem {
 		this.parameters = new Object[] { sqlPiece };
 	}
 
-	public SqlItem(SqlOption type, Object... parameters) {
+	public SqlItem(SqlOption type, Object... params) {
 		this.type = type;
-		this.parameters = parameters;
+		this.parameters = params;
 	}
 
 	public String getName() {

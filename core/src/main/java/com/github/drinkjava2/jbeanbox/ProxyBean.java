@@ -13,11 +13,9 @@ import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 
 import org.aopalliance.intercept.MethodInvocation;
 
-import com.github.drinkjava2.cglib.proxy.Callback;
 import com.github.drinkjava2.cglib.proxy.MethodInterceptor;
 import com.github.drinkjava2.cglib.proxy.MethodProxy;
 
@@ -29,7 +27,7 @@ import com.github.drinkjava2.cglib.proxy.MethodProxy;
  *
  */
 @SuppressWarnings("all")
-class ProxyBean implements MethodInterceptor, Callback {
+class ProxyBean implements MethodInterceptor {
 	protected Object[] box_ctx;
 
 	protected ProxyBean(BeanBox box, BeanBoxContext ctx) {
@@ -51,7 +49,7 @@ class ProxyBean implements MethodInterceptor, Callback {
 
 		if (box.getAopRules() != null) // box methods aops, need add cache in future
 			for (Object[] entry : box.getAopRules()) {
-				if (BeanBoxUtils.nameMatch((String) entry[1], m.getName()))
+				if (NameMatchUtil.nameMatch((String) entry[1], m.getName()))
 					allInters.add(entry[0]);
 			}
 
@@ -60,9 +58,9 @@ class ProxyBean implements MethodInterceptor, Callback {
 
 			for (Object[] aops : ctx.getAopRules()) {
 				String classReg = (String) aops[1];
-				if (BeanBoxUtils.nameMatch(classReg, thisClassName)) {
+				if (NameMatchUtil.nameMatch(classReg, thisClassName)) {
 					String methodRegex = (String) aops[2];
-					if (BeanBoxUtils.nameMatch(methodRegex, m.getName()))
+					if (NameMatchUtil.nameMatch(methodRegex, m.getName()))
 						allInters.add(aops[0]);
 				}
 			}

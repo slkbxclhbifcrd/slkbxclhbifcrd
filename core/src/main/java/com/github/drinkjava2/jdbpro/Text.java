@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Child class extended from Text support multiple line String. the toString
  * method will return the comments between / * - and * / , To use this function
  * need copy java file in resources folder, or move java file in resources
- * folder and set a plugin in pom.xml, detail see DbUtil-Plus wiki
+ * folder and set a plugin in pom.xml, detail see jSqlBox wiki
  * 
  * @author Yong Zhu
  * @since 2.0.4
@@ -40,10 +40,10 @@ public class Text {
 			return textCache.get(clazz);
 		String thisPublicStaticClassName = clazz.getSimpleName();
 		String javaSourceCode = TextUtils.getJavaSourceCode(clazz, "UTF-8");
-		String classText = TextUtils.substringBetween(javaSourceCode, "public static class " + thisPublicStaticClassName,
-				"*/");
+		String classText = TextUtils.substringBetween(javaSourceCode,
+				"public static class " + thisPublicStaticClassName, "*/");
 		if (TextUtils.isEmpty(classText))
-			throw new RuntimeException("Can not find text between \"public static class " + thisPublicStaticClassName
+			throw new RuntimeException("Can not find text between \"public static class " + thisPublicStaticClassName // NOSONAR
 					+ " and end tag \"*/\"");
 		String s = TextUtils.substringAfter(classText, "/*-");
 		textCache.put(clazz, s);

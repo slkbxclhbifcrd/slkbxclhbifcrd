@@ -30,7 +30,7 @@ import com.github.drinkjava2.jtransactions.tinytx.TinyTxConnectionManager;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * ActiveRecordDemoTest of DbUtil-Plus configurations
+ * ActiveRecordDemoTest of jSqlBox configurations
  * 
  * @author Yong Zhu
  * @since 1.0.0
@@ -76,13 +76,13 @@ public class TransactionDemo {
 	}
 
 	public static void main(String[] args) {
-		DbContext ctx = new DbContext((DataSource) BeanBox.getBean(DataSourceCfg.class));
+		DbContext ctx = new DbContext((DataSource) JBEANBOX.getBean(DataSourceCfg.class));
 		ctx.setConnectionManager(TinyTxConnectionManager.instance());
 		DbContext.setGlobalDbContext(ctx);
 		String[] ddls = ctx.toCreateDDL(User.class);
 		for (String ddl : ddls)
 			ctx.nExecute(ddl);
-		TransactionDemo demo = BeanBox.getBean(TransactionDemo.class);
+		TransactionDemo demo = JBEANBOX.getBean(TransactionDemo.class);
 		demo.save();
 		JBEANBOX.close();
 	}

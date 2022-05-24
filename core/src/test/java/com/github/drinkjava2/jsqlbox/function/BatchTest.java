@@ -11,9 +11,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.common.DataSourceConfig.DataSourceBox;
-import com.github.drinkjava2.jbeanbox.BeanBox;
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jdialects.annotation.jpa.Table;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
@@ -34,10 +33,9 @@ public class BatchTest {
 
 	{
 		DbContext.resetGlobalVariants();
-		// DbContext.setGlobalAllowShowSql(true); 
 
 		// Change to MySqlDataSourceBox to Test!
-		ctx = new DbContext((DataSource) BeanBox.getBean(DataSourceBox.class));// !MySQL
+		ctx = new DbContext((DataSource) JBEANBOX.getBean(DataSourceBox.class));// !MySQL
 		DbContext.setGlobalNextBatchSize(BUFFER_SIZE);
 		
 		DbContext.setGlobalDbContext(ctx);

@@ -24,41 +24,78 @@ import java.io.StringWriter;
  * @author Yong Zhu
  * @since 1.7.0
  */
+@SuppressWarnings("all")
 public class ConsoleLog implements Log {
+
+	public static final int OFF = 5;
+	public static final int ERROR = 4;
+	public static final int WARNING = 3;
+	public static final int INFO = 2;
+	public static final int DEBUG = 1;
+
 	Class<?> clazz;
+	private static int logLevel = INFO;
+	private static boolean logHead = false;
 
 	public ConsoleLog(Class<?> clazz) {
 		this.clazz = clazz;
 	}
 
+	public static int getLogLevel() {
+		return logLevel;
+	}
+
+	public static void setLogLevel(int logLevel) {
+		ConsoleLog.logLevel = logLevel;
+	}
+
+	public static boolean isLogHead() {
+		return logHead;
+	}
+
+	public static void setLogHead(boolean logHead) {
+		ConsoleLog.logHead = logHead;
+	}
+
+	private String logheadStr(String method) {
+		return logHead ? new StringBuilder(clazz.getSimpleName()).append(" ").append(method).append(": ").toString()
+				: "";
+	}
+
 	@Override
 	public void info(String msg) {
-		System.out.println(msg);
+		if (logLevel <= INFO)
+			System.out.println(logheadStr("info") + msg);
 	}
 
 	@Override
 	public void warn(String msg) {
-		System.out.println(msg);
+		if (logLevel <= WARNING)
+			System.out.println(logheadStr("warn") + msg);
 	}
 
 	@Override
 	public void warn(String msg, Throwable t) {
-		System.out.println(msg + getStackTrace(t));
+		if (logLevel <= WARNING)
+			System.out.println(logheadStr("warn") + msg + getStackTrace(t));
 	}
 
 	@Override
 	public void error(String msg) {
-		System.out.println(msg);
+		if (logLevel <= ERROR)
+			System.out.println(logheadStr("error") + msg);
 	}
 
 	@Override
 	public void error(String msg, Throwable t) {
-		System.out.println(msg + getStackTrace(t));
+		if (logLevel <= WARNING)
+			System.out.println(logheadStr("error") + msg + getStackTrace(t));
 	}
 
 	@Override
 	public void debug(String msg) {
-		System.out.println(msg);
+		if (logLevel <= DEBUG)
+			System.out.println(logheadStr("info") + msg);
 	}
 
 	public static String getStackTrace(Throwable t) {
@@ -71,5 +108,4 @@ public class ConsoleLog implements Log {
 			pw.close();
 		}
 	}
-
 }

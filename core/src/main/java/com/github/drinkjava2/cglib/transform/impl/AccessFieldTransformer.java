@@ -15,12 +15,12 @@
  */
 package com.github.drinkjava2.cglib.transform.impl;
 
-import com.github.drinkjava2.asm.Attribute;
-import com.github.drinkjava2.asm.ClassVisitor;
-import com.github.drinkjava2.asm.MethodVisitor;
 import com.github.drinkjava2.asm.Type;
-import com.github.drinkjava2.cglib.core.*;
-import com.github.drinkjava2.cglib.transform.*;
+import com.github.drinkjava2.cglib.core.CodeEmitter;
+import com.github.drinkjava2.cglib.core.Constants;
+import com.github.drinkjava2.cglib.core.Signature;
+import com.github.drinkjava2.cglib.core.TypeUtils;
+import com.github.drinkjava2.cglib.transform.ClassEmitterTransformer;
 
 public class AccessFieldTransformer extends ClassEmitterTransformer {
     private Callback callback;

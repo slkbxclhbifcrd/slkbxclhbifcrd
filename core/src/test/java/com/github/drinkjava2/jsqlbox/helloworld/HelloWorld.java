@@ -11,8 +11,6 @@
  */
 package com.github.drinkjava2.jsqlbox.helloworld;
 
-import java.sql.SQLException;
-
 import javax.sql.DataSource;
 
 import org.h2.jdbcx.JdbcConnectionPool;
@@ -24,7 +22,7 @@ import com.github.drinkjava2.jsqlbox.DB;
 import com.github.drinkjava2.jsqlbox.DbContext;
 
 /**
- * ActiveRecordDemoTest of DbUtil-Plus configurations
+ * ActiveRecordDemoTest of jSqlBox configurations
  * 
  * @author Yong Zhu
  * @since 1.0.0
@@ -44,16 +42,15 @@ public class HelloWorld extends ActiveRecord<HelloWorld> {
 		return this;
 	}
 
-	public static void main(String[] args) throws SQLException {
+	public static void main(String[] args) {
 		DataSource ds = JdbcConnectionPool
 				.create("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
-
+		DbContext.setGlobalNextAllowShowSql(true);
 		DbContext ctx = new DbContext(ds);
 		DbContext.setGlobalDbContext(ctx);
-		for (String ddl : ctx.toDropAndCreateDDL(HelloWorld.class))
-			ctx.nExecute(ddl);
-
-		new HelloWorld().setName("Hellow DbUtil-Plus").insert();
+		ctx.executeDDL(ctx.toCreateDDL(HelloWorld.class)); 
+		new HelloWorld().setName("Hellow jSqlBox").insert();
 		System.out.println(DB.iQueryForString("select name from HelloWorld"));
+		ctx.executeDDL(ctx.toDropDDL(HelloWorld.class));
 	}
 }

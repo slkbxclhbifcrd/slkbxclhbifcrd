@@ -20,10 +20,10 @@ import javax.sql.DataSource;
 
 import com.github.drinkjava2.jdbpro.NormalJdbcTool;
 import com.github.drinkjava2.jdialects.id.IdGenerator;
-import com.github.drinkjava2.jdialects.log.DialectLog;
-import com.github.drinkjava2.jdialects.log.DialectLogFactory;
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jlogs.Log;
+import com.github.drinkjava2.jlogs.LogFactory;
 
 /**
  * jDialects is a small Java tool collect all databases' dialect, most data are
@@ -36,110 +36,109 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @since 1.7.0
  */
 @SuppressWarnings("all")
-public enum Dialect implements CommonDialect {
-	/** Use Derby instead */
+public class Dialect {
+	/** Use Derby other dialects instead */
 	@Deprecated
-	DerbyDialect,
+	public static final Dialect DerbyDialect = new Dialect("DerbyDialect");
 
 	/** Use Oracle8iDialect instead */
 	@Deprecated
-	OracleDialect,
+	public static final Dialect OracleDialect = new Dialect("OracleDialect");
 
 	/** Use Oracle9i instead */
 	@Deprecated
-	Oracle9Dialect, //
+	public static final Dialect Oracle9Dialect = new Dialect("Oracle9Dialect");
 
-	//below added by hand
-	DamengDialect,// equal to InformixDialect
-	GBaseDialect,// equal to Oracle8iDialect
-	
+	// below added by hand
+	public static final Dialect DamengDialect = new Dialect("DamengDialect");
+	public static final Dialect GBaseDialect = new Dialect("GBaseDialect");
+
 	// Below dialects found on Internet
-	AccessDialect, //
-	CobolDialect, //
-	DbfDialect, //
-	ExcelDialect, //
-	ParadoxDialect, //
-	SQLiteDialect, //
-	TextDialect, //
-	XMLDialect, //
+	public static final Dialect AccessDialect = new Dialect("AccessDialect");
+	public static final Dialect CobolDialect = new Dialect("CobolDialect");
+	public static final Dialect DbfDialect = new Dialect("DbfDialect");
+	public static final Dialect ExcelDialect = new Dialect("ExcelDialect");
+	public static final Dialect ParadoxDialect = new Dialect("ParadoxDialect");
+	public static final Dialect SQLiteDialect = new Dialect("SQLiteDialect");
+	public static final Dialect TextDialect = new Dialect("TextDialect");
+	public static final Dialect XMLDialect = new Dialect("XMLDialect");
 
 	// Below dialects imported from Hibernate
-	Cache71Dialect,//
-	CUBRIDDialect,//
-	DataDirectOracle9Dialect,//
-	DB2390Dialect,//
-	DB2390V8Dialect,//
-	DB2400Dialect,//
-	DB297Dialect,//
-	DB2Dialect,//
-	DerbyTenFiveDialect,//
-	DerbyTenSevenDialect,//
-	DerbyTenSixDialect,//
-	FirebirdDialect,//
-	FrontBaseDialect,//
-	H2Dialect,//
-	HANAColumnStoreDialect,//
-	HANARowStoreDialect,//
-	HSQLDialect,//
-	Informix10Dialect,//
-	InformixDialect,//
-	Ingres10Dialect,//
-	Ingres9Dialect,//
-	IngresDialect,//
-	InterbaseDialect,//
-	JDataStoreDialect,//
-	MariaDB102Dialect,//
-	MariaDB103Dialect,//
-	MariaDB10Dialect,//
-	MariaDB53Dialect,//
-	MariaDBDialect,//
-	MckoiDialect,//
-	MimerSQLDialect,//
-	MySQL55Dialect,//
-	MySQL57Dialect,//
-	MySQL57InnoDBDialect,//
-	MySQL5Dialect,//
-	MySQL5InnoDBDialect,//
-	MySQL8Dialect,//
-	MySQLDialect,//
-	MySQLInnoDBDialect,//
-	MySQLMyISAMDialect,//
-	Oracle10gDialect,//
-	Oracle12cDialect,//
-	Oracle8iDialect,//
-	Oracle9iDialect,//
-	PointbaseDialect,//
-	PostgresPlusDialect,//
-	PostgreSQL81Dialect,//
-	PostgreSQL82Dialect,//
-	PostgreSQL91Dialect,//
-	PostgreSQL92Dialect,//
-	PostgreSQL93Dialect,//
-	PostgreSQL94Dialect,//
-	PostgreSQL95Dialect,//
-	PostgreSQL9Dialect,//
-	PostgreSQLDialect,//
-	ProgressDialect,//
-	RDMSOS2200Dialect,//
-	SAPDBDialect,//
-	SQLServer2005Dialect,//
-	SQLServer2008Dialect,//
-	SQLServer2012Dialect,//
-	SQLServerDialect,//
-	Sybase11Dialect,//
-	SybaseAnywhereDialect,//
-	SybaseASE157Dialect,//
-	SybaseASE15Dialect,//
-	SybaseDialect,//
-	Teradata14Dialect,//
-	TeradataDialect,//
-	TimesTenDialect;//
-
+	public static final Dialect Cache71Dialect = new Dialect("Cache71Dialect");
+	public static final Dialect CUBRIDDialect = new Dialect("CUBRIDDialect");
+	public static final Dialect DataDirectOracle9Dialect = new Dialect("DataDirectOracle9Dialect");
+	public static final Dialect DB2390Dialect = new Dialect("DB2390Dialect");
+	public static final Dialect DB2390V8Dialect = new Dialect("DB2390V8Dialect");
+	public static final Dialect DB2400Dialect = new Dialect("DB2400Dialect");
+	public static final Dialect DB297Dialect = new Dialect("DB297Dialect");
+	public static final Dialect DB2Dialect = new Dialect("DB2Dialect");
+	public static final Dialect DerbyTenFiveDialect = new Dialect("DerbyTenFiveDialect");
+	public static final Dialect DerbyTenSevenDialect = new Dialect("DerbyTenSevenDialect");
+	public static final Dialect DerbyTenSixDialect = new Dialect("DerbyTenSixDialect");
+	public static final Dialect FirebirdDialect = new Dialect("FirebirdDialect");
+	public static final Dialect FrontBaseDialect = new Dialect("FrontBaseDialect");
+	public static final Dialect H2Dialect = new Dialect("H2Dialect");
+	public static final Dialect HANAColumnStoreDialect = new Dialect("HANAColumnStoreDialect");
+	public static final Dialect HANARowStoreDialect = new Dialect("HANARowStoreDialect");
+	public static final Dialect HSQLDialect = new Dialect("HSQLDialect");
+	public static final Dialect Informix10Dialect = new Dialect("Informix10Dialect");
+	public static final Dialect InformixDialect = new Dialect("InformixDialect");
+	public static final Dialect Ingres10Dialect = new Dialect("Ingres10Dialect");
+	public static final Dialect Ingres9Dialect = new Dialect("Ingres9Dialect");
+	public static final Dialect IngresDialect = new Dialect("IngresDialect");
+	public static final Dialect InterbaseDialect = new Dialect("InterbaseDialect");
+	public static final Dialect JDataStoreDialect = new Dialect("JDataStoreDialect");
+	public static final Dialect MariaDB102Dialect = new Dialect("MariaDB102Dialect");
+	public static final Dialect MariaDB103Dialect = new Dialect("MariaDB103Dialect");
+	public static final Dialect MariaDB10Dialect = new Dialect("MariaDB10Dialect");
+	public static final Dialect MariaDB53Dialect = new Dialect("MariaDB53Dialect");
+	public static final Dialect MariaDBDialect = new Dialect("MariaDBDialect");
+	public static final Dialect MckoiDialect = new Dialect("MckoiDialect");
+	public static final Dialect MimerSQLDialect = new Dialect("MimerSQLDialect");
+	public static final Dialect MySQL55Dialect = new Dialect("MySQL55Dialect");
+	public static final Dialect MySQL57Dialect = new Dialect("MySQL57Dialect");
+	public static final Dialect MySQL57InnoDBDialect = new Dialect("MySQL57InnoDBDialect");
+	public static final Dialect MySQL5Dialect = new Dialect("MySQL5Dialect");
+	public static final Dialect MySQL5InnoDBDialect = new Dialect("MySQL5InnoDBDialect");
+	public static final Dialect MySQL8Dialect = new Dialect("MySQL8Dialect");
+	public static final Dialect MySQLDialect = new Dialect("MySQLDialect");
+	public static final Dialect MySQLInnoDBDialect = new Dialect("MySQLInnoDBDialect");
+	public static final Dialect MySQLMyISAMDialect = new Dialect("MySQLMyISAMDialect");
+	public static final Dialect Oracle10gDialect = new Dialect("Oracle10gDialect");
+	public static final Dialect Oracle12cDialect = new Dialect("Oracle12cDialect");
+	public static final Dialect Oracle8iDialect = new Dialect("Oracle8iDialect");
+	public static final Dialect Oracle9iDialect = new Dialect("Oracle9iDialect");
+	public static final Dialect PointbaseDialect = new Dialect("PointbaseDialect");
+	public static final Dialect PostgresPlusDialect = new Dialect("PostgresPlusDialect");
+	public static final Dialect PostgreSQL81Dialect = new Dialect("PostgreSQL81Dialect");
+	public static final Dialect PostgreSQL82Dialect = new Dialect("PostgreSQL82Dialect");
+	public static final Dialect PostgreSQL91Dialect = new Dialect("PostgreSQL91Dialect");
+	public static final Dialect PostgreSQL92Dialect = new Dialect("PostgreSQL92Dialect");
+	public static final Dialect PostgreSQL93Dialect = new Dialect("PostgreSQL93Dialect");
+	public static final Dialect PostgreSQL94Dialect = new Dialect("PostgreSQL94Dialect");
+	public static final Dialect PostgreSQL95Dialect = new Dialect("PostgreSQL95Dialect");
+	public static final Dialect PostgreSQL9Dialect = new Dialect("PostgreSQL9Dialect");
+	public static final Dialect PostgreSQLDialect = new Dialect("PostgreSQLDialect");
+	public static final Dialect ProgressDialect = new Dialect("ProgressDialect");
+	public static final Dialect RDMSOS2200Dialect = new Dialect("RDMSOS2200Dialect");
+	public static final Dialect SAPDBDialect = new Dialect("SAPDBDialect");
+	public static final Dialect SQLServer2005Dialect = new Dialect("SQLServer2005Dialect");
+	public static final Dialect SQLServer2008Dialect = new Dialect("SQLServer2008Dialect");
+	public static final Dialect SQLServer2012Dialect = new Dialect("SQLServer2012Dialect");
+	public static final Dialect SQLServerDialect = new Dialect("SQLServerDialect");
+	public static final Dialect Sybase11Dialect = new Dialect("Sybase11Dialect");
+	public static final Dialect SybaseAnywhereDialect = new Dialect("SybaseAnywhereDialect");
+	public static final Dialect SybaseASE157Dialect = new Dialect("SybaseASE157Dialect");
+	public static final Dialect SybaseASE15Dialect = new Dialect("SybaseASE15Dialect");
+	public static final Dialect SybaseDialect = new Dialect("SybaseDialect");
+	public static final Dialect Teradata14Dialect = new Dialect("Teradata14Dialect");
+	public static final Dialect TeradataDialect = new Dialect("TeradataDialect");
+	public static final Dialect TimesTenDialect = new Dialect("TimesTenDialect");
 
 	/** If set true will allow use reserved words in DDL, default value is false */
 	private static Boolean globalAllowReservedWords = false;
 
-	private static final DialectLog logger = DialectLogFactory.getLog(Dialect.class);
+	private static final Log logger = LogFactory.getLog(Dialect.class);
 
 	/**
 	 * If set true will output log for each paginate, translate, paginAndTranslate,
@@ -151,25 +150,59 @@ public enum Dialect implements CommonDialect {
 	/** The SQL function prefix String, default value is null */
 	private static String globalSqlFunctionPrefix = null;
 
+	/** If disable, will use same SqlTemplate for first page pagination query */
+	private static Boolean globalEnableTopLimitPagin = true;
+
 	public static final String NOT_SUPPORT = "NOT_SUPPORT";
 	private static final String SKIP_ROWS = "$SKIP_ROWS";
 	private static final String PAGESIZE = "$PAGESIZE";
 	private static final String TOTAL_ROWS = "$TOTAL_ROWS";
 	private static final String DISTINCT_TAG = "($DISTINCT)";
-	private String sqlTemplate = null;
-	private String topLimitTemplate = null;
-	protected final Map<Type, String> typeMappings = new EnumMap<Type, String>(Type.class);
-	protected final Map<String, String> functions = new HashMap<String, String>();
-	protected final DDLFeatures ddlFeatures = new DDLFeatures();// NOSONAR
+	public String sqlTemplate;
+	public String topLimitTemplate;
+	public String name;
+	public DialectType type; // To support java6 switch
+	public Map<Type, String> typeMappings = new EnumMap<Type, String>(Type.class);
+	public Map<String, String> functions = new HashMap<String, String>();
+	public DDLFeatures ddlFeatures = new DDLFeatures();// NOSONAR
 
 	static {
-		for (Dialect d : Dialect.values()) {
-			d.sqlTemplate = DialectPaginationTemplate.initializePaginSQLTemplate(d);
-			d.topLimitTemplate = DialectPaginationTemplate.initializeTopLimitSqlTemplate(d);
-			DDLFeatures.initDDLFeatures(d, d.ddlFeatures);
-		}
 		DialectTypeMappingTemplate.initTypeMappings();
 		DialectFunctionTemplate.initFunctionTemplates();
+	}
+
+	public Dialect(String name) {
+		this.name = name;
+		try {
+			this.type = DialectType.valueOf(name);
+		} catch (Exception e) {
+			this.type = DialectType.Customized;
+		}
+		this.sqlTemplate = DialectPaginationTemplate.initializePaginSQLTemplate(this);
+		this.topLimitTemplate = DialectPaginationTemplate.initializeTopLimitSqlTemplate(this);
+		DDLFeatures.initDDLFeatures(this);
+	}
+
+	public static Dialect[] dialects = new Dialect[] { DerbyDialect, OracleDialect, Oracle9Dialect, DamengDialect,
+			GBaseDialect, AccessDialect, CobolDialect, DbfDialect, ExcelDialect, ParadoxDialect, SQLiteDialect,
+			TextDialect, XMLDialect, Cache71Dialect, CUBRIDDialect, DataDirectOracle9Dialect, DB2390Dialect,
+			DB2390V8Dialect, DB2400Dialect, DB297Dialect, DB2Dialect, DerbyTenFiveDialect, DerbyTenSevenDialect,
+			DerbyTenSixDialect, FirebirdDialect, FrontBaseDialect, H2Dialect, HANAColumnStoreDialect,
+			HANARowStoreDialect, HSQLDialect, Informix10Dialect, InformixDialect, Ingres10Dialect, Ingres9Dialect,
+			IngresDialect, InterbaseDialect, JDataStoreDialect, MariaDB102Dialect, MariaDB103Dialect, MariaDB10Dialect,
+			MariaDB53Dialect, MariaDBDialect, MckoiDialect, MimerSQLDialect, MySQL55Dialect, MySQL57Dialect,
+			MySQL57InnoDBDialect, MySQL5Dialect, MySQL5InnoDBDialect, MySQL8Dialect, MySQLDialect, MySQLInnoDBDialect,
+			MySQLMyISAMDialect, Oracle10gDialect, Oracle12cDialect, Oracle8iDialect, Oracle9iDialect, PointbaseDialect,
+			PostgresPlusDialect, PostgreSQL81Dialect, PostgreSQL82Dialect, PostgreSQL91Dialect, PostgreSQL92Dialect,
+			PostgreSQL93Dialect, PostgreSQL94Dialect, PostgreSQL95Dialect, PostgreSQL9Dialect, PostgreSQLDialect,
+			ProgressDialect, RDMSOS2200Dialect, SAPDBDialect, SQLServer2005Dialect, SQLServer2008Dialect,
+			SQLServer2012Dialect, SQLServerDialect, Sybase11Dialect, SybaseAnywhereDialect, SybaseASE157Dialect,
+			SybaseASE15Dialect, SybaseDialect, Teradata14Dialect, TeradataDialect, TimesTenDialect };
+
+	/** Use Dialect.dialects directly */
+	@Deprecated
+	public static Dialect[] values() {
+		return dialects;
 	}
 
 	/**
@@ -242,8 +275,8 @@ public enum Dialect implements CommonDialect {
 	}
 
 	/**
-	 * Transfer com.github.drinkjava2.jdialects.Type to a real dialect's type
-	 * definition DDL String, lengths is optional for some types
+	 * Transfer columnModel to a real dialect's DDL definition String, lengths is
+	 * optional for some types
 	 */
 	public String translateToDDLType(ColumnModel col) {// NOSONAR
 		Type type = col.getColumnType();
@@ -270,10 +303,6 @@ public enum Dialect implements CommonDialect {
 		else
 			return value;
 	}
-
-	// @formatter:off shut off eclipse's formatter
-
-	// @formatter:on
 
 	/**
 	 * inside function
@@ -308,7 +337,6 @@ public enum Dialect implements CommonDialect {
 		return pagin(pageNumber, pageSize, trans(sql));
 	}
 
-	@Override
 	public String trans(String... sql) {
 		StringBuilder sb = new StringBuilder();
 		for (String str : sql)
@@ -316,7 +344,6 @@ public enum Dialect implements CommonDialect {
 		return DialectFunctionTranslator.instance.doTranslate(this, sb.toString());
 	}
 
-	@Override
 	public String pagin(int pageNumber, int pageSize, String sql) {// NOSONAR
 		String result = null;
 		DialectException.assureNotNull(sql, "sql string can not be null");
@@ -333,7 +360,7 @@ public enum Dialect implements CommonDialect {
 		int totalRows = pageNumber * pageSize;
 		int totalRowsPlus1 = totalRows + 1;
 		String useTemplate;
-		if (skipRows == 0) {
+		if (globalEnableTopLimitPagin && skipRows == 0) {
 			useTemplate = topLimitTemplate;
 			if (SQLServer2012Dialect.equals(this) && !StrUtils.containsIgnoreCase(trimedSql, "order by "))
 				useTemplate = SQLServer2005Dialect.topLimitTemplate;
@@ -375,6 +402,16 @@ public enum Dialect implements CommonDialect {
 		if (getGlobalAllowShowSql())
 			logger.info("Paginated sql: " + result);
 		return result;
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return name.equals(((Dialect) obj).name);
 	}
 
 	/**
@@ -526,17 +563,14 @@ public enum Dialect implements CommonDialect {
 	}
 
 	// getter & setter====
-	/** Get Type mapping features key-value Map of current dialect */
-	public Map<Type, String> getTypeMappings() {
-		return typeMappings;
+	public String getName() {
+		return name;
 	}
 
-	/** Get DDL features of current dialect */
-	public Map<String, String> getFunctions() {
-		return functions;
+	public void setName(String name) {
+		this.name = name;
 	}
 
-	/** Get DDL features of current dialect */
 	public DDLFeatures getDdlFeatures() {
 		return ddlFeatures;
 	}
@@ -568,4 +602,18 @@ public enum Dialect implements CommonDialect {
 		Dialect.globalSqlFunctionPrefix = sqlFunctionPrefix;
 	}
 
+	public static Boolean getGlobalEnableTopLimitPagin() {
+		return globalEnableTopLimitPagin;
+	}
+
+	/** Note! this is a global method to set globalEnableTopLimitPagin */
+	public static void setGlobalEnableTopLimitPagin(Boolean globalEnableTopLimitPagin) {
+		Dialect.globalEnableTopLimitPagin = globalEnableTopLimitPagin;
+	}
+
+	public static void main(String[] args) {
+		for (Dialect d : Dialect.values()) {
+			System.out.println(d.type + " name=" + d.name);
+		}
+	}
 }

@@ -9,6 +9,7 @@
  */
 package com.github.drinkjava2.jbeanbox;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * BeanBox is a virtual model tell system how to build or lookup bean instance
@@ -35,10 +37,14 @@ public class BeanBox {
 
 	protected boolean required = true;// For field and parameter, if not found throw exception
 
+	protected Class<? extends Annotation> qualifierAnno; // the qualifier annotation class
+
+	protected Object qualifierValue; // the only value of the qualifier annotation, jBeanBox only support 1 value
+
 	// below fields for BeanBox has no target
 	protected Class<?> beanClass; // bean class, usually is an annotated class
 
-	protected Boolean singleton; // Default singleton is not set, see readme.md
+	protected Boolean singleton = null; // Default Beanbox is singleton
 
 	protected Constructor<?> constructor; // if not null, use constructor to create
 
@@ -54,41 +60,11 @@ public class BeanBox {
 
 	protected Map<Method, BeanBox[]> methodInjects;// if not null, inject Methods
 
-	protected Method createMethod; // if not null, use this method to create bean
-
-	protected Method configMethod; // if not null, after bean created, will call this method
-
 	// ========== AOP About ===========
 	protected Map<Method, List<Object>> methodAops;// if not null, need create proxy bean
 	protected List<Object[]> aopRules;// if not null, need create proxy bean
 
-	{// NOSONAR
-		if (!BeanBox.class.equals(this.getClass())) {
-			Method m = ReflectionUtils.findMethod(this.getClass(), BeanBoxContext.CREATE_METHOD);
-			if (m == null)
-				m = ReflectionUtils.findMethod(this.getClass(), BeanBoxContext.CREATE_METHOD, Caller.class);
-			if (m != null) {
-				ReflectionUtils.makeAccessible(m);
-				this.beanClass = m.getReturnType();
-				this.createMethod = m;
-			}
-
-			m = ReflectionUtils.findMethod(this.getClass(), BeanBoxContext.CONFIG_METHOD, Object.class);
-			if (m == null)
-				m = ReflectionUtils.findMethod(this.getClass(), BeanBoxContext.CONFIG_METHOD, Object.class,
-						Caller.class);
-			if (m != null) {
-				ReflectionUtils.makeAccessible(m);
-				this.configMethod = m;
-			}
-		}
-	}
-
 	public BeanBox() { // Default constructor
-	}
-
-	public BeanBox(Class<?> beanClass) { // Default constructor
-		this.beanClass = beanClass;
 	}
 
 	public Object getSingletonId() {
@@ -102,24 +78,9 @@ public class BeanBox {
 		return BeanBoxContext.globalBeanBoxContext.getBean(this);
 	}
 
-	/** Use default global BeanBoxContext to create bean */
-	public static <T> T getBean(Object target) {
-		return BeanBoxContext.globalBeanBoxContext.getBean(target);
-	}
-
-	/** Use default global BeanBoxContext to create a prototype bean */
-	public static <T> T getPrototypeBean(Class<?> beanClass) {
-		return new BeanBox(beanClass).getBean();
-	}
-
-	/** Use given BeanBoxContext to create bean */
-	public <T> T getBean(BeanBoxContext ctx) {
-		return ctx.getBean(this);
-	}
-
-	/** For debug only, will delete in future version */
+	/** For debug purpose */
 	public String getDebugInfo() {
-		StringBuilder sb = new StringBuilder("\r\n========BeanBox Debug for " + this + "===========\r\n");
+		StringBuilder sb = new StringBuilder("\r\n BeanBox properties:\r\n");
 		sb.append("target=" + this.target).append("\r\n");
 		sb.append("pureValue=" + this.pureValue).append("\r\n");
 		sb.append("type=" + this.type).append("\r\n");
@@ -134,9 +95,8 @@ public class BeanBox {
 		sb.append("preDestorys=" + this.preDestroy).append("\r\n");
 		sb.append("fieldInjects=" + this.fieldInjects).append("\r\n");
 		sb.append("methodInjects=" + this.methodInjects).append("\r\n");
-		sb.append("createMethod=" + this.createMethod).append("\r\n");
-		sb.append("configMethod=" + this.configMethod).append("\r\n");
-		sb.append("========BeanBox Debug Info End===========");
+		sb.append("qualifierAnno=" + this.qualifierAnno).append("\r\n");
+		sb.append("qualifierValue=" + this.qualifierValue);
 		return sb.toString();
 	}
 
@@ -158,6 +118,37 @@ public class BeanBox {
 	protected void checkOrCreateMethodAopRules() { // no need explain
 		if (aopRules == null)
 			aopRules = new ArrayList<Object[]>();
+	}
+
+	protected Class<?> checkBeanClassExist(){
+		if(beanClass==null) {
+			Method mtd=ReflectionUtils.findMethod(this.getClass(), "create");
+			Class<?> returnType=mtd.getReturnType();
+			if(returnType!=Object.class)
+				beanClass=returnType; 
+		}		
+		return beanClass;
+	}
+
+	protected BeanBox newCopy() {
+		BeanBox box = new BeanBox();
+		box.target = this.target;
+		box.pureValue = this.pureValue;
+		box.type = this.type;
+		box.required = this.required;
+		box.qualifierAnno = this.qualifierAnno;
+		box.qualifierValue = this.qualifierValue;
+		box.beanClass = this.beanClass;
+		box.singleton = this.singleton;
+		box.constructor = this.constructor;
+		box.constructorParams = this.constructorParams;
+		box.postConstruct = this.postConstruct;
+		box.preDestroy = this.preDestroy;
+		box.fieldInjects = this.fieldInjects;
+		box.methodInjects = this.methodInjects;
+		box.methodAops = this.methodAops;
+		box.aopRules = this.aopRules;
+		return box;
 	}
 
 	protected void belowAreJavaConfigMethods_______________() {// NOSONAR
@@ -202,6 +193,19 @@ public class BeanBox {
 	}
 
 	/**
+	 * This is shortcut inject for method parameter type is same as parameter
+	 * itself, usage example: injectMtd("setName", "Sam");
+	 */
+	public BeanBox injectConstr(Class<?> clazz, Object... configs) {
+		Object[] newConfigs = new Object[configs.length * 2];
+		for (int i = 0; i < configs.length; i++) {
+			newConfigs[i * 2] = configs[i].getClass();
+			newConfigs[i * 2 + 1] = configs[i];
+		}
+		return injectConstruct(clazz, newConfigs);
+	}
+
+	/**
 	 * This is Java configuration method equal to put @INJECT on a class's method, a
 	 * usage example: injectMethod("setName", String.class, JBEANBOX.value("Sam"));
 	 */
@@ -216,11 +220,24 @@ public class BeanBox {
 			params[i - mid] = BeanBoxUtils.wrapParamToBox(configs[i]);
 			params[i - mid].setType(paramTypes[i - mid]);
 		}
-		Method m = ReflectionUtils.findMethod(beanClass, methodName, paramTypes);
+		Method m = ReflectionUtils.findMethod(checkBeanClassExist(), methodName, paramTypes);
 		if (m != null)
 			ReflectionUtils.makeAccessible(m);
 		this.getMethodInjects().put(m, params);
 		return this;
+	}
+
+	/**
+	 * This is shortcut inject for method parameter type is same as parameter
+	 * itself, usage example: injectMtd("setName", "Sam");
+	 */
+	public BeanBox injectMtd(String methodName, Object... configs) {
+		Object[] newConfigs = new Object[configs.length * 2];
+		for (int i = 0; i < configs.length; i++) {
+			newConfigs[i * 2] = configs[i].getClass();
+			newConfigs[i * 2 + 1] = configs[i];
+		}
+		return injectMethod(methodName, newConfigs);
 	}
 
 	/**
@@ -250,7 +267,7 @@ public class BeanBox {
 	 */
 	public synchronized BeanBox addMethodAop(Object aop, String methodName, Class<?>... paramTypes) {
 		checkOrCreateMethodAops();
-		Method m = ReflectionUtils.findMethod(beanClass, methodName, paramTypes);
+		Method m = ReflectionUtils.findMethod(checkBeanClassExist(), methodName, paramTypes);
 		BeanBoxException.assureNotNull(m, "Not found method: '" + methodName + "'");
 		addMethodAop(aop, m);
 		return this;
@@ -271,24 +288,24 @@ public class BeanBox {
 	}
 
 	public BeanBox setPostConstruct(String methodName) {// NOSONAR
-		Method m = ReflectionUtils.findMethod(beanClass, methodName);
+		Method m = ReflectionUtils.findMethod(checkBeanClassExist(), methodName);
 		this.setPostConstruct(m);
 		return this;
 	}
 
 	public BeanBox setPreDestroy(String methodName) {// NOSONAR
-		Method m = ReflectionUtils.findMethod(beanClass, methodName);
+		Method m = ReflectionUtils.findMethod(checkBeanClassExist(), methodName);
 		this.setPreDestroy(m);
 		return this;
 	}
 
-	/** 
-	 * Inject class, BeanBox class or instance, 
+	/**
+	 * Inject class, BeanBox class or instance,
 	 */
-	public BeanBox injectField(String fieldName, Object inject) {
-		BeanBox box = BeanBoxUtils.wrapParamToBox(inject);
+	public BeanBox injectField(String fieldName, Object object) {
+		BeanBox box = BeanBoxUtils.wrapParamToBox(object);
 		checkOrCreateFieldInjects();
-		Field f = ReflectionUtils.findField(beanClass, fieldName);
+		Field f = ReflectionUtils.findField(checkBeanClassExist(), fieldName);
 		box.setType(f.getType());
 		ReflectionUtils.makeAccessible(f);
 		this.getFieldInjects().put(f, box);
@@ -296,14 +313,14 @@ public class BeanBox {
 	}
 
 	/** Compatible for old jBeanBox version, Inject a pure value to Field */
-	public BeanBox setProperty(String fieldName, Object constValue) {
-		return injectField(fieldName, constValue);
+	public BeanBox setProperty(String fieldName, Object object) {
+		return injectField(fieldName, object);
 	}
 
 	/** Inject a pure value to Field */
 	public BeanBox injectValue(String fieldName, Object constValue) {
-		checkOrCreateFieldInjects();
-		Field f = ReflectionUtils.findField(beanClass, fieldName);
+		checkOrCreateFieldInjects(); 
+		Field f = ReflectionUtils.findField(checkBeanClassExist(), fieldName);
 		BeanBox inject = new BeanBox();
 		inject.setTarget(constValue);
 		inject.setType(f.getType());
@@ -313,10 +330,27 @@ public class BeanBox {
 		return this;
 	}
 
-	public boolean isSingleton() {
-		return singleton != null && singleton;
+	public Object create() {// for child class override
+		return null;
 	}
 
+	public Object create(BeanBoxContext context) {//NOSONAR  for child class override
+		return null;
+	}
+
+	public Object create(BeanBoxContext context, Set<Object> history) {//NOSONAR for child class override
+		return null;
+	}
+
+	public void config(Object bean) {// for child class override
+	}
+
+	public void config(Object bean, BeanBoxContext context) {// for child class override
+	}
+
+	public void config(Object bean, BeanBoxContext context, Set<Object> history) {// for child class override
+	}
+	
 	protected void getterAndSetters_____________________() {// NOSONAR
 	}
 
@@ -365,11 +399,11 @@ public class BeanBox {
 		return this;
 	}
 
-	public Boolean getSingleton() {
-		return singleton;
+	public boolean isSingleton() {
+		return singleton != null && singleton;
 	}
 
-	public BeanBox setSingleton(Boolean singleton) {
+	public BeanBox setSingleton(boolean singleton) {
 		this.singleton = singleton;
 		return this;
 	}
@@ -428,24 +462,6 @@ public class BeanBox {
 		return this;
 	}
 
-	public Method getCreateMethod() {
-		return createMethod;
-	}
-
-	public BeanBox setCreateMethod(Method createMethod) {
-		this.createMethod = createMethod;
-		return this;
-	}
-
-	public Method getConfigMethod() {
-		return configMethod;
-	}
-
-	public BeanBox setConfigMethod(Method configMethod) {
-		this.configMethod = configMethod;
-		return this;
-	}
-
 	public Map<Method, List<Object>> getMethodAops() {
 		return methodAops;
 	}
@@ -461,6 +477,24 @@ public class BeanBox {
 
 	public BeanBox setAopRules(List<Object[]> aopRules) {
 		this.aopRules = aopRules;
+		return this;
+	}
+
+	public Class<? extends Annotation> getQualifierAnno() {
+		return qualifierAnno;
+	}
+
+	public BeanBox setQualifierAnno(Class<? extends Annotation> qualifierAnno) {
+		this.qualifierAnno = qualifierAnno;
+		return this;
+	}
+
+	public Object getQualifierValue() {
+		return qualifierValue;
+	}
+
+	public BeanBox setQualifierValue(Object qualifierValue) {
+		this.qualifierValue = qualifierValue;
 		return this;
 	}
 

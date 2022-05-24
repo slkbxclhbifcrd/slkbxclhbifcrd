@@ -37,9 +37,7 @@ public class GtxUnlockServTest {
 
 	@Before
 	public void init() {
-		DbContext.resetGlobalVariants();
-		DbContext.setGlobalNextAllowShowSql(true);
-
+		DbContext.resetGlobalVariants();  
 		DbContext lock = new DbContext(newTestDataSource("GxLocker"));
 		lock.setName("lock");
 		lock.executeDDL(lock.toCreateDDL(GtxId.class));

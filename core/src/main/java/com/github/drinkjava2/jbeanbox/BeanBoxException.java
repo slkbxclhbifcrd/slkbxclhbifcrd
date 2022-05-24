@@ -10,7 +10,7 @@
 package com.github.drinkjava2.jbeanbox;
 
 /**
- * DialectException for jDialects
+ * BeanBoxException for jBeanBox
  * 
  * @author Yong Zhu
  * @since 1.0.0

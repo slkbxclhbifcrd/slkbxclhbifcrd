@@ -10,9 +10,8 @@ import javax.sql.DataSource;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.common.DataSourceConfig.DataSourceBox;
-import com.github.drinkjava2.jbeanbox.BeanBox;
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jbeanbox.annotation.AOP;
 import com.github.drinkjava2.jsqlbox.DbContext;
@@ -22,7 +21,7 @@ import com.github.drinkjava2.jtransactions.tinytx.TinyTxAOP;
  * TinyTx is a tiny and clean declarative transaction tool, in this unit test
  * use jBeanBox's annotation configuration.
  * 
- * To make DbUtil-Plus core unit test clean, I put Spring TX demos in DbUtil-Plus's demo
+ * To make jSqlBox core unit test clean, I put Spring TX demos in jSqlBox's demo
  * folder.
  *
  * @author Yong Zhu
@@ -32,7 +31,7 @@ public class AnnotationTxTest {
 	DbContext ctx;
 	{
 		DbContext.resetGlobalVariants();
-		ctx = new DbContext((DataSource) BeanBox.getBean(DataSourceBox.class));
+		ctx = new DbContext((DataSource) JBEANBOX.getBean(DataSourceBox.class));
 	}
 
 	@TX
@@ -50,7 +49,7 @@ public class AnnotationTxTest {
 
 	@Test
 	public void doTest() {
-		AnnotationTxTest tester = BeanBox.getBean(AnnotationTxTest.class);
+		AnnotationTxTest tester = JBEANBOX.getBean(AnnotationTxTest.class);
 		ctx.quiteExecute("drop table user_tb");
 		String ddl = "create table user_tb (id varchar(40))";
 		if (ctx.getDialect().isMySqlFamily())

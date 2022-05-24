@@ -16,15 +16,15 @@ import javax.sql.DataSource;
 import org.junit.After;
 import org.junit.Before;
 
-import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.common.DataSourceConfig.DataSourceBox;
-import com.github.drinkjava2.jbeanbox.BeanBox;
+import com.github.drinkjava2.common.Systemout;
 import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.annotation.jdia.UUID25;
 import com.github.drinkjava2.jdialects.annotation.jpa.Id;
 import com.github.drinkjava2.jdialects.model.TableModel;
+import com.github.drinkjava2.jlogs.ConsoleLog;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
 import com.github.drinkjava2.jsqlbox.DbContext;
 import com.zaxxer.hikari.HikariDataSource;
@@ -75,18 +75,21 @@ public class TestBase {
 
 	@Before
 	public void init() {
+		System.getProperties().setProperty("oracle.jdbc.J2EE13Compliant", "true");
 		DbContext.resetGlobalVariants();
-		//DbContext.setGlobalNextAllowShowSql(true);
-		dataSource = BeanBox.getBean(DataSourceBox.class);
+		ConsoleLog.setLogHead(true);
+		ConsoleLog.setLogLevel(ConsoleLog.WARNING);
+		DbContext.setGlobalNextAllowShowSql(true);
+		dataSource = JBEANBOX.getBean(DataSourceBox.class);
 		dialect = Dialect.guessDialect(dataSource);
 		Dialect.setGlobalAllowReservedWords(true);
 
-		 
 		ctx = new DbContext(dataSource);
 		DbContext.setGlobalDbContext(ctx);
 		if (tablesForTest != null)
+			quietDropTables(tablesForTest);
+		if (tablesForTest != null)
 			createAndRegTables(tablesForTest);
-
 	}
 
 	@After
@@ -96,11 +99,6 @@ public class TestBase {
 		tablesForTest = null;
 		JBEANBOX.close(); // IOC tool will close dataSource
 		DbContext.resetGlobalVariants();
-	}
-
-	public void executeDDLs(String[] ddls) {
-		for (String sql : ddls)
-			ctx.nExecute(sql);
 	}
 
 	public void quietExecuteDDLs(String[] ddls) {
@@ -139,22 +137,32 @@ public class TestBase {
 
 	public void createTables(TableModel... tableModels) {
 		String[] ddls = ctx.toCreateDDL(tableModels);
-		executeDDLs(ddls);
+		ctx.executeDDL(ddls);
 	}
 
 	public void createTables(Class<?>... classes) {
 		String[] ddls = ctx.toCreateDDL(classes);
-		executeDDLs(ddls);
+		ctx.executeDDL(ddls);
 	}
 
 	public void dropTables(TableModel... tableModels) {
 		String[] ddls = ctx.toDropDDL(tableModels);
-		executeDDLs(ddls);
+		ctx.executeDDL(ddls);
+	}
+
+	public void quietDropTables(TableModel... tableModels) {
+		String[] ddls = ctx.toDropDDL(tableModels);
+		quietExecuteDDLs(ddls);
+	}
+
+	public void quietDropTables(Class<?>... classes) {
+		String[] ddls = ctx.toDropDDL(classes);
+		quietExecuteDDLs(ddls);
 	}
 
 	public void dropTables(Class<?>... classes) {
 		String[] ddls = ctx.toDropDDL(classes);
-		executeDDLs(ddls);
+		ctx.executeDDL(ddls);
 	}
 
 	public static void printTimeUsed(long startTimeMillis, String msg) {

@@ -21,12 +21,12 @@ import java.lang.reflect.Constructor;
 import java.util.Properties;
 
 /**
- * This LogFactory is designed for get a jLog implement used inside of
- * DbUtil-Plus project.
+ * This LogFactory is designed for get a jLog implement used inside of jSqlBox
+ * project.
  * 
  * Usage: Log log= LogFactory.getLog(Xxx.class);
  * 
- * JLog used for inside of DbUtil-Plus project, if a "jlogs.properties" file if
+ * JLog used for inside of jSqlBox project, if a "jlogs.properties" file if
  * found on class root folder (main/resources), will try load the designated
  * JLog implementation, otherwise use default EmptyLog<br/>
  * 
@@ -38,40 +38,52 @@ import java.util.Properties;
  */
 public abstract class LogFactory {// NOSONAR
 
+	private static boolean printed = false;
 	private static Class<?> dbProLogClass = null;
 
 	/**
 	 * Find jlogs.properties configuration, if not found or jlogs.properties is
-	 * empty, use default EmptyLog
+	 * empty, use default ConsoleLog
 	 */
 	public static Log getLog(Class<?> clazz) {
 		if (dbProLogClass == void.class)
-			return new EmptyLog(clazz);
+			return new ConsoleLog(clazz);
 
 		if (dbProLogClass != null)
 			try {
 				Constructor<?> constr = dbProLogClass.getConstructor(Class.class);
 				return (Log) constr.newInstance(clazz);
 			} catch (Exception e) {
+				if (!printed())
+					System.err.println("Can not load log class: " + dbProLogClass // NOSONAR
+							+ ", will use ConsoleLog JLog logger. \r\n" + e.getMessage());
 				dbProLogClass = void.class;
-				return new EmptyLog(clazz);
+				return new ConsoleLog(clazz);
 			}
 
 		InputStream is = Log.class.getClassLoader().getResourceAsStream("jlogs.properties");
 		if (is == null) {
+			if (!printed())
+				System.out.println("Not found jlogs.properties,  will use ConsoleLog as JLog logger.");// NOSONAR
 			dbProLogClass = void.class;
-			return new EmptyLog(clazz);
+			return new ConsoleLog(clazz);
 		}
 
 		Properties prop = new Properties();
+		String className = "";
 		try {
 			prop.load(is);
-			String className = prop.getProperty("log");
+			className = prop.getProperty("log");
 			dbProLogClass = Class.forName(className);
+			if (!printed())
+				System.out.print("jlog.properties found, will use " + className + " as JLog logger."); // NOSONAR
 			return getLog(clazz);
 		} catch (Exception e) {
+			if (!printed())
+				System.err.println("No or wrong jlog.properties file: " + className // NOSONAR
+						+ ", will use ConsoleLog as JLog logger. \r\n" + e.getMessage());
 			dbProLogClass = void.class;
-			return new EmptyLog(clazz);
+			return new ConsoleLog(clazz);
 		} finally {
 			try {
 				is.close();
@@ -79,6 +91,12 @@ public abstract class LogFactory {// NOSONAR
 				// Do nothing
 			}
 		}
+	}
+
+	private static boolean printed() {
+		boolean old = printed;
+		printed = true;
+		return old;
 	}
 
 }

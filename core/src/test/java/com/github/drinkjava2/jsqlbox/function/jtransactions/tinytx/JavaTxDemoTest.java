@@ -12,9 +12,9 @@ import com.github.drinkjava2.jtransactions.tinytx.TinyTxAOP;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * This is DbUtil-Plus Transaction Demo by using Java Configuration
+ * This is jSqlBox Transaction Demo by using Java Configuration
  * 
- * To make DbUtil-Plus core unit test clean, I put Spring TX demos in DbUtil-Plus's demo
+ * To make jSqlBox core unit test clean, I put Spring TX demos in jSqlBox's demo
  * folder.
  *
  * @author Yong Zhu
@@ -42,7 +42,7 @@ public class JavaTxDemoTest {
 	DbContext ctx;
 	{
 		DbContext.resetGlobalVariants();
-		ctx = new DbContext((DataSource) BeanBox.getBean(DataSourceCfg.class));
+		ctx = new DbContext((DataSource) JBEANBOX.getBean(DataSourceCfg.class));
 	}
 
 	public void txInsert() {
@@ -53,7 +53,7 @@ public class JavaTxDemoTest {
 	@Test
 	public void doTest() throws Exception {
 		JBEANBOX.getBeanBox(JavaTxDemoTest.class).addBeanAop(new TinyTxAOP(), "tx*");
-		JavaTxDemoTest tester = BeanBox.getBean(JavaTxDemoTest.class);
+		JavaTxDemoTest tester = JBEANBOX.getBean(JavaTxDemoTest.class);
 		ctx.nExecute("create table user_tb (id varchar(40))engine=InnoDB");
 		try {
 			tester.txInsert();// this one did not insert, rolled back

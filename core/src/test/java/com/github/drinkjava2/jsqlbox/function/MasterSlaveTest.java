@@ -26,7 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.github.drinkjava2.common.Systemout;
-import com.github.drinkjava2.jbeanbox.BeanBox;
+import com.github.drinkjava2.jbeanbox.JBEANBOX;
 import com.github.drinkjava2.jbeanbox.annotation.AOP;
 import com.github.drinkjava2.jdbpro.DbPro;
 import com.github.drinkjava2.jdbpro.handler.PrintSqlHandler;
@@ -47,7 +47,7 @@ USE_SLAVE  (write: All Slaves!         read: Random 1 Slave )
 */
 
 /**
- * MasterSlaveTest of DbUtil-Plus
+ * MasterSlaveTest of jSqlBox
  * 
  * 
  * @author Yong Zhu
@@ -55,9 +55,9 @@ USE_SLAVE  (write: All Slaves!         read: Random 1 Slave )
  */
 
 public class MasterSlaveTest {
-	final static int SLAVE_DATABASE_QTY = 20;
-	final static int SLAVE_RECORD_ROWS = 5;
-	final static int MASTER_RECORD_ROWS = 10;
+	static final int SLAVE_DATABASE_QTY = 20;
+	static final int SLAVE_RECORD_ROWS = 5;
+	static final int MASTER_RECORD_ROWS = 10;
 	DbContext master;
 
 	public static class TheUser extends ActiveRecord<TheUser> {
@@ -162,7 +162,7 @@ public class MasterSlaveTest {
 		DbContext masterWithTx = new DbContext(txDataSource);
 
 		masterWithTx.setSlaves(master.getSlaves());
-		MasterSlaveTest tester = BeanBox.getBean(MasterSlaveTest.class); // Proxy
+		MasterSlaveTest tester = JBEANBOX.getBean(MasterSlaveTest.class); // Proxy
 		tester.queryInTransaction(masterWithTx);
 		txDataSource.close();// don't forget close DataSource pool
 	}

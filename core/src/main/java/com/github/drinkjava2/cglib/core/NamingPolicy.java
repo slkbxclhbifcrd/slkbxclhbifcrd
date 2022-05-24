@@ -15,8 +15,6 @@
  */
 package com.github.drinkjava2.cglib.core;
 
-import java.util.Set;
-
 /**
  * Customize the generated class name for {@link AbstractClassGenerator}-based utilities.
  */

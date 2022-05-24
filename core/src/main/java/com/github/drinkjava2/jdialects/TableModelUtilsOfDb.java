@@ -29,7 +29,7 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @author Yong Zhu
  * @since 1.0.6
  */
-public abstract class TableModelUtilsOfDb {
+public abstract class TableModelUtilsOfDb {//NOSONAR
 	private static final String TABLE_NAME = "TABLE_NAME";
 
 	/**
@@ -104,11 +104,11 @@ public abstract class TableModelUtilsOfDb {
 			// Get Primary Keys for each model
 			for (TableModel model : tableModels) {
 				rs = meta.getPrimaryKeys(catalog, null, model.getTableName());
-				while (rs.next())
+				while (rs.next()) {
 					model.getColumnByColName(rs.getString("COLUMN_NAME")).setPkey(true);
+				}
 				rs.close();
 			}
-
 			// Get Foreign Keys for each model
 			for (TableModel model : tableModels) {
 				ResultSet foreignKeyResultSet = meta.getImportedKeys(catalog, null, model.getTableName());

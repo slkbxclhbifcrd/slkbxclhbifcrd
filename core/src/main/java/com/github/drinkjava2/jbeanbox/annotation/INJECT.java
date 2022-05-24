@@ -24,12 +24,12 @@ import com.github.drinkjava2.jbeanbox.EMPTY;
  *
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.FIELD, ElementType.TYPE, ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PARAMETER })
+@Target({ ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.TYPE, ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PARAMETER })
 public @interface INJECT {
 
-	public Class<?> value() default EMPTY.class; // In fact is BeanBox's target field
+	public Class<?> value() default EMPTY.class; // the target, default is EMPTY.class
 
-	public boolean pureValue() default false; // if true mean values is a pure value, otherwise value is a target
+	public boolean pureValue() default false; // if true mean values is a pure class value, otherwise value is a target
 
 	public boolean required() default true; // if true when target not found will throw exception, if false keep silence
 

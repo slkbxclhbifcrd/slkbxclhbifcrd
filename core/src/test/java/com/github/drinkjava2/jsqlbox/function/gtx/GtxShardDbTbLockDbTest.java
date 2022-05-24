@@ -47,8 +47,7 @@ public class GtxShardDbTbLockDbTest {
 
 	@Before
 	public void init() {
-		DbContext.resetGlobalVariants();
-		DbContext.setGlobalNextAllowShowSql(true);
+		DbContext.resetGlobalVariants(); 
 
 		for (int i = 0; i < 3; i++) {
 			lockCtxs[i] = new DbContext(newTestDataSource());

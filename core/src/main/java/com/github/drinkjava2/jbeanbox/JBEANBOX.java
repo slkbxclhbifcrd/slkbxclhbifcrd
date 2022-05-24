@@ -10,8 +10,8 @@
 package com.github.drinkjava2.jbeanbox;
 
 /**
- * JBEANBOX store a default globalBeanBoxContext, and have public static method
- * to access it
+ * JBEANBOX use default global BeanBoxContext, and have public static method to
+ * access it, JBEANBOX is not a key class in project
  * 
  * @author Yong Zhu
  * @since 2.4
@@ -19,42 +19,61 @@ package com.github.drinkjava2.jbeanbox;
  */
 public class JBEANBOX {// NOSONAR
 
-	public static BeanBoxContext bctx() {
+	public static BeanBoxContext ctx() {
 		return BeanBoxContext.globalBeanBoxContext;
 	}
 
-	public static void reset() {
-		BeanBoxContext.reset();
+	public static void scanComponents(String... packages) {
+		BeanBoxContext.globalBeanBoxContext.scanComponents(packages);
 	}
 
 	public static void close() {
-		bctx().close();
+		BeanBoxContext.globalBeanBoxContext.reset();
+	}
+	
+	public static void reset() {
+		BeanBoxContext.globalBeanBoxContext.reset();
+	}
+
+	public static Object getObject(Object target) {
+		return BeanBoxContext.globalBeanBoxContext.getObject(target);
 	}
 
 	public static <T> T getBean(Object target) {
-		return bctx().getBean(target);
+		return BeanBoxContext.globalBeanBoxContext.getBean(target);
+	}
+
+	/** Use default global BeanBoxContext to create a prototype bean */
+	public static <T> T getPrototypeBean(Class<?> beanClass) {
+		return BeanBoxContext.globalBeanBoxContext.getPrototypeBeanBox(beanClass).getBean();
+	}
+
+	/** Use default global BeanBoxContext to create a singleton bean */
+	public static <T> T getSingleBean(Class<?> beanClass) {
+		return BeanBoxContext.globalBeanBoxContext.getSingletonBeanBox(beanClass).getBean();
 	}
 
 	public static <T> T getBean(Object target, boolean required) {
-		return bctx().getBean(target, required);
+		return BeanBoxContext.globalBeanBoxContext.getBean(target, required);
 	}
 
 	public static <T> T getInstance(Class<T> clazz) {
-		return bctx().getInstance(clazz);
+		return BeanBoxContext.globalBeanBoxContext.getInstance(clazz);
 	}
 
 	public static <T> T getInstance(Class<T> clazz, boolean required) {
-		return bctx().getInstance(clazz, required);
+		return BeanBoxContext.globalBeanBoxContext.getInstance(clazz, required);
 	}
 
 	public static BeanBoxContext bind(Object shortcut, Object target) {
-		return bctx().bind(shortcut, target);
+		return BeanBoxContext.globalBeanBoxContext.bind(shortcut, target);
 	}
 
 	public static BeanBox getBeanBox(Class<?> clazz) {
-		return BeanBoxUtils.getUniqueBeanBox(BeanBoxContext.globalBeanBoxContext, clazz);
+		return BeanBoxContext.globalBeanBoxContext.getBeanBox(clazz);
 	}
 
+	/** Equal to "@INJECT" annotation */
 	public static BeanBox autowired() {
 		return new BeanBox().setTarget(EMPTY.class);
 	}
@@ -69,19 +88,9 @@ public class JBEANBOX {// NOSONAR
 		return new BeanBox().setTarget(target);
 	}
 
-	/** Equal to "@INJECT" annotation */
-	public static BeanBox inject(Object target, boolean pureValue, boolean required) {
-		return new BeanBox().setTarget(target).setPureValue(pureValue).setRequired(required);
-	}
-
 	/** Equal to "@VALUE" annotation */
 	public static BeanBox value(Object value) {
 		return new BeanBox().setTarget(value).setPureValue(true).setRequired(true);
-	}
-
-	/** Equal to "@VALUE" annotation */
-	public static BeanBox value(Object value, boolean pureValue, boolean required) {
-		return new BeanBox().setTarget(value).setPureValue(pureValue).setRequired(required);
 	}
 
 }

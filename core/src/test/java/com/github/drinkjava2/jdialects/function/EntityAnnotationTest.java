@@ -8,14 +8,14 @@ package com.github.drinkjava2.jdialects.function;
 import org.junit.Test;
 
 import com.github.drinkjava2.common.Systemout;
-import com.github.drinkjava2.jdialects.DebugUtils;
 import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.config.JdialectsTestBase;
 import com.github.drinkjava2.jdialects.entity.RoleTB;
 import com.github.drinkjava2.jdialects.entity.UserTB;
-import com.github.drinkjava2.jdialects.function.AnnotationTest.Entity1;
-import com.github.drinkjava2.jdialects.function.AnnotationTest.Entity2;
+import com.github.drinkjava2.jdialects.function.AnnotationTest.EntityForAll;
+import com.github.drinkjava2.jdialects.function.AnnotationTest.EntityForMySql;
+import com.github.drinkjava2.jdialects.function.AnnotationTest.EntityForOracle;
 
 /**
  * Annotation Test
@@ -33,7 +33,13 @@ public class EntityAnnotationTest extends JdialectsTestBase {
 		for (String ddl : dropAndCreateDDL)
 			Systemout.println(ddl);
 
-		testCreateAndDropDatabase(TableModelUtils.entity2Models(Entity1.class, Entity2.class));
-		Systemout.println(DebugUtils.getTableModelDebugInfo(TableModelUtils.entity2Model(Entity2.class)));
+		if (guessedDialect.ddlFeatures.supportBasicOrPooledSequence()) {
+			testCreateAndDropDatabase(TableModelUtils.entity2Models(EntityForAll.class, EntityForOracle.class));
+			//Systemout.println(DebugUtils.getTableModelDebugInfo(TableModelUtils.entity2Model(EntityForOracle.class)));
+		}
+		if (!guessedDialect.ddlFeatures.supportBasicOrPooledSequence()) {
+			testCreateAndDropDatabase(TableModelUtils.entity2Models(EntityForAll.class, EntityForMySql.class));
+			//Systemout.println(DebugUtils.getTableModelDebugInfo(TableModelUtils.entity2Model(EntityForMySql.class)));
+		}
 	}
 }

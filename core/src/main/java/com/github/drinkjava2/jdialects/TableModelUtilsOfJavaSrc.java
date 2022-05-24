@@ -21,7 +21,7 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @author Yong Zhu
  * @since 2.0.4
  */
-public abstract class TableModelUtilsOfJavaSrc {
+public abstract class TableModelUtilsOfJavaSrc {//NOSONAR
 
 	/**
 	 * Map DB column name to entity field name, example: <br/>
@@ -84,7 +84,7 @@ public abstract class TableModelUtilsOfJavaSrc {
 	 *            if true, create linked style setter, otherwise create normal
 	 *            setter
 	 * @param activeRecord
-	 *            if true, build a DbUtil-Plus ActiveRecord Entity class, otherwise
+	 *            if true, build a jSqlBox ActiveRecord Entity class, otherwise
 	 *            build a POJO class
 	 * @param packageName
 	 *            Optional, the package name of this entity class

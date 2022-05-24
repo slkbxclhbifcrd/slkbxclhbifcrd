@@ -73,7 +73,6 @@ public class ShardingShardMethodTest {
 
 	@Before
 	public void init() {
-		DbContext.setGlobalNextAllowShowSql(true);
 		for (int i = 0; i < MASTER_DATABASE_QTY; i++) {
 			DbContext[] slaves = new DbContext[SLAVE_DATABASE_QTY];
 			masters[i] = new DbContext(TestBase.createH2_HikariDataSource("masters" + i));
@@ -118,7 +117,7 @@ public class ShardingShardMethodTest {
 		masters[2].iExecute(TheUser.class, "insert into ", shard(3), " (id, name) values(?,?)", param(10, "u1"),
 				USE_BOTH, new PrintSqlHandler());
 		Assert.assertEquals(1, masters[2].iQueryForLongValue(TheUser.class, "select count(*) from ", shard(3),
-				USE_SLAVE, new PrintSqlHandler())); 
+				USE_SLAVE, new PrintSqlHandler()));
 	}
 
 	@Test
@@ -127,7 +126,7 @@ public class ShardingShardMethodTest {
 
 		// Don't know saved to where, becuase Snowflake is random number
 		TheUser u1 = new TheUser().putField("name", "Tom").insert(USE_BOTH, new PrintSqlHandler());
-		Assert.assertEquals(u1.shardDB(), gctx().getShardedDB(TheUser.class, u1.getId())); 
+		Assert.assertEquals(u1.shardDB(), gctx().getShardedDB(TheUser.class, u1.getId()));
 
 		u1.setName("Sam");
 		u1.update(USE_BOTH, new PrintSqlHandler());
@@ -138,11 +137,11 @@ public class ShardingShardMethodTest {
 		Assert.assertEquals("Sam", u2.getName());
 
 		u2.delete(new PrintSqlHandler());// only deleted master
-		//Old style
+		// Old style
 		Assert.assertEquals(0, iQueryForLongValue("select count(*) from ", u2.shardTB(), u2.shardDB(), USE_MASTER));
-		Assert.assertEquals(1, iQueryForLongValue("select count(*) from ", u2.shardTB(), u2.shardDB()));// slave exist 
-		
-		//new style
+		Assert.assertEquals(1, iQueryForLongValue("select count(*) from ", u2.shardTB(), u2.shardDB()));// slave exist
+
+		// new style
 		Assert.assertEquals(0, iQueryForLongValue("select count(*) from ", u2.shard(), USE_MASTER));
 		Assert.assertEquals(1, iQueryForLongValue("select count(*) from ", u2.shard()));// slave exist
 	}

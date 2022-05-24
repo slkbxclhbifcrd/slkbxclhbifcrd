@@ -25,7 +25,7 @@ import com.github.drinkjava2.jsqlbox.entitynet.EntityNet;
 import com.github.drinkjava2.jsqlbox.handler.PaginHandler;
 
 /**
- * JSQLBOX store some public static methods, usually used for static import to
+ * DB store some public static methods, usually used for static import to
  * simplify programming
  * 
  * @author Yong Zhu
