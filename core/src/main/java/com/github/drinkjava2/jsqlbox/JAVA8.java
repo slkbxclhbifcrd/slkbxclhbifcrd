@@ -75,4 +75,4 @@ public class JAVA8 {//NOSONAR
 	}
 	 
 }
-/*- JAVA8_END */
+/* JAVA8_END */

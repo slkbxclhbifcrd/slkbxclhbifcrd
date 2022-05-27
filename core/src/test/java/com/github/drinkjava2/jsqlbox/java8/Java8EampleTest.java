@@ -101,4 +101,4 @@ public class Java8EampleTest {
 	}
 	
 }
-/*- JAVA8_END */
+/* JAVA8_END */

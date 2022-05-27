@@ -120,4 +120,4 @@ public class Java8DateUtilsTest {// NOSONAR
 	}
 
 }
-/*- JAVA8_END */
+/* JAVA8_END */

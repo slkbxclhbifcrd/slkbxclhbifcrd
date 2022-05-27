@@ -180,4 +180,4 @@ public class Java8DateTimeTest extends TestBase {
 	}
 
 }
-/*- JAVA8_END */
+/* JAVA8_END */

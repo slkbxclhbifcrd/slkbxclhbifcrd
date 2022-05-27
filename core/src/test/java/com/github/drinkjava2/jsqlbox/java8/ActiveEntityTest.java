@@ -45,4 +45,4 @@ public class ActiveEntityTest  extends TestBase implements ActiveEntity<ActiveEn
 	}
 	 
 }
-/*- JAVA8_END */
+/* JAVA8_END */

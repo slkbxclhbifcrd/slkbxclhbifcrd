@@ -60,4 +60,4 @@ public class HelloWorld implements ActiveEntity<HelloWorld> {
 		ctx.executeDDL(ctx.toDropDDL(HelloWorld.class));
 	}
 }
-/*- JAVA8_END */
+/* JAVA8_END */

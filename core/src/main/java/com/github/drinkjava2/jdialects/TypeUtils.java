@@ -87,7 +87,7 @@ public abstract class TypeUtils {// NOSONAR
 		JAVA_TO_TYPE_MAP.put(java.time.LocalDateTime.class, Type.TIMESTAMP);
 		JAVA_TO_TYPE_MAP.put(java.time.OffsetDateTime.class, Type.TIMESTAMP);
 		JAVA_TO_TYPE_MAP.put(java.time.ZonedDateTime.class, Type.TIMESTAMP);
-		/*- JAVA8_END */
+		/* JAVA8_END */
 
 		TYPE_TO_JAVA_MAP.put(Type.NUMERIC, BigDecimal.class);
 		TYPE_TO_JAVA_MAP.put(Type.BIGINT, BigInteger.class);
@@ -393,7 +393,7 @@ public abstract class TypeUtils {// NOSONAR
 			if (javaType == java.time.LocalDateTime.class)
 				return Java8DateUtils.date2LocalDateTime((Date) value);
 		}
-		/*- JAVA8_END */
+		/* JAVA8_END */
 		String oracleTip = "oracle.sql.TIMESTAMP".equals(vType.getName()) // NOSONAR
 				? "\nBelow setting may solve this Oracle JDBC compliant issue:\n"
 						+ "System.getProperties().setProperty(\"oracle.jdbc.J2EE13Compliant\", \"true\");"
@@ -431,7 +431,7 @@ public abstract class TypeUtils {// NOSONAR
 			else if (java.time.ZonedDateTime.class == vType)
 				return Java8DateUtils.zonedDateTime2SqlTimestamp((java.time.ZonedDateTime) value);
 		}
-		/*- JAVA8_END */
+		/* JAVA8_END */
 		return value;
 	}
 

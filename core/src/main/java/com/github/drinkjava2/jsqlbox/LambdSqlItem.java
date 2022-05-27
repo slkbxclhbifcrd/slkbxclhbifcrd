@@ -62,4 +62,4 @@ public interface LambdSqlItem extends CustomizedSqlItem {
 	 
 }
 
-/*- JAVA8_END */
+/* JAVA8_END */

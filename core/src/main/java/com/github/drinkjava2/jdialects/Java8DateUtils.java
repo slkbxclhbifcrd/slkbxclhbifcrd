@@ -134,4 +134,4 @@ public abstract class Java8DateUtils {// NOSONAR
 		return instant.atZone(zoneId).toLocalTime();
 	} 
 }
-/*- JAVA8_END */
+/* JAVA8_END */
