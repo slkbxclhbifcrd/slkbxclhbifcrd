@@ -99,6 +99,8 @@ public abstract class TypeUtils {// NOSONAR
 		/* JAVA8_END */
 
 		TYPE_TO_JAVA_MAP.put(Type.NUMERIC, BigDecimal.class);
+		// 这一句是多余的，，会被 TYPE_TO_JAVA_MAP.put(Type.BIGINT, Long.class) 覆盖
+		// 目前64位机器，BIGINT 就是 Long， 有必要吗?
 		TYPE_TO_JAVA_MAP.put(Type.BIGINT, BigInteger.class);
 		TYPE_TO_JAVA_MAP.put(Type.BOOLEAN, Boolean.class);
 		TYPE_TO_JAVA_MAP.put(Type.TINYINT, Byte.class);
@@ -108,7 +110,9 @@ public abstract class TypeUtils {// NOSONAR
 		TYPE_TO_JAVA_MAP.put(Type.BINARY, java.sql.Blob.class);
 		TYPE_TO_JAVA_MAP.put(Type.BIT, Boolean.class);
 		TYPE_TO_JAVA_MAP.put(Type.BLOB, java.sql.Blob.class);
-		TYPE_TO_JAVA_MAP.put(Type.CHAR, Character.class);
+		// 这里没有考虑长度，会有问题，还是影射成 String
+        // TYPE_TO_JAVA_MAP.put(Type.CHAR, Character.class);
+		TYPE_TO_JAVA_MAP.put(Type.CHAR, String.class);
 		TYPE_TO_JAVA_MAP.put(Type.CLOB, java.sql.Clob.class);
 		TYPE_TO_JAVA_MAP.put(Type.DECIMAL, BigDecimal.class);
 		TYPE_TO_JAVA_MAP.put(Type.DOUBLE, Double.class);
@@ -384,6 +388,7 @@ public abstract class TypeUtils {// NOSONAR
 				return c;
 			}
 		} else if (vType == String.class) {
+			// FIXME: 这里应当考虑长度。
 			if (javaType == char.class || javaType == Character.class) {
 				return ((String) value).length() > 0 ? ((String) value).charAt(0) : '\u0000';
 			}
