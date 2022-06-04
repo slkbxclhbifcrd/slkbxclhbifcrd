@@ -41,7 +41,9 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 	 * username -> username <br/>
 	 */
 	private static String transColumnNameToFieldName(String colName) {
-		if (StrUtils.isEmpty(colName)) return colName;
+		if (StrUtils.isEmpty(colName)) {
+			return colName;
+		}
 
 		String rawColName = clearQuote(colName);
 		if (!colName.contains("_")) {
@@ -109,33 +111,83 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 	 *
 	 *            <pre>
 	 *            Map<String, Object> setting = new HashMap<String, Object>();
-	 *            setting.put("linkStyle", false);
-	 *            setting.put("activeRecord", false);
-	 *            setting.put("activeEntity", true);
-	 *            setting.put("packageName", "somepackage");
-	 *            setting.put("fieldFlags", true);
+	 *            setting.put(TableModelUtils.OPT_LINK_STYLE, false);
+	 *            setting.put(TableModelUtils.OPT_ACTIVE_RECORD, false);
+	 *            setting.put(TableModelUtils.OPT_ACTIVE_ENTITY, true);
+	 *            setting.put(TableModelUtils.OPT_PACKAGE_NAME, "somepackage");
+	 *            setting.put(TableModelUtils.OPT_FIELD_FLAGS, true);
+	 *            setting.put(TableModelUtils.OPT_ENABLE_JAVA8, true);
+	 *            setting.put(TableModelUtils.OPT_IMPORTS, "some imports");
+	 *            setting.put(TableModelUtils.OPT_CLASS_DEFINITION, "public class $1 extends ActiveRecord<$1>");
 	 *            </pre>
 	 *
 	 * @return Java Bean source code of entity
 	 */
 	public static String modelToJavaSourceCode(TableModel model, Map<String, Object> setting) {
-		boolean linkStyle = Boolean.TRUE.equals(setting.get("linkStyle"));
-		boolean fieldFlags = Boolean.TRUE.equals(setting.get("fieldFlags"));
-		String classDefinition = (String) setting.get("classDefinition");
-		String packageName = (String) setting.get("packageName");
-		String imports = (String) setting.get("imports");
 		// head
 		StringBuilder body = new StringBuilder();
-		if (!StrUtils.isEmpty(packageName)) {
-			body.append("package ").append(packageName).append(";\n");
-		}
-		if (!StrUtils.isEmpty(imports)) {
-			body.append(imports);
-		}
-		body.append("\n");
+		generatePackage(setting, body);
+		generateImports(setting, body);
 
 		// @table
 		String className = getClassNameFromTableModel(model);
+		int    fkeyCount = generateAnnotationForClass(model, body, className);
+
+		// class
+		generateClassBegin(setting, body, className);
+		generateStaticFields(model, setting, body, className);
+		generateFields(model, setting,fkeyCount, body);
+		generateGetterAndSetter(model, setting, className, body);
+		generateClassEnd(body);
+
+		return body.toString();
+	}
+
+	private static void generateStaticFields(TableModel model,
+	                                         Map<String, Object> setting,
+	                                         StringBuilder body, String className)
+	{
+		boolean fieldFlags = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELD_FLAGS));
+		StringBuilder fieldSB = new StringBuilder();
+		// fieldStaticNames
+		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
+		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
+		Set<String> processed = new HashSet<>();
+		if (fieldFlags) {
+			fieldSB.append("\tpublic static final String TABLE_NAME = \"").append(model.getTableName()).append("\";\n\n");
+			for (ColumnModel col : model.getColumns()) {
+				String columnName = col.getColumnName();
+				if (processed.contains(columnName)) {
+					continue;
+				}
+				String rawColName = clearQuote(columnName);
+				processed.add(columnName);
+
+				fieldSB.append("\tpublic static final String ")
+				       .append(rawColName.toUpperCase()).append(" = \"")
+				       .append(columnName).append("\";\n\n");
+			}
+		}
+		body.append(fieldSB.toString()).append("\n\n");
+	}
+
+	private static void generateClassEnd(StringBuilder body)
+	{
+		body.append("}\n");
+	}
+
+	private static void generateClassBegin(Map<String, Object> setting,
+	                                       StringBuilder body,
+	                                       String className)
+	{
+		String classDefinition = (String) setting.get(TableModelUtils.OPT_CLASS_DEFINITION);
+		body.append(StrUtils.replace(classDefinition, "$1", className)).append(" {\n\n");
+	}
+
+	private static int generateAnnotationForClass(TableModel model,
+	                                              StringBuilder body,
+	                                              String className)
+	{
 		if (!StringUtils.isEmpty(model.getComment())) {
 			body.append("/**\n * ").append(model.getComment()).append("\n */\n");
 		}
@@ -146,7 +198,9 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		// Compound FKEY
 		int fkeyCount = 0;
 		for (FKeyModel fkey : model.getFkeyConstraints()) {
-			if (fkey.getColumnNames().size() <= 1)/* Not compound Fkey*/ continue;
+			if (fkey.getColumnNames().size() <= 1)/* Not compound Fkey*/ {
+				continue;
+			}
 			body.append("@FKey");
 			if (fkeyCount > 0) {
 				body.append(fkeyCount);
@@ -166,41 +220,57 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			body.append("columns={\"").append(fkeyCols).append("\"}, refs={\"").append(refCols).append("\"}");
 			body.append(")\n");
 		}
+		return fkeyCount;
+	}
 
-		// class
-		body.append(StrUtils.replace(classDefinition, "$1", className)).append(" {\n\n");
+	private static void generatePackage(Map<String, Object> setting, StringBuilder body)
+	{
+		String packageName = (String) setting.get(TableModelUtils.OPT_PACKAGE_NAME);
+		if (!StrUtils.isEmpty(packageName)) {
+			body.append("package ").append(packageName).append(";\n");
+		}
+		body.append("\n");
+	}
 
-		// Fields
-		StringBuilder fieldSB = new StringBuilder();
+	private static void generateImports(Map<String, Object> setting, StringBuilder body)
+	{
+		String imports = (String) setting.get(TableModelUtils.OPT_IMPORTS);
+		body.append("import static com.github.drinkjava2.jsqlbox.JAVA8.*;\n");
+		body.append("import static com.github.drinkjava2.jsqlbox.JSQLBOX.*;\n");
+		body.append("import com.github.drinkjava2.jdbpro.JDBPRO.*;\n");
+		body.append("import com.github.drinkjava2.jdbpro.SqlItem;\n");
+		body.append("\n");
+
+		if (!StrUtils.isEmpty(imports)) {
+			body.append(imports);
+		}
+		body.append("\n");
+	}
+
+
+	private static void generateFields(TableModel model,
+	                                   Map<String, Object> setting,
+	                                   int fkeyCount,
+	                                   StringBuilder body)
+	{
+		boolean enablePublicField = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_PUBLIC_FIELD));
 		StringBuilder pkeySB = new StringBuilder();
 		StringBuilder normalSB = new StringBuilder();
-		StringBuilder sb = null;
 		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
 		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
 		Set<String> processed = new HashSet<>();
-		// fieldStaticNames
-		if (fieldFlags) {
-			for (ColumnModel col : model.getColumns()) {
-				String columnName = col.getColumnName();
-				if (processed.contains(columnName)) {
-					continue;
-				}
-				String rawColName = clearQuote(columnName);
-				processed.add(columnName);
-
-				fieldSB.append("\tpublic static final String ")
-				       .append(rawColName.toUpperCase()).append(" = \"")
-				       .append(rawColName).append("\";\n");
-			}
-		}
-		processed.clear();
+		StringBuilder sb;
 		for (ColumnModel col : model.getColumns()) {
 			String columnName = col.getColumnName();
-			if (processed.contains(columnName))  continue;
+			if (processed.contains(columnName)) {
+				continue;
+			}
 			processed.add(columnName);
 			Class<?> javaType = TypeUtils.dialectTypeToJavaType(col.getColumnType());
 
-			if (javaType == null) continue;
+			if (javaType == null) {
+				continue;
+			}
 
 			sb = col.getPkey() ? pkeySB : normalSB;
 
@@ -237,8 +307,12 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			// @SingleFKey
 			for (FKeyModel fkey : model.getFkeyConstraints()) {
 				/* Not compound Fkey*/
-				if (fkey.getColumnNames().size() != 1) continue;
-				if (!columnName.equalsIgnoreCase(fkey.getColumnNames().get(0))) continue;
+				if (fkey.getColumnNames().size() != 1) {
+					continue;
+				}
+				if (!columnName.equalsIgnoreCase(fkey.getColumnNames().get(0))) {
+					continue;
+				}
 				sb.append("\t@SingleFKey");
 				sb.append("(");
 				fkeyCount++;
@@ -253,25 +327,44 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 				sb.append("refs={\"").append(refCols).append("\"}");
 				sb.append(")\n");
 			}
-
-
-			sb.append(" \tprivate ").append(javaType.getSimpleName()).append(" ").append(fieldName).append(";\n\n");
+			String accessModifier = "private";
+			if(enablePublicField) {
+				accessModifier = "public";
+			}
+			sb.append("\t").append(accessModifier).append(' ')
+			  .append(javaType.getSimpleName()).append(' ')
+			  .append(fieldName).append(";\n\n");
 		}
-		body.append(fieldSB.toString()).append("\n\n")
-		    .append(pkeySB.toString()).append("\n\n")
+
+		body.append(pkeySB.toString()).append("\n\n")
 		    .append(normalSB.toString()).append("\n\n");
-		fieldSB.setLength(0);
-		pkeySB.setLength(0);
-		normalSB.setLength(0);
-		processed.clear();
+	}
+
+
+	private static void generateGetterAndSetter(TableModel model,
+	                                            Map<String, Object> setting,
+	                                            String className,
+	                                            StringBuilder body)
+	{
+		boolean linkStyle = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_LINK_STYLE));
+		StringBuilder pkeySB = new StringBuilder();
+		StringBuilder normalSB = new StringBuilder();
+		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
+		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
+		Set<String> processed = new HashSet<>();
+		StringBuilder sb;
 		for (ColumnModel col : model.getColumns()) {
-			if (processed.contains(col.getColumnName())) continue;
+			if (processed.contains(col.getColumnName())) {
+				continue;
+			}
 
 			processed.add(col.getColumnName());
 			// getter
 			Class<?> javaType = TypeUtils.dialectTypeToJavaType(col.getColumnType());
 
-			if (javaType == null) continue;
+			if (javaType == null) {
+				continue;
+			}
 
 			sb = col.getPkey() ? pkeySB : normalSB;
 			String fieldName = col.getEntityField();
@@ -298,10 +391,6 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			sb.append("\t}\n\n");
 		}
 		body.append(pkeySB.toString()).append(normalSB.toString());
-
-		body.append("}\n");
-
-		return body.toString();
 	}
 
 }

@@ -33,6 +33,15 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @since 1.0.5
  */
 public abstract class TableModelUtils {// NOSONAR
+	public static final String OPT_LINK_STYLE       = "linkStyle";
+	public static final String OPT_FIELD_FLAGS      = "fieldFlags";
+	public static final String OPT_PACKAGE_NAME     = "packageName";
+	public static final String OPT_IMPORTS          = "imports";
+	public static final String OPT_CLASS_DEFINITION = "classDefinition";
+	public static final String OPT_ACTIVE_ENTITY    = "activeEntity";
+	public static final String OPT_ACTIVE_RECORD    = "activeRecord";
+	public static final String OPT_PUBLIC_FIELD     = "enablePublicField";
+	public static final String OPT_FILTER_MODELS    = "filterModels";
 
 	/**
 	 * Convert tableName to entity class, note: before use this method
@@ -93,10 +102,12 @@ public abstract class TableModelUtils {// NOSONAR
 			if (!dir.exists()) {
 				dir.mkdirs();
 			}
-			Collection<String> filterModels = (Collection<String>)setting.get("filterModels");
+			Collection<String> filterModels = (Collection<String>)setting.get(OPT_FILTER_MODELS);
 			if (filterModels != null) {
 				Set<String> t = new HashSet<>();
-				for(String s : filterModels) t.add(s.trim().toLowerCase());
+				for(String s : filterModels) {
+					t.add(s.trim().toLowerCase());
+				}
 				filterModels = t;
 			}
 			for (TableModel model : models) {
