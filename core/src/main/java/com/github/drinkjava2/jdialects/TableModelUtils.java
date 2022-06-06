@@ -19,8 +19,8 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
-
 import java.util.Set;
+
 import javax.sql.DataSource;
 
 import com.github.drinkjava2.jdialects.model.TableModel;
@@ -33,15 +33,13 @@ import com.github.drinkjava2.jdialects.model.TableModel;
  * @since 1.0.5
  */
 public abstract class TableModelUtils {// NOSONAR
-	public static final String OPT_LINK_STYLE       = "linkStyle";
-	public static final String OPT_FIELD_FLAGS      = "fieldFlags";
-	public static final String OPT_PACKAGE_NAME     = "packageName";
-	public static final String OPT_IMPORTS          = "imports";
+	public static final String OPT_LINK_STYLE = "linkStyle";
+	public static final String OPT_FIELD_FLAGS = "fieldFlags";
+	public static final String OPT_PACKAGE_NAME = "packageName";
+	public static final String OPT_IMPORTS = "imports";
 	public static final String OPT_CLASS_DEFINITION = "classDefinition";
-	public static final String OPT_ACTIVE_ENTITY    = "activeEntity";
-	public static final String OPT_ACTIVE_RECORD    = "activeRecord";
-	public static final String OPT_PUBLIC_FIELD     = "enablePublicField";
-	public static final String OPT_FILTER_MODELS    = "filterModels";
+	public static final String OPT_PUBLIC_FIELD = "enablePublicField";
+	public static final String OPT_EXCLUDE_TABLES = "excludeTables";
 
 	/**
 	 * Convert tableName to entity class, note: before use this method
@@ -93,7 +91,7 @@ public abstract class TableModelUtils {// NOSONAR
 	 *            see TableModelUtilsOfJavaSrc.modelToJavaSourceCode() method
 	 */
 	public static void db2JavaSrcFiles(DataSource ds, Dialect dialect, String outputfolder,
-	                                   Map<String, Object> setting) {
+			Map<String, Object> setting) {
 		Connection conn = null;
 		try {
 			conn = ds.getConnection();
@@ -102,20 +100,21 @@ public abstract class TableModelUtils {// NOSONAR
 			if (!dir.exists()) {
 				dir.mkdirs();
 			}
-			Collection<String> filterModels = (Collection<String>)setting.get(OPT_FILTER_MODELS);
-			if (filterModels != null) {
+			@SuppressWarnings("unchecked")
+			Collection<String> excludeTables = (Collection<String>) setting.get(OPT_EXCLUDE_TABLES);
+			if (excludeTables != null) {
 				Set<String> t = new HashSet<>();
-				for(String s : filterModels) {
+				for (String s : excludeTables) {
 					t.add(s.trim().toLowerCase());
 				}
-				filterModels = t;
+				excludeTables = t;
 			}
 			for (TableModel model : models) {
 				String tableName = model.getTableName();
-				if (filterModels != null && filterModels.contains(tableName.toLowerCase())) {
+				if (excludeTables != null && excludeTables.contains(tableName.toLowerCase())) {
 					continue;
 				}
-				File writename = new File(dir,  TableModelUtilsOfJavaSrc.getClassNameFromTableModel(model) + ".java");
+				File writename = new File(dir, TableModelUtilsOfJavaSrc.getClassNameFromTableModel(model) + ".java");
 
 				writename.createNewFile();// NOSONAR
 				BufferedWriter out = new BufferedWriter(new FileWriter(writename));
@@ -125,11 +124,12 @@ public abstract class TableModelUtils {// NOSONAR
 				out.close();
 			}
 		} catch (Exception e) {
+			e.printStackTrace();//NOSONAR
 			if (conn != null)
 				try {
 					conn.close();
 				} catch (SQLException e1) {
-					e1.printStackTrace();
+					e1.printStackTrace();//NOSONAR
 				}
 		}
 	}

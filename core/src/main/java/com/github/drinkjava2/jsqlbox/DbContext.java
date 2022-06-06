@@ -436,18 +436,15 @@ public class DbContext extends DbPro {// NOSONAR
 		return entity;
 	}
 
-	/** Load one entity according SQL, if not found, return null */
+	/** Load one entity according SQL, if not found or found more than 1, throw DbException 
+	 * 这个函数假设有且只能加载一个实体，否则应抛出异常，这样更利于发现编程错误。如果用户不确定数据库有没有，应使用eFindBySQL或eFindAll获取实体列表
+	 */
 	public <T> T eLoadBySQL(Object... optionItems) {
 		List<T> entities = iQueryForEntityList(optionItems);
-		if (entities == null || entities.isEmpty()) {
-			// throw new DbException("No record found in database when try to load entity.");
-			System.err.println("WARNING: No record found in database when try to load entity.");
-			return null;
-		}
-		if (entities.size() > 1) {
-			// throw new DbException("More than 1 record found when try to load 1 entity.");
-			System.err.println("WARNING: More than 1 record found when try to load 1 entity.");
-		}
+		if (entities == null || entities.isEmpty())
+			throw new DbException("No record found in database when try to load entity.");
+		if (entities.size() > 1)
+			throw new DbException("More than 1 record found when try to load 1 entity.");
 		return entities.get(0);
 	}
 

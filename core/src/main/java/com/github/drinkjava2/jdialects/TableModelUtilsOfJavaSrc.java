@@ -13,14 +13,14 @@ package com.github.drinkjava2.jdialects;
 
 import static com.github.drinkjava2.jdialects.StrUtils.clearQuote;
 
-import com.github.drinkjava2.jdialects.springsrc.utils.StringUtils;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.FKeyModel;
 import com.github.drinkjava2.jdialects.model.TableModel;
-import java.util.Set;
+import com.github.drinkjava2.jdialects.springsrc.utils.StringUtils;
 
 /**
  * The tool to convert TableModel to Java source code
@@ -47,7 +47,7 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 
 		String rawColName = clearQuote(colName);
 		if (!colName.contains("_")) {
-			//return StrUtils.toLowerCaseFirstOne(colName);
+			// return StrUtils.toLowerCaseFirstOne(colName);
 			if (rawColName.toUpperCase().equals(rawColName)) {
 				// 全大写
 				return rawColName.toLowerCase();
@@ -77,10 +77,10 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 	 * user_name -> UserName <br/>
 	 * USER_NAME -> UserName <br/>
 	 * User_naMe -> UserName <br/>
-	 * UserName  -> UserName <br/>
-	 * USERNAME  -> Username <br/>
-	 * userName  -> UserName <br/>
-	 * username  -> Username <br/>
+	 * UserName -> UserName <br/>
+	 * USERNAME -> Username <br/>
+	 * userName -> UserName <br/>
+	 * username -> Username <br/>
 	 */
 	public static String getClassNameFromTableModel(TableModel model) {
 		DialectException.assureNotNull(model, "TableModel can not be null");
@@ -112,11 +112,8 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 	 *            <pre>
 	 *            Map<String, Object> setting = new HashMap<String, Object>();
 	 *            setting.put(TableModelUtils.OPT_LINK_STYLE, false);
-	 *            setting.put(TableModelUtils.OPT_ACTIVE_RECORD, false);
-	 *            setting.put(TableModelUtils.OPT_ACTIVE_ENTITY, true);
 	 *            setting.put(TableModelUtils.OPT_PACKAGE_NAME, "somepackage");
 	 *            setting.put(TableModelUtils.OPT_FIELD_FLAGS, true);
-	 *            setting.put(TableModelUtils.OPT_ENABLE_JAVA8, true);
 	 *            setting.put(TableModelUtils.OPT_IMPORTS, "some imports");
 	 *            setting.put(TableModelUtils.OPT_CLASS_DEFINITION, "public class $1 extends ActiveRecord<$1>");
 	 *            </pre>
@@ -131,22 +128,20 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 
 		// @table
 		String className = getClassNameFromTableModel(model);
-		int    fkeyCount = generateAnnotationForClass(model, body, className);
+		int fkeyCount = generateAnnotationForClass(model, body, className);
 
 		// class
 		generateClassBegin(setting, body, className);
 		generateStaticFields(model, setting, body, className);
-		generateFields(model, setting,fkeyCount, body);
+		generateFields(model, setting, fkeyCount, body);
 		generateGetterAndSetter(model, setting, className, body);
 		generateClassEnd(body);
 
 		return body.toString();
 	}
 
-	private static void generateStaticFields(TableModel model,
-	                                         Map<String, Object> setting,
-	                                         StringBuilder body, String className)
-	{
+	private static void generateStaticFields(TableModel model, Map<String, Object> setting, StringBuilder body,
+			String className) {
 		boolean fieldFlags = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELD_FLAGS));
 		StringBuilder fieldSB = new StringBuilder();
 		// fieldStaticNames
@@ -154,7 +149,8 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
 		Set<String> processed = new HashSet<>();
 		if (fieldFlags) {
-			fieldSB.append("\tpublic static final String TABLE_NAME = \"").append(model.getTableName()).append("\";\n\n");
+			fieldSB.append("\tpublic static final String TABLE_NAME = \"").append(model.getTableName())
+					.append("\";\n\n");
 			for (ColumnModel col : model.getColumns()) {
 				String columnName = col.getColumnName();
 				if (processed.contains(columnName)) {
@@ -163,31 +159,23 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 				String rawColName = clearQuote(columnName);
 				processed.add(columnName);
 
-				fieldSB.append("\tpublic static final String ")
-				       .append(rawColName.toUpperCase()).append(" = \"")
-				       .append(columnName).append("\";\n\n");
+				fieldSB.append("\tpublic static final String ").append(rawColName.toUpperCase()).append(" = \"")
+						.append(columnName).append("\";\n\n");
 			}
 		}
 		body.append(fieldSB.toString()).append("\n\n");
 	}
 
-	private static void generateClassEnd(StringBuilder body)
-	{
+	private static void generateClassEnd(StringBuilder body) {
 		body.append("}\n");
 	}
 
-	private static void generateClassBegin(Map<String, Object> setting,
-	                                       StringBuilder body,
-	                                       String className)
-	{
+	private static void generateClassBegin(Map<String, Object> setting, StringBuilder body, String className) {
 		String classDefinition = (String) setting.get(TableModelUtils.OPT_CLASS_DEFINITION);
 		body.append(StrUtils.replace(classDefinition, "$1", className)).append(" {\n\n");
 	}
 
-	private static int generateAnnotationForClass(TableModel model,
-	                                              StringBuilder body,
-	                                              String className)
-	{
+	private static int generateAnnotationForClass(TableModel model, StringBuilder body, String className) {
 		if (!StringUtils.isEmpty(model.getComment())) {
 			body.append("/**\n * ").append(model.getComment()).append("\n */\n");
 		}
@@ -198,7 +186,7 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		// Compound FKEY
 		int fkeyCount = 0;
 		for (FKeyModel fkey : model.getFkeyConstraints()) {
-			if (fkey.getColumnNames().size() <= 1)/* Not compound Fkey*/ {
+			if (fkey.getColumnNames().size() <= 1)/* Not compound Fkey */ {
 				continue;
 			}
 			body.append("@FKey");
@@ -223,8 +211,7 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		return fkeyCount;
 	}
 
-	private static void generatePackage(Map<String, Object> setting, StringBuilder body)
-	{
+	private static void generatePackage(Map<String, Object> setting, StringBuilder body) {
 		String packageName = (String) setting.get(TableModelUtils.OPT_PACKAGE_NAME);
 		if (!StrUtils.isEmpty(packageName)) {
 			body.append("package ").append(packageName).append(";\n");
@@ -232,27 +219,23 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		body.append("\n");
 	}
 
-	private static void generateImports(Map<String, Object> setting, StringBuilder body)
-	{
-		String imports = (String) setting.get(TableModelUtils.OPT_IMPORTS);
+	private static void generateImports(Map<String, Object> setting, StringBuilder body) {
 		body.append("import static com.github.drinkjava2.jsqlbox.JAVA8.*;\n");
-		body.append("import static com.github.drinkjava2.jsqlbox.JSQLBOX.*;\n");
-		body.append("import com.github.drinkjava2.jdbpro.JDBPRO.*;\n");
+		body.append("import static com.github.drinkjava2.jsqlbox.SQL.*;\n");
+		body.append("import static com.github.drinkjava2.jsqlbox.DB.*;\n");
 		body.append("import com.github.drinkjava2.jdbpro.SqlItem;\n");
-		body.append("\n");
-
+		body.append("import com.github.drinkjava2.jdialects.annotation.jdia.*;\n");
+		body.append("import com.github.drinkjava2.jdialects.annotation.jpa.*;\n");
+		body.append("import com.github.drinkjava2.jsqlbox.*;\n");
+		String imports = (String) setting.get(TableModelUtils.OPT_IMPORTS);
 		if (!StrUtils.isEmpty(imports)) {
 			body.append(imports);
 		}
 		body.append("\n");
 	}
 
-
-	private static void generateFields(TableModel model,
-	                                   Map<String, Object> setting,
-	                                   int fkeyCount,
-	                                   StringBuilder body)
-	{
+	private static void generateFields(TableModel model, Map<String, Object> setting, int fkeyCount,
+			StringBuilder body) {
 		boolean enablePublicField = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_PUBLIC_FIELD));
 		StringBuilder pkeySB = new StringBuilder();
 		StringBuilder normalSB = new StringBuilder();
@@ -291,13 +274,13 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 
 			// @Column
 			boolean isStr = Type.VARCHAR.equals(col.getColumnType()) || Type.CHAR.equals(col.getColumnType());
-			// 好魔幻的数字
-			boolean lenNotEq250 = 250 != col.getLength();
-			if (!fieldName.equalsIgnoreCase(columnName) || (isStr && lenNotEq250)) {
+			// 255 is JPA's default @Column length
+			boolean lenNotEq255 = 255 != col.getLength();
+			if (!fieldName.equalsIgnoreCase(columnName) || (isStr && lenNotEq255)) {
 				sb.append("\t@Column(");
 				sb.append("name=\"").append(columnName).append("\", ");
 
-				if (isStr && lenNotEq250) {
+				if (isStr && lenNotEq255) {
 					sb.append("length=").append(col.getLength()).append(", ");
 				}
 				sb.setLength(sb.length() - 2);
@@ -306,7 +289,7 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 
 			// @SingleFKey
 			for (FKeyModel fkey : model.getFkeyConstraints()) {
-				/* Not compound Fkey*/
+				/* Not compound Fkey */
 				if (fkey.getColumnNames().size() != 1) {
 					continue;
 				}
@@ -328,24 +311,18 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 				sb.append(")\n");
 			}
 			String accessModifier = "private";
-			if(enablePublicField) {
+			if (enablePublicField) {
 				accessModifier = "public";
 			}
-			sb.append("\t").append(accessModifier).append(' ')
-			  .append(javaType.getSimpleName()).append(' ')
-			  .append(fieldName).append(";\n\n");
+			sb.append("\t").append(accessModifier).append(' ').append(javaType.getSimpleName()).append(' ')
+					.append(fieldName).append(";\n\n");
 		}
 
-		body.append(pkeySB.toString()).append("\n\n")
-		    .append(normalSB.toString()).append("\n\n");
+		body.append(pkeySB.toString()).append("\n\n").append(normalSB.toString()).append("\n\n");
 	}
 
-
-	private static void generateGetterAndSetter(TableModel model,
-	                                            Map<String, Object> setting,
-	                                            String className,
-	                                            StringBuilder body)
-	{
+	private static void generateGetterAndSetter(TableModel model, Map<String, Object> setting, String className,
+			StringBuilder body) {
 		boolean linkStyle = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_LINK_STYLE));
 		StringBuilder pkeySB = new StringBuilder();
 		StringBuilder normalSB = new StringBuilder();
@@ -380,12 +357,12 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			String setFieldName = "set" + StrUtils.toUpperCaseFirstOne(fieldName);
 			if (linkStyle) {
 				sb.append("\tpublic ").append(className).append(" ").append(setFieldName).append("(")
-				  .append(javaType.getSimpleName()).append(" ").append(fieldName).append("){\n");
+						.append(javaType.getSimpleName()).append(" ").append(fieldName).append("){\n");
 				sb.append("\t\tthis.").append(fieldName).append("=").append(fieldName).append(";\n");
 				sb.append("\t\treturn this;\n");
 			} else {
 				sb.append("\tpublic ").append("void").append(" ").append(setFieldName).append("(")
-				  .append(javaType.getSimpleName()).append(" ").append(fieldName).append("){\n");
+						.append(javaType.getSimpleName()).append(" ").append(fieldName).append("){\n");
 				sb.append("\t\tthis.").append(fieldName).append("=").append(fieldName).append(";\n");
 			}
 			sb.append("\t}\n\n");
