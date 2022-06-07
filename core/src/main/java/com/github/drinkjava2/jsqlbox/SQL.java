@@ -11,6 +11,8 @@
  */
 package com.github.drinkjava2.jsqlbox;
 
+import com.github.drinkjava2.jdialects.springsrc.utils.StringUtils;
+
 /**
  * SQL store some public static methods related for spell SQL, usually used for static import to
  * simplify programming
@@ -549,5 +551,154 @@ public abstract class SQL  {//NOSONAR
 	public static final String WORK = " WORK ";
 	public static final String WRITE = " WRITE ";
 	public static final String YEAR = " YEAR ";
-	public static final String ZONE = " ZONE "; 
+	public static final String ZONE = " ZONE ";
+
+	// usefull function
+	public static String simpleReplaceDangerous(String str) {
+		str=str.replaceAll(";","")
+		       .replaceAll("&","&amp;")
+		       .replaceAll("<","&lt;")
+		       .replaceAll(">","&gt;")
+		       .replaceAll("'","''")
+		       .replaceAll("--","")
+		       .replaceAll("/","")
+		       .replaceAll("%","");
+		return str;
+	}
+	public static String array(String... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (String str : arr) {
+			if (StringUtils.isEmpty(str) ) {
+				builder.append("'',");
+			} else {
+				builder.append("'").append(simpleReplaceDangerous(str)).append("',");
+			}
+		}
+		if (builder.length() > 0) {
+			builder.setLength(builder.length() - 1);
+		}
+
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(int... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (int i : arr) {
+			builder.append(i).append(',');
+		}
+		builder.setLength(builder.length() - 1);
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(Integer... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (Integer i : arr) {
+			if (i == null ) {
+				continue;
+			}
+			builder.append(i).append(',');
+
+		}
+		if (builder.length() > 0) {
+			builder.setLength(builder.length() - 1);
+		}
+
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(long... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (long i : arr) {
+			builder.append(i).append(',');
+		}
+		builder.setLength(builder.length() - 1);
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(Long... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (Long i : arr) {
+			if (i == null) {
+				continue;
+			}
+			builder.append(i).append(',');
+		}
+		if (builder.length() > 0) {
+			builder.setLength(builder.length() - 1);
+		}
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(short... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (short i : arr) {
+			builder.append(i).append(',');
+		}
+		builder.setLength(builder.length() - 1);
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(Short... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (Short i : arr) {
+			if (i == null) {
+				continue;
+			}
+			builder.append(i).append(',');
+		}
+		if (builder.length() > 0) {
+			builder.setLength(builder.length() - 1);
+		}
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(byte... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (byte i : arr) {
+			builder.append(i).append(',');
+		}
+		builder.setLength(builder.length() - 1);
+		return "(" +builder.toString() + ")";
+	}
+
+	public static String array(Byte... arr) {
+		if (arr == null || arr.length == 0) {
+			return "";
+		}
+		StringBuilder builder = new StringBuilder(200);
+		for (Byte i : arr) {
+			if (i == null) {
+				continue;
+			}
+			builder.append(i).append(',');
+		}
+		if (builder.length() > 0) {
+			builder.setLength(builder.length() - 1);
+		}
+		return "(" +builder.toString() + ")";
+	}
 }

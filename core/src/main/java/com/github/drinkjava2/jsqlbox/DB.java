@@ -12,6 +12,7 @@
 package com.github.drinkjava2.jsqlbox;
 
 import com.github.drinkjava2.jdbpro.PreparedSQL;
+import com.github.drinkjava2.jdialects.springsrc.utils.CollectionUtils;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
@@ -119,13 +120,22 @@ public abstract class DB extends JDBPRO {// NOSONAR
 	//Entity series methods from DbContext
 	public static <T> List<T> eFindAll(Class<T> entityClass, Object... items) {return gctx().eFindAll(entityClass, items);}
 	public static <T> List<T> eFindBySample(Object sampleBean, Object... items) {return gctx().eFindBySample(sampleBean, items);}
-	public static <T> List<T> eFindBySQL(Object... items) {return gctx().eFindBySQL(items);}   
+	public static <T> List<T> eFindBySQL(Object... items) {return gctx().eFindBySQL(items);}
+	/** Find one entity according SQL, if not found, return null, otherwise return the first one.*/
+    public static <T> T eFindOneBySQL(Object... items) {
+        List<T> objects = eFindBySQL(items);
+        if (CollectionUtils.isEmpty(objects)) {
+            return null;
+        }
+        return objects.get(0);
+    }
 	public static <T> T eInsert(T entity, Object... items) {return gctx().eInsert(entity, items);} 
 	public static <T> T eLoad(T entity, Object... items) {return gctx().eLoad(entity, items);} 
 	public static <T> T eLoadById(Class<T> entityClass, Object entityId, Object... items) {return gctx().eLoadById(entityClass, entityId, items);}
     public static <T> T eLoadByIdTry(Class<T> entityClass, Object entityId, Object... items) {return gctx().eLoadByIdTry(entityClass, entityId, items);}
     public static <T> T eLoadBySQL(Object... items) {return gctx().eLoadBySQL(items);}
-	
+
+
     public static <T> T eUpdate(Object entity, Object... items) {return gctx().eUpdate(entity, items);}
 	public static boolean eExist(Object entity, Object... items) {return gctx().eExist(entity, items);}
 	public static boolean eExistById(Class<?> entityClass, Object id, Object... items) {return gctx().eExistById(entityClass, id, items);}
