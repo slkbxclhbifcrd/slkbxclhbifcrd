@@ -18,13 +18,12 @@ import java.io.StringWriter;
  * TxResult Store TX result
  */
 public class TxResult {
+	// Results
 	public static final String SUCESS = "SUCESS";
 	public static final String FAIL = "FAIL";
 	public static final String UNKNOW = "UNKNOW";
 
-	public static final TxResult TX_SUCESS = new TxResult(SUCESS);
-	public static final TxResult TX_FAIL = new TxResult(FAIL);
-
+	// Stages
 	public static final String START = "START";
 	public static final String LOCKED = "LOCKED";
 	public static final String LOCK_FAIL = "LOCK_FAIL";
@@ -45,6 +44,14 @@ public class TxResult {
 
 	public TxResult(String result) {
 		this.result = result;
+	}
+
+	public static TxResult txSucess() {
+		return new TxResult(SUCESS);
+	}
+
+	public static TxResult txFail() {
+		return new TxResult(FAIL);
 	}
 
 	public TxResult(String result, Exception... commitEx) {
@@ -97,37 +104,49 @@ public class TxResult {
 		}
 	}
 
-	public void addCommitEx(Exception e) {
+	public TxResult addCommitEx(Exception e) {
 		if (commitEx == null)
 			commitEx = new Exception[1];
 		else {
+			for (Exception oldeX : commitEx)
+				if (oldeX == e)
+					return this;
 			Exception[] newArray = new Exception[commitEx.length + 1];
 			System.arraycopy(commitEx, 0, newArray, 0, commitEx.length);
 			commitEx = newArray;
 		}
 		commitEx[commitEx.length - 1] = e;
+		return this;
 	}
 
-	public void addRollbackEx(Exception e) {
+	public TxResult addRollbackEx(Exception e) {
 		if (rollbackEx == null)
 			rollbackEx = new Exception[1];
 		else {
+			for (Exception oldeX : rollbackEx)
+				if (oldeX == e)
+					return this;
 			Exception[] newArray = new Exception[rollbackEx.length + 1];
 			System.arraycopy(rollbackEx, 0, newArray, 0, rollbackEx.length);
 			rollbackEx = newArray;
 		}
 		rollbackEx[rollbackEx.length - 1] = e;
+		return this;
 	}
 
-	public void addCleanupEx(Exception e) {
+	public TxResult addCleanupEx(Exception e) {
 		if (cleanupEx == null)
 			cleanupEx = new Exception[1];
 		else {
+			for (Exception oldeX : cleanupEx)
+				if (oldeX == e)
+					return this;
 			Exception[] newArray = new Exception[cleanupEx.length + 1];
 			System.arraycopy(cleanupEx, 0, newArray, 0, cleanupEx.length);
 			cleanupEx = newArray;
 		}
 		cleanupEx[cleanupEx.length - 1] = e;
+		return this;
 	}
 
 	public boolean isSuccess() {
@@ -136,6 +155,10 @@ public class TxResult {
 
 	public boolean isFail() {
 		return FAIL.equals(result);
+	}
+
+	public boolean isUnknow() {
+		return UNKNOW.equals(result);
 	}
 
 	// ==========getter & setters=======

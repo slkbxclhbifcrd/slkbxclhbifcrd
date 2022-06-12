@@ -37,6 +37,8 @@ import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.TypeUtils;
 import com.github.drinkjava2.jlogs.Log;
 import com.github.drinkjava2.jlogs.LogFactory;
+import com.github.drinkjava2.jsqlbox.DbException;
+import com.github.drinkjava2.jsqlbox.TxBody;
 import com.github.drinkjava2.jtransactions.ConnectionManager;
 import com.github.drinkjava2.jtransactions.DataSourceHolder;
 import com.github.drinkjava2.jtransactions.TxResult;
@@ -82,6 +84,9 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 	protected DbPro[] masters;
 	protected String name; // A name for current runner
 	protected Integer dbCode = 0; // A unique code used to identify database
+
+	/** A ThreadLocal TxResult instance store last transation result */
+	private static ThreadLocal<TxResult> lastTxResult = new ThreadLocal<TxResult>();
 
 	/** A ThreadLocal SqlHandler instance */
 	private static ThreadLocal<SqlHandler[]> threadLocalSqlHandlers = new ThreadLocal<SqlHandler[]>();
@@ -420,15 +425,19 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 	 * This is the core method of whole project, handle a PreparedSQL instance and
 	 * return a result
 	 */
-	public Object runPreparedSQL(PreparedSQL ps) { 
+	public Object runPreparedSQL(PreparedSQL ps) {
+		if (allowShowSQL) {
+			logger.debug("DEBUG SQL>>" + ps.getSql());
+			logger.debug("DEBUG PAR>>" + Arrays.toString(ps.getParams()));
+		}
 		if (ps.getSwitchTo() != null) {
 			DbPro pro = ps.getSwitchTo();
 			ps.setSwitchTo(null);
 			return pro.runPreparedSQL(ps);// SwitchTo run
 		}
-		if(ps.getParams().length>0) {
+		if (ps.getParams().length > 0) {
 			for (int i = 0; i < ps.getParams().length; i++) {
-				ps.getParams()[i]=TypeUtils.javaParam2JdbcParam(ps.getParams()[i]);
+				ps.getParams()[i] = TypeUtils.javaParam2JdbcParam(ps.getParams()[i]);
 			}
 		}
 		if (ps.getMasterSlaveOption() == null)
@@ -885,6 +894,38 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 		return this.getConnectionManager().rollbackTransaction();
 	}
 
+	protected void txTemplateMethods______________________________() {// NOSONAR
+	}
+
+	/**  */
+	public boolean tryTx(TxBody txBody) {
+		TxResult txResult;
+		this.startTrans();
+		try {
+			txBody.run();
+			lastTxResult.set(commitTrans());
+			return true;
+		} catch (Exception e) {
+			lastTxResult.set(rollbackTrans().addCommitEx(e));
+			return false;
+		}
+	}
+
+	public void tx(TxBody txBody) {
+		this.startTrans();
+		try {
+			txBody.run();
+			lastTxResult.set(commitTrans());
+		} catch (Exception e) {
+			lastTxResult.set(rollbackTrans().addCommitEx(e));
+			throw new DbException(e);
+		}
+	}
+
+	public static TxResult getLastTxResult() {
+		return lastTxResult.get();
+	}
+
 	protected void staticGlobalNextMethods_____________________() {// NOSONAR
 	}
 
@@ -955,7 +996,6 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 	public void setDialect(Dialect dialect) {// NOSONAR
 		this.dialect = dialect;
 	}
-	
 
 	public Boolean getAllowShowSQL() {
 		return allowShowSQL;
