@@ -62,14 +62,14 @@
 	<dependency>
 		<groupId>mysql</groupId>
 		<artifactId>mysql-connector-java</artifactId>
-		<version>5.1.44</version>
+		<version>8.0.16</version>
 	</dependency>
     
     <!-- jSqlBox is a Dao tool  -->
     <dependency>
       <groupId>com.github.drinkjava2</groupId>
       <artifactId>jsqlbox</artifactId>
-      <version>4.0.5.jre8</version><!--Or newest jSqlBox -->
+      <version>4.0.8.jre8</version><!--Or newest jSqlBox -->
     </dependency>
 	
     <!-- H2Database memory database for jSqlBox demo -->
