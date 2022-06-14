@@ -11,7 +11,7 @@
  */
 package com.github.drinkjava2.jsqlbox.converter;
 
-import static com.github.drinkjava2.jdbpro.JDBPRO.param;
+import static com.github.drinkjava2.jsqlbox.DB.par;
 
 import com.github.drinkjava2.jdbpro.LinkArrayList;
 import com.github.drinkjava2.jdbpro.SqlOption;
@@ -26,6 +26,8 @@ import com.github.drinkjava2.jsqlbox.DbContextUtils;
  * @since 2.0.4
  */
 public class BaseFieldConverter implements FieldConverter {
+	
+	public static final BaseFieldConverter instance=new BaseFieldConverter();
 
 	@Override
 	public void handleSQL(SqlOption sqlOption, DbContext ctx, ColumnModel col, Object entity,
@@ -34,20 +36,23 @@ public class BaseFieldConverter implements FieldConverter {
 			Object value = DbContextUtils.readValueFromBeanFieldOrTail(col, entity, false, false);
 			if (!sqlBody.isEmpty())
 				sqlBody.append(", ");
-			sqlBody.append(col.getColumnName()).append("=?").append(param(value));
+			sqlBody.append(col.getColumnName()).append("=?").append(par(value));
 		} else if (SqlOption.DELETE.equals(sqlOption)) {// NOSONAR
 		} else if (SqlOption.INSERT.equals(sqlOption)) {
 			Object value = DbContextUtils.readValueFromBeanFieldOrTail(col, entity, false, false);
 			sqlBody.append(col.getColumnName());
-			sqlBody.append(param(value)).append(",");
+			sqlBody.append(par(value)).append(",");
 		}
 	}
 
+	
+	
 	@Override
 	public Object entityFieldToDbValue(ColumnModel col, Object entity) {
 		return DbContextUtils.doReadFromFieldOrTail(col, entity);
 	}
 
+	
 	@Override
 	public void writeDbValueToEntityField(Object entityBean, ColumnModel col, Object value) {
 		DbContextUtils.doWriteToFieldOrTail(col, entityBean, value);

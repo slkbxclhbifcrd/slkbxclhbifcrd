@@ -48,15 +48,15 @@ public class HelloWorld implements ActiveEntity<HelloWorld> {
 
 	public static void main(String[] args) {
 		DataSource ds = JdbcConnectionPool
-				.create("jdbc:h2:mem:DBNameJava8;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
+				.create("jdbc:h2:mem:demo;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0", "sa", "");
 		DbContext ctx = new DbContext(ds);
 		ctx.setAllowShowSQL(true);
 		DbContext.setGlobalDbContext(ctx);
 		ctx.quiteExecute(ctx.toDropAndCreateDDL(HelloWorld.class));
 		ctx.tx(() -> {
 			HelloWorld h = new HelloWorld().setName("Foo").insert().putField("name", "Hello jSqlBox").update();
-			System.out.println(DB.iQueryForString("select name from HelloWorld where name like", ques("H%"),
-					" or name=", ques("1"), " or name =", ques("2")));
+			System.out.println(DB.qryString("select name from HelloWorld where name like", que("H%"),
+					" or name=", que("1"), " or name =", que("2")));
 			h.delete();
 		});
 		ctx.executeDDL(ctx.toDropDDL(HelloWorld.class));

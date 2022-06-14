@@ -1,9 +1,9 @@
 package com.github.drinkjava2.jsqlbox.function;
 
 import static com.github.drinkjava2.jsqlbox.DB.TAIL;
-import static com.github.drinkjava2.jsqlbox.DB.eLoadBySQL;
+import static com.github.drinkjava2.jsqlbox.DB.entityLoadBySql;
+import static com.github.drinkjava2.jsqlbox.DB.exe;
 import static com.github.drinkjava2.jsqlbox.DB.gctx;
-import static com.github.drinkjava2.jsqlbox.DB.iExecute;
 import static com.github.drinkjava2.jsqlbox.DB.tail;
 
 import java.util.Date;
@@ -15,6 +15,7 @@ import com.github.drinkjava2.jdialects.annotation.jdia.PKey;
 import com.github.drinkjava2.jdialects.annotation.jpa.Column;
 import com.github.drinkjava2.jdialects.annotation.jpa.Table;
 import com.github.drinkjava2.jsqlbox.ActiveRecord;
+import com.github.drinkjava2.jsqlbox.DB;
 import com.github.drinkjava2.jsqlbox.Tail;
 import com.github.drinkjava2.jsqlbox.config.TestBase;
 
@@ -72,36 +73,36 @@ public class TailTest extends TestBase {
 	@Test
 	public void mixTailTest() {
 		new TailDemo().setUserName("Tom").putTail("age", 10).insert(TAIL);
-		TailDemo t = eLoadBySQL(TailDemo.class, "select 'China' as address, tail_demo.* from tail_demo");
+		TailDemo t = entityLoadBySql(TailDemo.class, "select 'China' as address, tail_demo.* from tail_demo");
 		Assert.assertEquals("China", t.getTail("address"));
 		Assert.assertEquals("Tom", t.getUserName());
 		t.putField("birthDay", new Date());
 		t.putField("age", 10);
 		t.update();
 
-		iExecute("alter table tail_demo add address varchar(10)");
+		exe("alter table tail_demo add address varchar(10)");
 		gctx().reloadTailModels();
 		t.putTail("address", "Canada");
 		t.update(TAIL);
 
-		t = eLoadBySQL(TailDemo.class, "select * from tail_demo");
+		t = entityLoadBySql(TailDemo.class, "select * from tail_demo");
 		Assert.assertEquals("Canada", t.getTail("address"));
 	}
 
 	@Test
 	public void tailTest() {
 		new Tail().putTail("user_name", "Tom", "age", 10).insert(tail("tail_demo"));
-		Tail t = eLoadBySQL(Tail.class, "select 'China' as address, tail_demo.* from tail_demo");
+		Tail t = entityLoadBySql(Tail.class, "select 'China' as address, tail_demo.* from tail_demo");
 		Assert.assertEquals("China", t.getTail("address"));
 		Assert.assertEquals("Tom", t.getTail("user_name"));
 		t.update(tail("tail_demo"));
 
-		iExecute("alter table tail_demo add address varchar(10)");
+		exe("alter table tail_demo add address varchar(10)");
 		gctx().reloadTailModels();
 		t.putTail("address", "Canada");
 		t.update(tail("tail_demo"));
 
-		t = eLoadBySQL(Tail.class, "select * from tail_demo");
+		t = entityLoadBySql(Tail.class, "select * from tail_demo");
 		Assert.assertEquals("Canada", t.getTail("address"));
 
 		Assert.assertEquals(1, t.deleteTry(tail("tail_demo")));
@@ -110,20 +111,20 @@ public class TailTest extends TestBase {
 	@Test
 	public void putValuesTest() {
 		TailDemo t = new TailDemo();
-		t.iExecute("delete from tail_demo");
+		DB.exe("delete from tail_demo");
 		t.forFields("userName", "age", "birthDay");
 		t.putValues("Foo", 10, new Date()).insert();
 		t.putValues("Bar", 20, new Date()).insert();
 		Assert.assertEquals(2, t.countAll());
 
-		t.iExecute("delete from tail_demo");
+		DB.exe("delete from tail_demo");
 		t.forTails("user_name", "age", "birth_Day");
 		t.putValues("Foo", 30, new Date()).insert(TAIL);
 		t.putValues("Bar", 40, new Date()).insert(TAIL);
 		Assert.assertEquals(2, t.countAll());
 
 		Tail tail = new Tail();
-		tail.iExecute("delete from tail_demo");
+		DB.exe("delete from tail_demo");
 		tail.forTails("user_name", "age", "birth_Day");
 		tail.putValues("Foo", 30, new Date()).insert(tail("tail_demo"));
 		tail.putValues("Bar", 40, new Date()).insert(tail("tail_demo"));

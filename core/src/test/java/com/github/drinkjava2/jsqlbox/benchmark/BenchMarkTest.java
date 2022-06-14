@@ -1,12 +1,12 @@
 package com.github.drinkjava2.jsqlbox.benchmark;
 
-import static com.github.drinkjava2.jdbpro.JDBPRO.notNull;
-import static com.github.drinkjava2.jdbpro.JDBPRO.param;
 import static com.github.drinkjava2.jsqlbox.DB.AUTO_SQL;
 import static com.github.drinkjava2.jsqlbox.DB.alias;
 import static com.github.drinkjava2.jsqlbox.DB.gctx;
 import static com.github.drinkjava2.jsqlbox.DB.give;
+import static com.github.drinkjava2.jsqlbox.DB.notNull;
 import static com.github.drinkjava2.jsqlbox.DB.pagin;
+import static com.github.drinkjava2.jsqlbox.DB.par;
 
 import java.util.List;
 
@@ -66,8 +66,8 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	}
 
 	public void testTitledArrayResultHander() {
-		EntityNet net = gctx().iQuery(new EntityNet(), DemoOrder.class, AUTO_SQL);
-		gctx().iQuery(net, DemoCustomer.class, AUTO_SQL);
+		EntityNet net = gctx().qry(new EntityNet(), DemoOrder.class, AUTO_SQL);
+		gctx().qry(net, DemoCustomer.class, AUTO_SQL);
 		List<DemoOrder> list = net.pickEntityList(DemoOrder.class);
 		for (DemoOrder order : list) {
 			DemoCustomer customer = order.findRelatedOne(net, DemoCustomer.class);
@@ -101,8 +101,8 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 
 	@Override
 	public void testExampleQuery() {
-		List<DemoUser> result = gctx().eFindBySample(new DemoUser().putField("id", 1, "code", "abc"), " or code=?",
-				param("efg"));
+		List<DemoUser> result = gctx().entityFindBySample(new DemoUser().putField("id", 1, "code", "abc"), " or code=?",
+				par("efg"));
 		if (result.get(0) == null)
 			throw new RuntimeException("Example query error");
 	}
@@ -118,7 +118,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	}
 
 	public void testOrmQUerySQ() {
-		EntityNet net = gctx().iQuery(new EntityNetHandler(), DemoOrder.class, DemoCustomer.class, alias("o", "c"),
+		EntityNet net = gctx().qry(new EntityNetHandler(), DemoOrder.class, DemoCustomer.class, alias("o", "c"),
 				give("c", "o"),
 				"select o.id as o_id, o.name as o_name, o.cust_id as o_cust_id, c.id as c_id, c.code as c_code, c.name as c_name from sys_order o left join sys_customer c on o.cust_id=c.id");
 		List<DemoOrder> list = net.pickEntityList(DemoOrder.class);
@@ -130,7 +130,7 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	}
 
 	public void testSqlRelated() {
-		List<DemoOrder> list = gctx().eFindAll(DemoOrder.class);
+		List<DemoOrder> list = gctx().entityFind(DemoOrder.class);
 		for (DemoOrder order : list) {
 			DemoCustomer customer = order.findRelatedOne(DemoCustomer.class);
 			if (customer == null)
@@ -139,8 +139,8 @@ public class BenchMarkTest extends TestBase implements TestServiceInterface {
 	}
 
 	public void testNetRelated() {
-		EntityNet net = gctx().iQuery(new EntityNet(), DemoOrder.class, AUTO_SQL);
-		gctx().iQuery(net, DemoCustomer.class, AUTO_SQL);
+		EntityNet net = gctx().qry(new EntityNet(), DemoOrder.class, AUTO_SQL);
+		gctx().qry(net, DemoCustomer.class, AUTO_SQL);
 		List<DemoOrder> list = net.pickEntityList(DemoOrder.class);
 		for (DemoOrder order : list) {
 			DemoCustomer customer = order.findRelatedOne(net, DemoCustomer.class);

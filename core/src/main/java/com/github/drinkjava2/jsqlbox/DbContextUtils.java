@@ -11,11 +11,11 @@
  */
 package com.github.drinkjava2.jsqlbox;
 
-import static com.github.drinkjava2.jdbpro.JDBPRO.param;
-import static com.github.drinkjava2.jdbpro.JDBPRO.valuesQuestions;
 import static com.github.drinkjava2.jsqlbox.DB.AUTO_SQL;
+import static com.github.drinkjava2.jsqlbox.DB.par;
 import static com.github.drinkjava2.jsqlbox.DB.shardDB;
 import static com.github.drinkjava2.jsqlbox.DB.shardTB;
+import static com.github.drinkjava2.jsqlbox.DB.valuesQuestions;
 
 import java.lang.reflect.Method;
 import java.sql.Connection;
@@ -39,7 +39,6 @@ import com.github.drinkjava2.jdialects.Dialect;
 import com.github.drinkjava2.jdialects.StrUtils;
 import com.github.drinkjava2.jdialects.TableModelUtils;
 import com.github.drinkjava2.jdialects.Type;
-import com.github.drinkjava2.jdialects.TypeUtils;
 import com.github.drinkjava2.jdialects.annotation.jpa.GenerationType;
 import com.github.drinkjava2.jdialects.id.IdGenerator;
 import com.github.drinkjava2.jdialects.id.IdentityIdGenerator;
@@ -601,7 +600,7 @@ public abstract class DbContextUtils {// NOSONAR
 			try {
 				Method writeMethod = ClassCacheUtils.getClassFieldWriteMethod(entityBean.getClass(), fieldName);
 				if (value != null && value.getClass() != writeMethod.getParameterTypes()[0])
-					value = TypeUtils.jdbcValue2JavaValue(value, writeMethod.getParameterTypes()[0]);
+					value = Dialect.globalJdbcTypeConverter.convert(value, writeMethod.getParameterTypes()[0]);
 				writeMethod.invoke(entityBean, value);
 			} catch (Exception e) {
 				throw new DbException("Field '" + fieldName + "' can not write with "
@@ -728,14 +727,14 @@ public abstract class DbContextUtils {// NOSONAR
 						throw new DbException(
 								"Current DbContext no SnowflakeCreator found when try to create a Snowflake value");
 					Object id = snow.nextId();
-					sqlBody.append(param(id));
+					sqlBody.append(par(id));
 					sqlBody.append(", ");
 					foundColumnToInsert = true;
 					writeValueToBeanFieldOrTail(col, entityBean, id);
 				} else {// Normal Id Generator
 					sqlBody.append(col.getColumnName());
 					Object id = idGen.getNextID(ctx, ctx.getDialect(), col.getColumnType());
-					sqlBody.append(param(id));
+					sqlBody.append(par(id));
 					sqlBody.append(", ");
 					foundColumnToInsert = true;
 					writeValueToBeanFieldOrTail(col, entityBean, id);
@@ -777,7 +776,7 @@ public abstract class DbContextUtils {// NOSONAR
 		if (optionModel == null)// No optional model, force use entity's
 			sqlBody.frontAdd(model);
 
-		int result = ctx.iUpdate(sqlBody.toArray());
+		int result = ctx.upd(sqlBody.toArray());
 		if (ctx.isBatchEnabled())
 			return 1; // in batch mode, direct return 1
 		if (identityCol != null) {// write identity id to Bean field
@@ -858,13 +857,13 @@ public abstract class DbContextUtils {// NOSONAR
 				if (!sqlWhere.isEmpty())
 					sqlWhere.append(" and ");// NOSONAR
 				sqlWhere.append(col.getColumnName()).append("=?");
-				sqlWhere.append(param(value));
+				sqlWhere.append(par(value));
 			} else {
 				if (!(((ignoreNull || ignoreEmpty) && value == null) || (ignoreEmpty && StrUtils.isEmpty(value)))) {
 					if (!sqlBody.isEmpty())
 						sqlBody.append(", ");
 					sqlBody.append(col.getColumnName()).append("=? ");
-					sqlBody.append(param(value));
+					sqlBody.append(par(value));
 				}
 			}
 			if (col.getShardTable() != null) // Sharding Table?
@@ -890,7 +889,7 @@ public abstract class DbContextUtils {// NOSONAR
 
 		if (optionModel == null)
 			sqlBody.frontAdd(model);
-		int rowAffected = ctx.iUpdate(sqlBody.toObjectArray());
+		int rowAffected = ctx.upd(sqlBody.toObjectArray());
 		if (ctx.isBatchEnabled())
 			return 1; // in batch mode, direct return 1
 		return rowAffected;
@@ -967,7 +966,7 @@ public abstract class DbContextUtils {// NOSONAR
 				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, col);
 				if (!sqlWhere.isEmpty())
 					sqlWhere.append(" and ");
-				sqlWhere.append(param(value));
+				sqlWhere.append(par(value));
 				sqlWhere.append(col.getColumnName()).append("=? ");
 			}
 			if (col.getShardTable() != null) // Sharding Table?
@@ -995,7 +994,7 @@ public abstract class DbContextUtils {// NOSONAR
 			sqlBody.frontAdd(model);
 
 		sqlBody.append(SingleTonHandlers.arrayHandler);
-		int rowAffected = ctx.iUpdate(sqlBody.toObjectArray());
+		int rowAffected = ctx.upd(sqlBody.toObjectArray());
 		if (ctx.isBatchEnabled())
 			return 1; // in batch mode, direct return 1
 		return rowAffected;
@@ -1048,7 +1047,7 @@ public abstract class DbContextUtils {// NOSONAR
 				continue;
 			if (col.getPkey()) {
 				sqlWhere.append(col.getColumnName()).append("=?")
-						.append(param(readValueFromBeanFieldOrTail(col, entityBean, false, false))).append(" and ");
+						.append(par(readValueFromBeanFieldOrTail(col, entityBean, false, false))).append(" and ");
 			}
 			if (col.getShardTable() != null) // Sharding Table?
 				shardTableItem = shardTB(readValueFromBeanFieldOrTail(col, entityBean, false, false));
@@ -1079,7 +1078,7 @@ public abstract class DbContextUtils {// NOSONAR
 			sqlBody.frontAdd(model);
 
 		sqlBody.append(SingleTonHandlers.arrayListHandler);
-		List<Object[]> valuesList = ctx.iQuery(sqlBody.toObjectArray());
+		List<Object[]> valuesList = ctx.qry(sqlBody.toObjectArray());
 
 		if (valuesList == null || valuesList.isEmpty())
 			return 0;
@@ -1209,7 +1208,7 @@ public abstract class DbContextUtils {// NOSONAR
 				Object value = EntityIdUtils.readFeidlValueFromEntityId(id, col);
 				if (!sqlWhere.isEmpty())
 					sqlWhere.append(" and ");
-				sqlWhere.append(param(value));
+				sqlWhere.append(par(value));
 				sqlWhere.append(col.getColumnName()).append("=? ");
 			}
 			if (col.getShardTable() != null) // Sharding Table?
@@ -1236,7 +1235,7 @@ public abstract class DbContextUtils {// NOSONAR
 		if (optionModel == null)
 			sqlBody.frontAdd(model);
 
-		long result = ctx.iQueryForLongValue(sqlBody.toObjectArray());
+		long result = ctx.qryLongValue(sqlBody.toObjectArray());
 		if (result == 1)
 			return true;
 		else if (result == 0)
@@ -1246,11 +1245,11 @@ public abstract class DbContextUtils {// NOSONAR
 	}
 
 	/** Count quantity of all entity, this method does not support sharding */
-	public static int entityCountAll(DbContext ctx, Class<?> entityClass, Object... optionItems) {// NOSONAR
+	public static int entityCount(DbContext ctx, Class<?> entityClass, Object... optionItems) {// NOSONAR
 		DbContext paramCtx = extractCtx(optionItems);
 		if (paramCtx != null) {
 			Object[] newParams = cleanUpParam(optionItems);
-			return entityCountAll(paramCtx, entityClass, newParams);
+			return entityCount(paramCtx, entityClass, newParams);
 		}
 		TableModel optionModel = DbContextUtils.findFirstModel(optionItems);
 		TableModel model = optionModel;
@@ -1282,14 +1281,14 @@ public abstract class DbContextUtils {// NOSONAR
 				sqlBody.append(item);
 		if (optionModel == null)
 			sqlBody.frontAdd(model);
-		return ctx.iQueryForIntValue(sqlBody.toObjectArray());// NOSONAR
+		return ctx.qryIntValue(sqlBody.toObjectArray());// NOSONAR
 	}
 
-	public static <T> List<T> entityFindAll(DbContext ctx, Class<T> entityClass, Object... optionItems) {// NOSONAR
+	public static <T> List<T> entityFind(DbContext ctx, Class<T> entityClass, Object... optionItems) {// NOSONAR
 		DbContext paramCtx = extractCtx(optionItems);
 		if (paramCtx != null) {
 			Object[] newParams = cleanUpParam(optionItems);
-			return entityFindAll(paramCtx, entityClass, newParams);
+			return entityFind(paramCtx, entityClass, newParams);
 		}
 
 		TableModel optionModel = DbContextUtils.findFirstModel(optionItems);
@@ -1329,7 +1328,7 @@ public abstract class DbContextUtils {// NOSONAR
 			sqlBody.frontAdd(model);
 
 		sqlBody.append(SingleTonHandlers.arrayListHandler);
-		List<Object[]> valuesList = ctx.iQuery(sqlBody.toObjectArray());
+		List<Object[]> valuesList = ctx.qry(sqlBody.toObjectArray());
 
 		List<T> result = new ArrayList<T>();
 		if (valuesList == null || valuesList.isEmpty())
@@ -1345,7 +1344,7 @@ public abstract class DbContextUtils {// NOSONAR
 
 	@SuppressWarnings("unchecked")
 	public static <T> List<T> entityFindBySample(DbContext ctx, Object sampleBean, Object... sqlItems) {
-		return (List<T>) entityFindAll(ctx, sampleBean.getClass(),
+		return (List<T>) entityFind(ctx, sampleBean.getClass(),
 				new SampleItem(sampleBean).sql(" where ").notNullFields(), sqlItems);
 	}
 
@@ -1355,7 +1354,7 @@ public abstract class DbContextUtils {// NOSONAR
 
 	public static EntityNet entityAutoNet(DbContext ctx, Class<?>... entityClasses) {
 		TableModel[] models = findAllModels((Object[]) entityClasses);
-		PreparedSQL ps = ctx.iPrepare(SqlOption.QUERY, new EntityNetHandler(), models, AUTO_SQL);
+		PreparedSQL ps = ctx.prepare(SqlOption.QUERY, new EntityNetHandler(), models, AUTO_SQL);
 		DbException.assureTrue(ps.getAliases() != null && ps.getAliases().length > 1);
 		String firstAlias = ps.getAliases()[0];
 		for (int i = 1; i < entityClasses.length; i++)
@@ -1382,7 +1381,7 @@ public abstract class DbContextUtils {// NOSONAR
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
 		Object[] notModelAlias = findNotModelAlias(sqlItems);
-		EntityNet net = ctx.iQuery(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
+		EntityNet net = ctx.qry(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
 				new EntityKeyItem(entity), notModelAlias);
 		return (List<E>) net.pickEntityList(models[models.length - 1].getEntityClass());
 	}
@@ -1397,7 +1396,7 @@ public abstract class DbContextUtils {// NOSONAR
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
 		Object[] notModelAlias = findNotModelAlias(sqlItems);
-		EntityNet net = ctx.iQuery(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
+		EntityNet net = ctx.qry(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
 				new EntityKeyItem(entity), notModelAlias);
 		return (Set<E>) net.pickEntitySet(models[models.length - 1].getEntityClass());
 	}
@@ -1412,7 +1411,7 @@ public abstract class DbContextUtils {// NOSONAR
 		TableModel[] models = findAllModels(sqlItems);
 		Object[] modelsAlias = findModelAlias(sqlItems);
 		Object[] notModelAlias = findNotModelAlias(sqlItems);
-		EntityNet net = ctx.iQuery(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
+		EntityNet net = ctx.qry(SqlOption.QUERY, new EntityNetHandler(), modelsAlias, AUTO_SQL, " where ",
 				new EntityKeyItem(entity), notModelAlias);
 		return (Map<Object, E>) net.pickEntityMap(models[models.length - 1].getEntityClass());
 	}

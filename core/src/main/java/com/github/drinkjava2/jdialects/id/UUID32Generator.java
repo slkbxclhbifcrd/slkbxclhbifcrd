@@ -31,7 +31,7 @@ public class UUID32Generator implements IdGenerator {
 
 	@Override
 	public GenerationType getGenerationType() {
-		return GenerationType.UUID25;
+		return GenerationType.UUID32;
 	}
 
 	@Override
