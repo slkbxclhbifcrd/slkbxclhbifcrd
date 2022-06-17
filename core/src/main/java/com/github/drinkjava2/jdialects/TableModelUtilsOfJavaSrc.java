@@ -13,9 +13,7 @@ package com.github.drinkjava2.jdialects;
 
 import static com.github.drinkjava2.jdialects.StrUtils.clearQuote;
 
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import com.github.drinkjava2.jdialects.model.ColumnModel;
 import com.github.drinkjava2.jdialects.model.FKeyModel;
@@ -29,6 +27,54 @@ import com.github.drinkjava2.jdialects.springsrc.utils.StringUtils;
  * @since 2.0.4
  */
 public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
+
+	/**
+	 * Convert a TablemModel instance to Java entity class source code, example can
+	 * see TableModelUtilsOfJavaSrcTest
+	 *
+	 * @param model
+	 *            The TableModel instance
+	 * @param setting
+	 *            The setting options, for example:
+	 *
+	 *            <pre>
+	 *            Map<String, Object> setting = new HashMap<String, Object>();
+	 *            setting.put(TableModelUtils.OPT_LINK_STYLE, false);
+	 *            setting.put(TableModelUtils.OPT_PACKAGE_NAME, "somepackage");
+	 *            setting.put(TableModelUtils.OPT_FIELD_FLAGS, true);
+	 *            setting.put(TableModelUtils.OPT_IMPORTS, "some imports");
+	 *            setting.put(TableModelUtils.OPT_CLASS_DEFINITION, "public class $ClassName extends ActiveRecord<$ClassName> {");
+	 *            </pre>
+	 *
+	 * @return Java Bean source code of entity
+	 */
+	public static String modelToJavaSourceCode(TableModel model, Map<String, Object> setting) {
+		// head
+		StringBuilder body = new StringBuilder();
+		generatePackage(setting, body);
+
+		generateImports(setting, body);
+
+		// @table
+		String className = getClassNameFromTableModel(model);
+
+		int fkeyCount = generateAnnotationForClass(model, body, className, setting);
+
+		// class
+		generateClassBegin(setting, body, className, model);
+
+		generateFieldTags(model, setting, body, className);
+
+		if (Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELDS)))
+			generateFields(model, setting, fkeyCount, body);
+
+		if (Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELDS)))
+			generateGetterAndSetter(model, setting, className, body);
+
+		body.append("}\n");
+
+		return body.toString();
+	}
 
 	/**
 	 * Map DB column name to entity field name, example: <br/>
@@ -101,86 +147,54 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		return className;
 	}
 
-	/**
-	 * Convert a TablemModel instance to Java entity class source code
-	 *
-	 * @param model
-	 *            The TableModel instance
-	 * @param setting
-	 *            The setting options, for example:
-	 *
-	 *            <pre>
-	 *            Map<String, Object> setting = new HashMap<String, Object>();
-	 *            setting.put(TableModelUtils.OPT_LINK_STYLE, false);
-	 *            setting.put(TableModelUtils.OPT_PACKAGE_NAME, "somepackage");
-	 *            setting.put(TableModelUtils.OPT_FIELD_FLAGS, true);
-	 *            setting.put(TableModelUtils.OPT_IMPORTS, "some imports");
-	 *            setting.put(TableModelUtils.OPT_CLASS_DEFINITION, "public class $1 extends ActiveRecord<$1>");
-	 *            </pre>
-	 *
-	 * @return Java Bean source code of entity
-	 */
-	public static String modelToJavaSourceCode(TableModel model, Map<String, Object> setting) {
-		// head
-		StringBuilder body = new StringBuilder();
-		generatePackage(setting, body);
-		generateImports(setting, body);
-
-		// @table
-		String className = getClassNameFromTableModel(model);
-		int fkeyCount = generateAnnotationForClass(model, body, className);
-
-		// class
-		generateClassBegin(setting, body, className);
-		generateStaticFields(model, setting, body, className);
-		generateFields(model, setting, fkeyCount, body);
-		generateGetterAndSetter(model, setting, className, body);
-		generateClassEnd(body);
-
-		return body.toString();
-	}
-
-	private static void generateStaticFields(TableModel model, Map<String, Object> setting, StringBuilder body,
+	private static void generateFieldTags(TableModel model, Map<String, Object> setting, StringBuilder body,
 			String className) {
 		boolean fieldFlags = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELD_FLAGS));
+		boolean fieldStatic = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_FIELD_FLAGS_STATIC));
+		String fieldCase = (String) setting.get(TableModelUtils.OPT_FIELD_FLAGS_STYLE);
+		boolean upper = "upper".equalsIgnoreCase(fieldCase);
+		boolean lower = "lower".equalsIgnoreCase(fieldCase);
+		boolean camel = "camel".equalsIgnoreCase(fieldCase);
+
 		StringBuilder fieldSB = new StringBuilder();
-		// fieldStaticNames
-		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
-		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
-		Set<String> processed = new HashSet<>();
 		if (fieldFlags) {
-			fieldSB.append("\tpublic static final String TABLE_NAME = \"").append(model.getTableName())
-					.append("\";\n\n");
 			for (ColumnModel col : model.getColumns()) {
 				String columnName = col.getColumnName();
-				if (processed.contains(columnName)) {
-					continue;
-				}
 				String rawColName = clearQuote(columnName);
-				processed.add(columnName);
+				if (fieldStatic)
+					fieldSB.append("\tpublic static final String ");
+				else
+					fieldSB.append("\tpublic final String ");
+				if (upper)
+					rawColName = rawColName.toUpperCase();
+				else if (lower)
+					rawColName = rawColName.toLowerCase();
+				else if(camel)
+					rawColName = StrUtils.underScoreToCamel(rawColName);
 
-				fieldSB.append("\tpublic static final String ").append(rawColName.toUpperCase()).append(" = \"")
-						.append(columnName).append("\";\n\n");
+				fieldSB.append(rawColName).append(" = \"").append(columnName).append("\";\n\n");
 			}
 		}
-		body.append(fieldSB.toString()).append("\n\n");
+		body.append(fieldSB.toString());
 	}
+ 
 
-	private static void generateClassEnd(StringBuilder body) {
-		body.append("}\n");
-	}
-
-	private static void generateClassBegin(Map<String, Object> setting, StringBuilder body, String className) {
+	private static void generateClassBegin(Map<String, Object> setting, StringBuilder body, String className, TableModel model) {
 		String classDefinition = (String) setting.get(TableModelUtils.OPT_CLASS_DEFINITION);
-		body.append(StrUtils.replace(classDefinition, "$1", className)).append(" {\n\n");
+		classDefinition=StrUtils.replace(classDefinition, "$Class", className);
+		classDefinition=StrUtils.replace(classDefinition, "$class", StrUtils.toLowerCaseFirstOne(className));
+		classDefinition=StrUtils.replace(classDefinition, "$table", StrUtils.toLowerCaseFirstOne(model.getTableName()));
+		body.append(classDefinition).append("\n");
 	}
 
-	private static int generateAnnotationForClass(TableModel model, StringBuilder body, String className) {
+	private static int generateAnnotationForClass(TableModel model, StringBuilder body, String className,
+			Map<String, Object> setting) {
+		StringBuilder ClassAnno = new StringBuilder();
 		if (!StringUtils.isEmpty(model.getComment())) {
-			body.append("/**\n * ").append(model.getComment()).append("\n */\n");
+			ClassAnno.append("/**\n * ").append(model.getComment()).append("\n */\n");
 		}
 		if (!className.equals(model.getTableName())) {
-			body.append("@Table").append("(name=\"").append(model.getTableName()).append("\")\n");
+			ClassAnno.append("@Table").append("(name=\"").append(model.getTableName()).append("\")\n");
 		}
 
 		// Compound FKEY
@@ -189,25 +203,27 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			if (fkey.getColumnNames().size() <= 1)/* Not compound Fkey */ {
 				continue;
 			}
-			body.append("@FKey");
+			ClassAnno.append("@FKey");
 			if (fkeyCount > 0) {
-				body.append(fkeyCount);
+				ClassAnno.append(fkeyCount);
 			}
-			body.append("(");
+			ClassAnno.append("(");
 			fkeyCount++;
 			if (!StrUtils.isEmpty(fkey.getFkeyName())) {
-				body.append("name=\"").append(fkey.getFkeyName()).append("\", ");
+				ClassAnno.append("name=\"").append(fkey.getFkeyName()).append("\", ");
 			}
 			if (!fkey.getDdl()) {
-				body.append("ddl=false, ");
+				ClassAnno.append("ddl=false, ");
 			}
 			String fkeyCols = StrUtils.listToString(fkey.getColumnNames());
 			fkeyCols = StrUtils.replace(fkeyCols, ",", "\",\"");
 			String refCols = StrUtils.arrayToString(fkey.getRefTableAndColumns());
 			refCols = StrUtils.replace(refCols, ",", "\",\"");
-			body.append("columns={\"").append(fkeyCols).append("\"}, refs={\"").append(refCols).append("\"}");
-			body.append(")\n");
+			ClassAnno.append("columns={\"").append(fkeyCols).append("\"}, refs={\"").append(refCols).append("\"}");
+			ClassAnno.append(")\n");
 		}
+		if (Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_CLASS_ANNOTATION)))
+			body.append(ClassAnno);
 		return fkeyCount;
 	}
 
@@ -229,12 +245,13 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 			body.append("import com.github.drinkjava2.jdialects.annotation.jdia.*;\n");
 			body.append("import com.github.drinkjava2.jdialects.annotation.jpa.*;\n");
 			body.append("import com.github.drinkjava2.jsqlbox.*;\n");
+			body.append("\n");
 		}
 		String imports = (String) setting.get(TableModelUtils.OPT_IMPORTS);
 		if (!StrUtils.isEmpty(imports)) {
 			body.append(imports);
+			body.append("\n");
 		}
-		body.append("\n");
 	}
 
 	private static void generateFields(TableModel model, Map<String, Object> setting, int fkeyCount,
@@ -242,16 +259,9 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		boolean enablePublicField = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_PUBLIC_FIELD));
 		StringBuilder pkeySB = new StringBuilder();
 		StringBuilder normalSB = new StringBuilder();
-		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
-		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
-		Set<String> processed = new HashSet<>();
 		StringBuilder sb;
 		for (ColumnModel col : model.getColumns()) {
 			String columnName = col.getColumnName();
-			if (processed.contains(columnName)) {
-				continue;
-			}
-			processed.add(columnName);
 			Class<?> javaType = TypeUtils.dialectTypeToJavaType(col.getColumnType());
 
 			if (javaType == null) {
@@ -318,10 +328,10 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 				accessModifier = "public";
 			}
 			sb.append("\t").append(accessModifier).append(' ').append(javaType.getSimpleName()).append(' ')
-					.append(fieldName).append(";\n\n");
+					.append(fieldName).append(";\n");
 		}
 
-		body.append(pkeySB.toString()).append("\n\n").append(normalSB.toString()).append("\n\n");
+		body.append(pkeySB.toString()).append("\n").append(normalSB.toString()).append("\n");
 	}
 
 	private static void generateGetterAndSetter(TableModel model, Map<String, Object> setting, String className,
@@ -329,16 +339,8 @@ public abstract class TableModelUtilsOfJavaSrc {// NOSONAR
 		boolean linkStyle = Boolean.TRUE.equals(setting.get(TableModelUtils.OPT_LINK_STYLE));
 		StringBuilder pkeySB = new StringBuilder();
 		StringBuilder normalSB = new StringBuilder();
-		// 不知道为什么有些表的column 定义信息是重复的，我不是DBA不清楚原因。
-		// 也需要还有什么废弃的标志，但前面的处理没有过滤，这里先临时处理一下。
-		Set<String> processed = new HashSet<>();
 		StringBuilder sb;
 		for (ColumnModel col : model.getColumns()) {
-			if (processed.contains(col.getColumnName())) {
-				continue;
-			}
-
-			processed.add(col.getColumnName());
 			// getter
 			Class<?> javaType = TypeUtils.dialectTypeToJavaType(col.getColumnType());
 
