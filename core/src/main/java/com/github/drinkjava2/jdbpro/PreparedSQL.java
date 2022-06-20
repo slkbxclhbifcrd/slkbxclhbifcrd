@@ -31,7 +31,7 @@ import com.github.drinkjava2.jdbpro.template.SqlTemplateEngine;
  * PreparedSQL is a temporary object used for store SQL, parameter,
  * ResultSetHandlers, SqlHandlers, Connection and templateEngine..., it's not
  * thread-safe
- * 
+ *
  * @author Yong Zhu
  * @since 1.7.0
  */
@@ -99,6 +99,8 @@ public class PreparedSQL {
 
 	/** EntityNet, this is designed for ORM program's EntityNet */
 	private Object entityNet = null;
+	/** query timeout secons  default 0 unlimited*/
+	private int timeoutSeconds=0;
 
 	public PreparedSQL() {// default constructor
 	}
@@ -471,4 +473,11 @@ public class PreparedSQL {
 		this.ignoreEmpty = ignoreEmpty;
 	}
 
+    public int getTimeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    public void setTimeoutSeconds(int timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
+    }
 }

@@ -556,14 +556,14 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 			try {
 				if (ps.getConnection() != null) {
 					if (ps.getParams() != null)
-						return (T) query(ps.getConnection(), ps.getSql(), ps.getResultSetHandler(), ps.getParams());
+						return (T) query(ps.getConnection(), ps.getSql(),ps.getTimeoutSeconds(), ps.getResultSetHandler(), ps.getParams());
 					else
-						return (T) query(ps.getConnection(), ps.getSql(), ps.getResultSetHandler());
+						return (T) query(ps.getConnection(), ps.getSql(),ps.getTimeoutSeconds(), ps.getResultSetHandler());
 				} else {
 					if (ps.getParams() != null)
-						return (T) query(ps.getSql(), ps.getResultSetHandler(), ps.getParams());
+						return (T) query(ps.getSql(),ps.getTimeoutSeconds(), ps.getResultSetHandler(), ps.getParams());
 					else
-						return (T) query(ps.getSql(), ps.getResultSetHandler());
+						return (T) query(ps.getSql(),ps.getTimeoutSeconds(), ps.getResultSetHandler());
 				}
 			} catch (SQLException e) {
 				throw new DbProException(e);
