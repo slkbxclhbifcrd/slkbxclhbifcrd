@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.dbutils.StatementConfiguration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -518,8 +519,8 @@ public class UsageAndSpeedTest {
     }
 
     @Test
-    public void timeoutQuery() {
-        DbContext ctx = new DbContext(dataSource);
+    public void timeoutQuery() {//timeout是在初始化DbContext(或它的父类QueryRunner)时设定，不可以作为参数传递
+        DbContext ctx = new DbContext(dataSource, new StatementConfiguration.Builder().queryTimeout(1).build());
         ctx.setAllowShowSQL(true);
         final String name = "Tom";
         final String age = null;
@@ -530,9 +531,9 @@ public class UsageAndSpeedTest {
                 " ,address ", par(address), //
                 ") ", valuesQuestions());
         try {
-            List<Map<String, Object>> r1 = ctx.qryMapList("select * from users", timeout(1));
-            Map<String, Object> r2 = ctx.qryMap("select * from users", timeout(1));
-            String r3 = ctx.qryString("select name from users where name=?", par(name), timeout(1));
+            ctx.qryMapList("select * from users");
+            ctx.qryMap("select * from users");
+            ctx.qryString("select name from users where name=?", par(name));
             System.out.println();
         } catch (Exception e) {
             if (e instanceof SQLException) {

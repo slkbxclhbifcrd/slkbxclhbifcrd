@@ -31,7 +31,7 @@ import com.github.drinkjava2.jtransactions.TxResult;
 /**
  * DB store some public static methods, usually used for static import to
  * simplify programming
- *
+ * 
  * @author Yong Zhu
  * @since 1.0.8
  */
@@ -58,7 +58,7 @@ public abstract class DB  {// NOSONAR
 	public static SqlItem par(Object... parameters) {
 		return new SqlItem(SqlOption.PARAM, parameters);
 	}
-
+ 
 	/**
 	 * Cache parameters and return a "?" String
 	 */
@@ -70,25 +70,20 @@ public abstract class DB  {// NOSONAR
 	public static SqlItem param(Object... parameters) {
 		return new SqlItem(SqlOption.PARAM, parameters);
 	}
-
+ 
 	/**
 	 * Cache parameters and return a "?" String
 	 */
 	public static SqlItem ques(Object... parameters) {// NOSONAR
 		return new SqlItem(SqlOption.QUESTION_PARAM, parameters);
 	}
-
+	
 	/**
 	 * Cache parameters and return a "?" String
 	 */
 	public static SqlItem question(Object... parameters) {
 		return new SqlItem(SqlOption.QUESTION_PARAM, parameters);
 	}
-
-    /**
-     * Cache parameters and set querytimeout
-     */
-	public static SqlItem timeout(int seconds){return new SqlItem(SqlOption.TIMEOUT,seconds);}
 
 	/**
 	 * If last param is not null, then add all items in SQL<br/>
@@ -149,7 +144,7 @@ public abstract class DB  {// NOSONAR
 			sb.append(items[i]);
 		return new Object[] {items[0], par(sb.toString())};
 	}
-
+	
 	/** if condition true, return items  array, else return "" */
 	public static Object when(boolean condition, Object... items) {
 		return condition ? items : "";
@@ -162,11 +157,11 @@ public abstract class DB  {// NOSONAR
 	public static SqlItem valuesQuestions() {
 		return new SqlItem(SqlOption.VALUES_QUESTIONS);
 	}
-
+	
 	public static SqlItem other(Object... otherInfos) {
 		return new SqlItem(SqlOption.OTHER, otherInfos);
 	}
-
+	
 	public static List<Object[]> getOthers() {
 		return gctx().getOthers();
 	}
@@ -181,7 +176,7 @@ public abstract class DB  {// NOSONAR
 	/**
 	 * For tXxxx style templateEngine use, return a SqlItemType.PUT type SqlItem
 	 * instance,
-	 *
+	 * 
 	 * Usage: put("key1",value1,"key2",value2...);
 	 */
 	public static SqlItem bind(Object... parameters) {
@@ -195,17 +190,17 @@ public abstract class DB  {// NOSONAR
 	public static SqlItem disableHandlers(Class<?>... args) {
 		return new SqlItem(SqlOption.DISABLE_HANDLERS, (Object[]) args);
 	}
-
+	
 	//======================
-
-
-
-
-
-
-
-
-
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	/** Shortcut method equal to DbContext.getGlobalDbContext() */
 	public static DbContext gctx() {
 		return DbContext.getGlobalDbContext();
@@ -283,18 +278,18 @@ public abstract class DB  {// NOSONAR
 
 	protected void ________Entity_Methods________() {// NOSONAR
 	}
-	//@formatter:off
+	//@formatter:off 
 	//Entity series methods from DbContext
-
+ 
 	public static <T> List<T> entityFind(Class<T> entityClass, Object... items) {return gctx().entityFind(entityClass, items);}
 	public static <T> List<T> entityFindBySample(Object sampleBean, Object... items) {return gctx().entityFindBySample(sampleBean, items);}
 	public static <T> List<T> entityFindBySql(Object... items) {return gctx().entityFindBySql(items);}
-	public static <T> T entityFindOneBySQL(Object... items) {return gctx().entityFindOneBySQL(items);}
-	public static <T> T entityLoad(T entity, Object... items) {return gctx().entityLoad(entity, items);}
+	public static <T> T entityFindOneBySQL(Object... items) {return gctx().entityFindOneBySQL(items);} 
+	public static <T> T entityLoad(T entity, Object... items) {return gctx().entityLoad(entity, items);} 
 	public static <T> T entityLoadById(Class<T> entityClass, Object entityId, Object... items) {return gctx().entityLoadById(entityClass, entityId, items);}
     public static <T> T entityLoadByIdTry(Class<T> entityClass, Object entityId, Object... items) {return gctx().entityLoadByIdTry(entityClass, entityId, items);}
     public static <T> T entityLoadBySql(Object... items) {return gctx().entityLoadBySql(items);}
-	public static <T> T entityInsert(T entity, Object... items) {return gctx().entityInsert(entity, items);}
+	public static <T> T entityInsert(T entity, Object... items) {return gctx().entityInsert(entity, items);} 
     public static <T> T entityUpdate(Object entity, Object... items) {return gctx().entityUpdate(entity, items);}
 	public static boolean entityExist(Object entity, Object... items) {return gctx().entityExist(entity, items);}
 	public static boolean entityExistById(Class<?> entityClass, Object id, Object... items) {return gctx().entityExistById(entityClass, id, items);}
@@ -309,12 +304,12 @@ public abstract class DB  {// NOSONAR
 	public static <T> List<T> entityFindRelatedList(Object entityOrIterable, Object... sqlItems) {return  gctx().entityFindRelatedList(entityOrIterable, sqlItems);}
 	public static <T> Set<T> entityFindRelatedSet(Object entity, Object... sqlItems) {return  gctx().entityFindRelatedSet(entity, sqlItems);}
 	public static <T> Map<Object, T> entityFindRelatedMap(Object entity, Object... sqlItems) {return  gctx().entityFindRelatedMap(entity, sqlItems);}
-	public static EntityNet autoNet(Class<?>... entityClass) {return  gctx().autoNet(entityClass);}
-
-
-	// simplilfied SQL methods
+	public static EntityNet autoNet(Class<?>... entityClass) {return  gctx().autoNet(entityClass);}	 
+	
+	
+	// simplilfied SQL methods 
 	protected void ________SQL_Methods________() {}// NOSONAR
-
+	
 	public static <T> T qry(Object... items) {return  gctx().qry(items);}
 	public static <T> T qryObject(Object... items) {return gctx().qryObject(items);}
 	public static long qryLongValue(Object... items) {return gctx().qryLongValue(items);}
@@ -329,5 +324,5 @@ public abstract class DB  {// NOSONAR
 	public static <T> List<T> qryEntityList(Object... items) {return gctx().qryEntityList(items);}
 	public static PreparedSQL prepare(Object... items) { return gctx().prepare(items); }
 
-
+  
 }

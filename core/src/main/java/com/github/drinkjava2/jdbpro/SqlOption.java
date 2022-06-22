@@ -18,7 +18,7 @@ package com.github.drinkjava2.jdbpro;
 /**
  * SqlOption system how to explain a SqlItem, SqlItem like "Message" in windows,
  * SqlOption is the "Message" type.
- *
+ * 
  * @author Yong Zhu
  * @since 1.7.0.3
  */
@@ -135,7 +135,5 @@ public enum SqlOption {
 	AUTO_SQL,
 
 	/** Mark a TAIL SqlItem, tell ORM to use this model do CRUD */
-	TAIL,
-	/** Mark a TAIL SqlItem, tell ORM to use query timeout throw exception */
-	TIMEOUT
+	TAIL
 }
