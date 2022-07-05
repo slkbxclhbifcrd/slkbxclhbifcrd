@@ -3,6 +3,9 @@ package com.github.drinkjava2.common;
 import com.github.drinkjava2.jbeanbox.BeanBox;
 import com.zaxxer.hikari.HikariDataSource;
 
+import cn.beecp.BeeDataSource;
+import cn.beecp.BeeDataSourceConfig;
+
 /**
  * jSqlBox need pass unit tested on H2, MySql, MSSQL, Oracle
  * 
@@ -15,13 +18,35 @@ import com.zaxxer.hikari.HikariDataSource;
  * @since 1.0.0
  */
 public class DataSourceConfig {
+    
+    public static class DataSourceBox extends BeanBox {
+        public BeeDataSource create() {
+            BeeDataSourceConfig config = new BeeDataSourceConfig();
+            config.setDriverClassName("com.mysql.jdbc.Driver");
+            config.setJdbcUrl("jdbc:mysql://127.0.0.1:3306/jsqlboxtest?rewriteBatchedStatements=true&useSSL=false&serverTimezone=UTC");
+            config.setUsername("root");
+            config.setPassword("root888");
+//            config.setDriverClassName("org.h2.Driver");
+//            config.setJdbcUrl("jdbc:h2:mem:DBName;MODE=MYSQL;DB_CLOSE_DELAY=-1;TRACE_LEVEL_SYSTEM_OUT=0");
+//            config.setUsername("sa");
+//            config.setPassword("");
+            config.setForceCloseUsingOnClear(true);
+            config.setDelayTimeForNextClear(0);
+            BeeDataSource ds = new BeeDataSource(config);
+            this.setPreDestroy("close");// jBeanBox will close pool
+            return ds;
+        }
+    }
+
+    
+    
 	/**
 	 * ================================================================<br/>
 	 * Data source setting, change below line "H2DataSourceBox" to
 	 * "MySqlDataSourceBox" to test on MySql <br/>
 	 * ================================================================<br/>
 	 */
-	public static class DataSourceBox extends MySqlDataSourceUtcTimeBox {
+	public static class DataSourceBox2 extends MySqlDataSourceUtcTimeBox {
 	}
 
 	// H2Database memory database connection URL
