@@ -92,6 +92,9 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 
 	/** A ThreadLocal TxResult instance store last transation result */
 	private static ThreadLocal<TxResult> lastTxResult = new ThreadLocal<TxResult>();
+	
+	/** A ThreadLocal Connection, in prepareConnection will return this one if exist */
+    public ThreadLocal<Connection> threadLocalConnection = new ThreadLocal<Connection>();
 
 	/** A ThreadLocal SqlHandler instance */
 	private static ThreadLocal<SqlHandler[]> threadLocalSqlHandlers = new ThreadLocal<SqlHandler[]>();
@@ -172,20 +175,41 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 
 	@Override
 	public void close(Connection conn) throws SQLException {
+	    if(this.threadLocalConnection.get()!=null) //if threaded connection exist, will not close
+	        return;
 		if (connectionManager == null)
 			super.close(conn);
 		else
 			connectionManager.releaseConnection(conn, this.getDataSource());
 	}
+	
+    /** Close connection, if SqlException happend, wrap it to runtime exception DbProException */
+    public void closeQuiet(Connection conn) {
+        try {
+            this.close(conn);
+        } catch (SQLException e) {
+            throw new DbProException(e);
+        }
+    }
 
 	@Override
 	public Connection prepareConnection() throws SQLException {
+	    Connection con=this.threadLocalConnection.get();
+	    if(con!=null)
+	        return con;
 		if (connectionManager == null)
 			return super.prepareConnection();
 		else
 			return connectionManager.getConnection(this);
 	}
-
+ 
+    public Connection prepareConnectionQuiet()  {
+      try {
+        return this.prepareConnection();
+    } catch (SQLException e) {
+      throw new DbProException(e);
+    }
+    }
 
 	// =========== Explain SQL about methods========================
 	/**
@@ -892,17 +916,26 @@ public class ImprovedQueryRunner extends QueryRunner implements DataSourceHolder
 	 * DataSource or ThreadLocal or from Spring or JTA or some container...
 	 */
 	public Connection getConnection() throws SQLException {
-		return this.getConnectionManager().getConnection(this);
+		return this.prepareConnection();
 	}
-
+   
 	/**
 	 * A ConnectionManager implementation determine how to close connection or
 	 * return connection to ThreadLocal or return to Spring or JTA or some
 	 * container...
 	 */
 	public void releaseConnection(Connection conn) throws SQLException {
-		this.getConnectionManager().releaseConnection(conn, this);
+		this.close(conn);
 	}
+	
+    /** Call releaseConnection but wrap SQLException to runtime exception DbProException */
+    public void releaseConnectionQuiet(Connection conn) {
+        try {
+            this.releaseConnection(conn);
+        } catch (SQLException e) {
+            throw new DbProException(e);
+        }
+    }
 
 	/** Commit the transaction */
 	public TxResult commitTrans() throws Exception {

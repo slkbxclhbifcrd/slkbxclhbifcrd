@@ -639,8 +639,23 @@ public abstract class DbContextUtils {// NOSONAR
 			return entityInsertTry(paramCtx, entityBean, newParams);
 		}
 
-		int result = doEntityInsertTry(ctx, entityBean, optionItems);
-		if (result == 1 && ctx.isGtxOpen() && !(entityBean instanceof GtxTag)) // if in GTX transaction?
+		int result;
+		 
+		try { //In doEntityInsertTry need use same connection to get right identity
+		    Connection con = ctx.threadLocalConnection.get();
+		    if(con==null) {
+		        con=ctx.prepareConnectionQuiet();
+		        ctx.threadLocalConnection.set(con);
+		    }
+            result = doEntityInsertTry(ctx, entityBean, optionItems);
+        } finally {
+            Connection con=ctx.threadLocalConnection.get();
+            ctx.threadLocalConnection.set(null);
+            if (con != null)
+                ctx.releaseConnectionQuiet(con);
+            
+        }
+        if (result == 1 && ctx.isGtxOpen() && !(entityBean instanceof GtxTag)) // if in GTX transaction?
 			GtxUtils.reg(ctx, entityBean, GtxUtils.INSERT);
 		return result;
 	}
@@ -734,7 +749,7 @@ public abstract class DbContextUtils {// NOSONAR
 					writeValueToBeanFieldOrTail(col, entityBean, id);
 				} else {// Normal Id Generator
 					sqlBody.append(col.getColumnName());
-					Object id = idGen.getNextID(ctx, ctx.getDialect(), col.getColumnType());
+					Object id = idGen.getNextID(ctx.prepareConnectionQuiet(), ctx.getDialect(), col.getColumnType());
 					sqlBody.append(par(id));
 					sqlBody.append(", ");
 					foundColumnToInsert = true;
@@ -781,7 +796,7 @@ public abstract class DbContextUtils {// NOSONAR
 		if (ctx.isBatchEnabled())
 			return 1; // in batch mode, direct return 1
         if (identityGenerator != null) {// write identity id to Bean field
-            Object identityId = identityGenerator.getNextID(ctx, ctx.getDialect(), identityType);
+            Object identityId = identityGenerator.getNextID(ctx.prepareConnectionQuiet(), ctx.getDialect(), identityType);
             writeValueToBeanFieldOrTail(identityCol, entityBean, identityId);
         }
 		return result;
