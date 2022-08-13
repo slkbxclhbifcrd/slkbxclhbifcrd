@@ -313,7 +313,3 @@ PAR: []
 ## 版权 | License
 
 [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-## 关注我 | About Me
-[码云](https://gitee.com/drinkjava2)  
-[Github](https://github.com/drinkjava2)  
